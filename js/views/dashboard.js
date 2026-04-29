@@ -973,7 +973,7 @@ export function renderDashboard() {
         btn.textContent = originalText;
     });
 
-    // Lógica de Automatización de BCV 100% Autónoma (VERSIÓN CORREGIDA)
+    // Lógica de Automatización de BCV 100% Autónoma (VERSIÓN DEFINITIVA Y ROBUSTA)
     async function fetchBcvRate() {
         const bcvInput = container.querySelector('#bcvInput');
         const bcvStatusMsg = document.createElement('p');
@@ -986,29 +986,25 @@ export function renderDashboard() {
 
         const sources = [
             {
-                // Fuente 1: DolarApi (Oficial)
-                url: 'https://ve.dolarapi.com/v1/dolares/oficial',
-                parse: (data) => data.promedio || data.price
+                name: 'GitHub Community (fjtrujillo)',
+                url: 'https://raw.githubusercontent.com/fjtrujillo/dolar-venezuela-api/master/dolar.json',
+                parse: (data) => data.bcv || data.BCV || (data.dolares && data.dolares.bcv)
             },
             {
-                // Fuente 2: PyDolar Venezuela (Vercel - Muy estable para CORS)
+                name: 'DolarApi Oficial',
+                url: 'https://ve.dolarapi.com/v1/dolares/oficial',
+                parse: (data) => data.promedio || data.price || data.venta
+            },
+            {
+                name: 'PyDolar Vercel',
                 url: 'https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv',
                 parse: (data) => {
                     if (data.monitors && data.monitors.bcv) return data.monitors.bcv.price;
-                    return data.price || data.promedio;
+                    return data.price || data.promedio || (data.monitors && data.monitors.usd && data.monitors.usd.price);
                 }
             },
             {
-                // Fuente 3: GitHub-hosted API (Comunidad)
-                url: 'https://raw.githubusercontent.com/fjtrujillo/dolar-venezuela-api/master/dolar.json',
-                parse: (data) => {
-                    // Esta fuente suele tener bcv como propiedad directa
-                    if (data.bcv) return data.bcv;
-                    return null;
-                }
-            },
-            {
-                // Fuente 4: Exchangerate (Global CDN - Fallback)
+                name: 'ExchangeRate Global',
                 url: 'https://api.exchangerate-api.com/v4/latest/USD',
                 parse: (data) => data.rates ? data.rates.VES : null
             }
@@ -1016,43 +1012,51 @@ export function renderDashboard() {
 
         for (const source of sources) {
             try {
-                const host = new URL(source.url).hostname;
-                bcvStatusMsg.textContent = `🔍 Intentando con ${host}...`;
+                bcvStatusMsg.textContent = `🔍 Conectando con ${source.name}...`;
                 
-                const response = await fetch(source.url, { 
-                    method: 'GET',
-                    mode: 'cors',
-                    signal: AbortSignal.timeout(6000) 
-                });
-                
-                if (!response.ok) throw new Error('API no responde');
+                // Usamos una técnica de fetch más simple para evitar problemas de compatibilidad
+                const response = await fetch(source.url);
+                if (!response.ok) throw new Error('Status ' + response.status);
                 
                 const data = await response.json();
-                const rate = source.parse(data);
+                console.log(`Datos de ${source.name}:`, data);
                 
-                if (rate && !isNaN(rate) && rate > 0) {
+                let rate = source.parse(data);
+                
+                // Si el rate es un string con comas, lo limpiamos
+                if (typeof rate === 'string') {
+                    rate = parseFloat(rate.replace(',', '.'));
+                }
+
+                if (rate && !isNaN(rate) && rate > 10) { // Validamos que sea un número razonable (>10 Bs)
                     bcvInput.value = rate;
-                    bcvStatusMsg.innerHTML = `✅ Tasa encontrada: <strong>Bs. ${rate}</strong>. Guardando...`;
+                    bcvStatusMsg.innerHTML = `✅ ¡Tasa de <strong>Bs. ${rate}</strong> obtenida desde ${source.name}!`;
                     bcvStatusMsg.style.color = "var(--success)";
                     
-                    // AUTO-GUARDADO: Si encontramos la tasa, la procesamos
-                    setTimeout(() => saveBcvRate(rate), 1000); 
+                    // Notificar y Guardar
+                    setTimeout(() => {
+                        saveBcvRate(rate);
+                    }, 800);
                     return;
                 }
             } catch (error) {
-                console.warn(`Fallo en fuente ${source.url}:`, error);
+                console.warn(`Error en ${source.name}:`, error.message);
                 continue;
             }
         }
 
-        bcvStatusMsg.textContent = "❌ Error: Las fuentes oficiales están bloqueadas o caídas. Ingrese la tasa manualmente.";
+        bcvStatusMsg.innerHTML = "❌ No se pudo obtener la tasa de ninguna fuente oficial.<br>Por favor, ingrésela manualmente para continuar.";
         bcvStatusMsg.style.color = "var(--danger)";
     }
 
-    // Ejecutar inmediatamente si falta la tasa
-    if (!bcvRateLoaded && role === 'admin') {
-        fetchBcvRate();
-    }
+    // Ejecutar la búsqueda de tasa con un pequeño delay para asegurar que el DOM y el Rol estén listos
+    setTimeout(() => {
+        if (!bcvRateLoaded) {
+            // Intentamos buscarla siempre, si el usuario es admin se guardará, 
+            // si es empleado al menos la tendrá sugerida si abre el panel.
+            fetchBcvRate();
+        }
+    }, 1500);
 
     // Toggle Chat y Lógica de Inactividad
     const chatSidebar = container.querySelector('#chatSidebar');
