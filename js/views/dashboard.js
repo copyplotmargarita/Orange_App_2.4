@@ -34,7 +34,7 @@ export function renderDashboard() {
             </div>
             
             <div class="sidebar-user">
-                <p id="greetingName">Hola, ${localStorage.getItem('employeeName') || localStorage.getItem('businessName') || 'Usuario'}</p>
+                <p id="greetingName">Hola, ${localStorage.getItem('userName') || localStorage.getItem('businessName') || localStorage.getItem('employeeName') || 'Cargando...'}</p>
                 <div class="status-indicator">
                     <span class="online-dot"></span>
                     <span class="status-text">Sesión Activa</span>
@@ -767,12 +767,18 @@ export function renderDashboard() {
     
     sidebarToggle.addEventListener('click', toggleSidebar);
 
-    // Cargar nombre del usuario para el saludo y configurar rol
     async function loadUserName() {
         const greetingEl = container.querySelector('#greetingName');
         const storeName = localStorage.getItem('storeName');
-        
-        // Si es empleado, ocultamos el menú de administración
+        const businessId = localStorage.getItem('businessId');
+
+        // 1. Intentar mostrar nombre desde Caché inmediatamente
+        const cachedName = localStorage.getItem('userName') || localStorage.getItem('businessName') || localStorage.getItem('employeeName');
+        if (cachedName) {
+            greetingEl.textContent = `Hola, ${cachedName}${isEmployee && storeName ? ' - ' + storeName : ''}`;
+        }
+
+        // 2. Si es empleado, cargar datos específicos
         if (isEmployee) {
             // Ocultar módulos restringidos para empleados
             const restricted = ['navProveedores', 'navCompras', 'navInventarios', 'navEmpleados', 'navTiendas'];
@@ -793,15 +799,14 @@ export function renderDashboard() {
                 });
             }
             
-            // Mostrar saludo para empleado incluyendo la tienda actual
             const empNameLocal = localStorage.getItem('employeeName');
             const empName = empNameLocal ? empNameLocal : (auth.currentUser?.displayName || "Empleado");
             
-            if (storeName) {
-                greetingEl.textContent = `Hola, ${empName} - ${storeName}`;
-            } else {
-                greetingEl.textContent = `Hola, ${empName}`;
-            }
+            const display = storeName ? `Hola, ${empName} - ${storeName}` : `Hola, ${empName}`;
+            greetingEl.textContent = display;
+            
+            localStorage.setItem('userName', empName);
+            localStorage.setItem('employeeName', empName);
 
             // 🔔 Campana en tiempo real: escuchar órdenes pendientes para esta tienda
             const empStoreId = localStorage.getItem('storeId');
