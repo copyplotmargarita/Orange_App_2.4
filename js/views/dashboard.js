@@ -918,52 +918,62 @@ export function renderDashboard() {
         });
     }
 
+    // Función centralizada para guardar la tasa (reutilizable para manual y automático)
+    async function saveBcvRate(rate) {
+        const businessId = localStorage.getItem('businessId');
+        if (!rate || !businessId) return;
+
+        try {
+            const dateId = new Date().toISOString().split('T')[0];
+            
+            // 1. Guardar en Historial de Firebase
+            await setDoc(doc(db, "businesses", businessId, "bcv_history", dateId), {
+                rate: parseFloat(rate),
+                date: dateId,
+                createdAt: serverTimestamp(),
+                createdBy: auth.currentUser?.uid || 'admin'
+            });
+
+            // 2. Actualizar LocalStorage y UI
+            localStorage.setItem('bcvRate', rate);
+            localStorage.setItem('bcvDate', todayStr);
+            
+            bcvRateLoaded = true;
+            bcvOverlay.style.display = 'none';
+            bcvDisplay.textContent = `Bs. ${rate}`;
+            bcvDisplay.className = 'bcv-value success';
+            
+            showNotification(`Tasa BCV actualizada: Bs. ${rate}`, 'success');
+
+            // Recargar para que los precios se actualicen
+            const evt = new Event('hashchange');
+            window.dispatchEvent(evt);
+            return true;
+        } catch (error) {
+            console.error("Error guardando tasa BCV:", error);
+            return false;
+        }
+    }
+
     bcvForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const rate = container.querySelector('#bcvInput').value;
-        const businessId = localStorage.getItem('businessId');
+        const btn = bcvForm.querySelector('button');
+        const originalText = btn.textContent;
         
-        if (rate && businessId) {
-            const btn = bcvForm.querySelector('button');
-            const originalText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = "Guardando...";
-
-            try {
-                // Formato de fecha para ID: YYYY-MM-DD
-                const dateId = new Date().toISOString().split('T')[0];
-                
-                // 1. Guardar en Historial de Firebase
-                await setDoc(doc(db, "businesses", businessId, "bcv_history", dateId), {
-                    rate: parseFloat(rate),
-                    date: dateId,
-                    createdAt: serverTimestamp(),
-                    createdBy: auth.currentUser?.uid || 'admin'
-                });
-
-                // 2. Actualizar LocalStorage y UI
-                localStorage.setItem('bcvRate', rate);
-                localStorage.setItem('bcvDate', todayStr);
-                bcvRateLoaded = true;
-                bcvOverlay.style.display = 'none';
-                bcvDisplay.textContent = `Bs. ${rate}`;
-                bcvDisplay.style.color = 'var(--success)';
-                
-                // Recargar para que los precios se actualicen si estamos en productos
-                const evt = new Event('hashchange');
-                window.dispatchEvent(evt);
-
-            } catch (error) {
-                console.error("Error guardando historial BCV:", error);
-                showNotification("Error al guardar en la base de datos. Verifique su conexión.");
-            } finally {
-                btn.disabled = false;
-                btn.textContent = originalText;
-            }
+        btn.disabled = true;
+        btn.textContent = "Guardando...";
+        
+        const success = await saveBcvRate(rate);
+        if (!success) {
+            showNotification("Error al guardar en la base de datos.", "error");
         }
+        
+        btn.disabled = false;
+        btn.textContent = originalText;
     });
 
-    // Lógica de Automatización de BCV mejorada con Fallbacks
+    // Lógica de Automatización de BCV 100% Autónoma
     async function fetchBcvRate() {
         const bcvInput = container.querySelector('#bcvInput');
         const bcvStatusMsg = document.createElement('p');
@@ -982,42 +992,49 @@ export function renderDashboard() {
             {
                 url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
                 parse: (data) => {
-                    // La estructura de esta API suele ser data.monitors.bcv.price
                     if (data.monitors && data.monitors.bcv) return data.monitors.bcv.price;
-                    return data.price || data.promedio;
+                    if (data.price) return data.price;
+                    return null;
                 }
+            },
+            {
+                url: 'https://criptodolar.net/api/v1/quotes/usd/bcv',
+                parse: (data) => data.price || data.market_price
             }
         ];
 
         for (const source of sources) {
             try {
-                bcvStatusMsg.textContent = `🔍 Consultando tasa oficial (${new URL(source.url).hostname})...`;
-                const response = await fetch(source.url, { signal: AbortSignal.timeout(5000) });
-                if (!response.ok) throw new Error('Error en respuesta');
+                const host = new URL(source.url).hostname;
+                bcvStatusMsg.textContent = `🔍 Intentando con ${host}...`;
+                
+                const response = await fetch(source.url, { signal: AbortSignal.timeout(6000) });
+                if (!response.ok) throw new Error('API no disponible');
                 
                 const data = await response.json();
                 const rate = source.parse(data);
                 
-                if (rate) {
+                if (rate && !isNaN(rate)) {
                     bcvInput.value = rate;
-                    bcvStatusMsg.innerHTML = `✅ Tasa detectada: <strong>Bs. ${rate}</strong>`;
+                    bcvStatusMsg.innerHTML = `✅ Tasa encontrada: <strong>Bs. ${rate}</strong>. Guardando...`;
                     bcvStatusMsg.style.color = "var(--success)";
-                    bcvInput.focus();
-                    return; // Éxito, salir del bucle
+                    
+                    // AUTO-GUARDADO: Si encontramos la tasa, la procesamos de una vez
+                    setTimeout(() => saveBcvRate(rate), 1000); 
+                    return;
                 }
             } catch (error) {
                 console.warn(`Fallo en fuente ${source.url}:`, error);
-                continue; // Intentar la siguiente fuente
+                continue;
             }
         }
 
-        // Si llega aquí, todas fallaron
-        bcvStatusMsg.textContent = "❌ No se pudo obtener la tasa automáticamente. Ingrésela manualmente.";
+        bcvStatusMsg.textContent = "❌ No se pudo automatizar. Por favor, ingrese la tasa manualmente.";
         bcvStatusMsg.style.color = "var(--danger)";
     }
 
-    // Si el overlay está visible, intentar autocompletar
-    if (bcvOverlay.style.display === 'flex') {
+    // Ejecutar inmediatamente si falta la tasa
+    if (!bcvRateLoaded && role === 'admin') {
         fetchBcvRate();
     }
 
