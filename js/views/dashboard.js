@@ -20,8 +20,11 @@ export function renderDashboard() {
     container.style.height = '100vh';
     container.style.width = '100%';
     
-    const role = localStorage.getItem('userRole');
-    const todayStr = new Date().toISOString().split('T')[0]; // Formato estándar YYYY-MM-DD
+    const roleRaw = localStorage.getItem('userRole') || '';
+    const isAdmin = roleRaw.toLowerCase() === 'admin' || roleRaw.toLowerCase() === 'administrador';
+    const isEmployee = roleRaw.toLowerCase() === 'employee' || roleRaw.toLowerCase() === 'empleado';
+    
+    const todayStr = new Date().toISOString().split('T')[0];
     let bcvRateLoaded = localStorage.getItem('bcvRate') !== null && localStorage.getItem('bcvDate') === todayStr;
     
     container.innerHTML = `
@@ -46,7 +49,7 @@ export function renderDashboard() {
                     <li><a href="#" id="navCompras" class="sidebar-link">🧾 Compras</a></li>
                     <li><a href="#" id="navInventarios" class="sidebar-link">📦 Inventarios</a></li>
                     <li><a href="#" id="navVentas" class="sidebar-link">💰 Ventas</a></li>
-                    ${role === 'admin' ? '<li><a href="#" id="navReportes" class="sidebar-link">📊 Consultas / Reportes</a></li>' : ''}
+                    ${isAdmin ? '<li><a href="#" id="navReportes" class="sidebar-link">📊 Consultas / Reportes</a></li>' : ''}
                     <li><a href="#" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
                     <li><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
                     <li><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
@@ -73,16 +76,16 @@ export function renderDashboard() {
                         <span class="bcv-label hide-mobile">Tasa BCV</span>
                         <div class="bcv-value-container">
                             <span id="bcvDisplay" class="bcv-value ${bcvRateLoaded ? 'success' : 'danger'}">
-                                ${bcvRateLoaded ? `Bs. ${localStorage.getItem('bcvRate')}` : (role === 'admin' || role !== 'employee' ? 'Actualizar' : 'Cargar tasa')}
+                                ${bcvRateLoaded ? `Bs. ${localStorage.getItem('bcvRate')}` : (isAdmin ? 'Actualizar' : 'Cargar tasa')}
                             </span>
-                            ${role !== 'employee' ? `<button id="editBcvBtn" class="edit-bcv-btn" title="Editar Tasa BCV">✏️</button>` : ''}
+                            ${!isEmployee ? `<button id="editBcvBtn" class="edit-bcv-btn" title="Editar Tasa BCV">✏️</button>` : ''}
                         </div>
                     </div>
                 </div>
                 
                 <div class="header-right">
-                    <button id="themeToggle" class="btn btn-outline theme-btn">🌙 <span class="hide-mobile">Modo Oscuro</span></button>
-                    ${role === 'employee' ? `
+                    <button id="themeToggle" class="btn btn-outline theme-btn">☀️ <span class="hide-mobile">Modo Claro</span></button>
+                    ${isEmployee ? `
                     <button id="bellBtn" style="position:relative;background:none;border:none;cursor:pointer;font-size:1.4rem;padding:0.3rem;" title="Notificaciones">
                         🔔
                         <span id="bellBadge" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--danger);color:white;border-radius:50%;min-width:18px;height:18px;font-size:0.65rem;font-weight:bold;display:none;align-items:center;justify-content:center;border:2px solid var(--surface);">0</span>
@@ -94,7 +97,7 @@ export function renderDashboard() {
                 <!-- Aquí se cargarán las subvistas dinámicamente -->
             </div>
 
-            <div id="bcvOverlay" style="display: ${!bcvRateLoaded && role === 'admin' ? 'flex' : 'none'}; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 50; align-items: center; justify-content: center;">
+            <div id="bcvOverlay" style="display: ${!bcvRateLoaded && isAdmin ? 'flex' : 'none'}; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 50; align-items: center; justify-content: center;">
                 <div class="card text-center" style="max-width: 400px; padding: 2rem;">
                     <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
                     <h3 class="mb-2 text-danger">CARGAR TASA BCV DEL DÍA</h3>
@@ -540,7 +543,7 @@ export function renderDashboard() {
 
                 // Strict session filter
                 let pass = false;
-                if (role === 'employee') {
+                if (isEmployee) {
                     // Employee: must match their email AND their store
                     pass = (data.employeeEmail === auth.currentUser?.email);
                     if (storeId && data.storeId && data.storeId !== storeId) pass = false;
@@ -610,7 +613,7 @@ export function renderDashboard() {
 
                 // Strict session filter (same as sales)
                 let pass = false;
-                if (role === 'employee') {
+                if (isEmployee) {
                     pass = (data.employeeEmail === auth.currentUser?.email);
                     if (storeId && data.storeId && data.storeId !== storeId) pass = false;
                 } else {
@@ -770,7 +773,7 @@ export function renderDashboard() {
         const storeName = localStorage.getItem('storeName');
         
         // Si es empleado, ocultamos el menú de administración
-        if (role === 'employee') {
+        if (isEmployee) {
             // Ocultar módulos restringidos para empleados
             const restricted = ['navProveedores', 'navCompras', 'navInventarios', 'navEmpleados', 'navTiendas'];
             restricted.forEach(id => {
@@ -1049,11 +1052,10 @@ export function renderDashboard() {
         bcvStatusMsg.style.color = "var(--danger)";
     }
 
-    // Ejecutar la búsqueda de tasa con un pequeño delay para asegurar que el DOM y el Rol estén listos
+    // Ejecutar la búsqueda de tasa con un pequeño delay
     setTimeout(() => {
         if (!bcvRateLoaded) {
-            // Intentamos buscarla siempre, si el usuario es admin se guardará, 
-            // si es empleado al menos la tendrá sugerida si abre el panel.
+            // Ambos roles intentan buscar la tasa automáticamente para ayudarse mutuamente
             fetchBcvRate();
         }
     }, 1500);
@@ -1142,9 +1144,9 @@ export function renderDashboard() {
         let firstLoad = true;
 
         // Obtener el nombre del remitente con máxima precisión
-        let senderName = role === 'admin' ? "Administración" : "Sucursal...";
+        let senderName = isAdmin ? "Administración" : "Sucursal...";
         try {
-            if (role === 'admin') {
+            if (isAdmin) {
                 senderName = "Administración";
             } else {
                 // PRIMERO: Intentar obtener el storeId de la sesión activa (el que eligen al entrar)
