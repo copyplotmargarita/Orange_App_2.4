@@ -21,7 +21,7 @@ export function renderDashboard() {
     container.style.width = '100%';
     
     const role = localStorage.getItem('userRole');
-    const todayStr = new Date().toLocaleDateString();
+    const todayStr = new Date().toISOString().split('T')[0]; // Formato estándar YYYY-MM-DD
     let bcvRateLoaded = localStorage.getItem('bcvRate') !== null && localStorage.getItem('bcvDate') === todayStr;
     
     container.innerHTML = `
@@ -963,7 +963,7 @@ export function renderDashboard() {
         }
     });
 
-    // Lógica de Automatización de BCV
+    // Lógica de Automatización de BCV mejorada con Fallbacks
     async function fetchBcvRate() {
         const bcvInput = container.querySelector('#bcvInput');
         const bcvStatusMsg = document.createElement('p');
@@ -974,24 +974,46 @@ export function renderDashboard() {
         if (existingMsg) existingMsg.remove();
         bcvForm.appendChild(bcvStatusMsg);
 
-        try {
-            bcvStatusMsg.textContent = "🔍 Consultando tasa oficial...";
-            const response = await fetch('https://ve.dolarapi.com/v1/dolares/bcv');
-            if (!response.ok) throw new Error('Error API');
-            
-            const data = await response.json();
-            if (data && data.promedio) {
-                bcvInput.value = data.promedio;
-                bcvStatusMsg.innerHTML = `✅ Tasa oficial detectada: <strong>Bs. ${data.promedio}</strong>`;
-                bcvStatusMsg.style.color = "var(--success)";
-            } else {
-                throw new Error('Formato inválido');
+        const sources = [
+            {
+                url: 'https://ve.dolarapi.com/v1/dolares/bcv',
+                parse: (data) => data.promedio || data.price
+            },
+            {
+                url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
+                parse: (data) => {
+                    // La estructura de esta API suele ser data.monitors.bcv.price
+                    if (data.monitors && data.monitors.bcv) return data.monitors.bcv.price;
+                    return data.price || data.promedio;
+                }
             }
-        } catch (error) {
-            console.error("Error obteniendo BCV:", error);
-            bcvStatusMsg.textContent = "❌ No se pudo obtener la tasa automáticamente. Ingrésela manualmente.";
-            bcvStatusMsg.style.color = "var(--danger)";
+        ];
+
+        for (const source of sources) {
+            try {
+                bcvStatusMsg.textContent = `🔍 Consultando tasa oficial (${new URL(source.url).hostname})...`;
+                const response = await fetch(source.url, { signal: AbortSignal.timeout(5000) });
+                if (!response.ok) throw new Error('Error en respuesta');
+                
+                const data = await response.json();
+                const rate = source.parse(data);
+                
+                if (rate) {
+                    bcvInput.value = rate;
+                    bcvStatusMsg.innerHTML = `✅ Tasa detectada: <strong>Bs. ${rate}</strong>`;
+                    bcvStatusMsg.style.color = "var(--success)";
+                    bcvInput.focus();
+                    return; // Éxito, salir del bucle
+                }
+            } catch (error) {
+                console.warn(`Fallo en fuente ${source.url}:`, error);
+                continue; // Intentar la siguiente fuente
+            }
         }
+
+        // Si llega aquí, todas fallaron
+        bcvStatusMsg.textContent = "❌ No se pudo obtener la tasa automáticamente. Ingrésela manualmente.";
+        bcvStatusMsg.style.color = "var(--danger)";
     }
 
     // Si el overlay está visible, intentar autocompletar
