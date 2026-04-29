@@ -999,7 +999,16 @@ export function renderDashboard() {
                 }
             },
             {
-                // Fuente 3: Exchangerate (Global CDN - Fallback de emergencia)
+                // Fuente 3: GitHub-hosted API (Comunidad)
+                url: 'https://raw.githubusercontent.com/fjtrujillo/dolar-venezuela-api/master/dolar.json',
+                parse: (data) => {
+                    // Esta fuente suele tener bcv como propiedad directa
+                    if (data.bcv) return data.bcv;
+                    return null;
+                }
+            },
+            {
+                // Fuente 4: Exchangerate (Global CDN - Fallback)
                 url: 'https://api.exchangerate-api.com/v4/latest/USD',
                 parse: (data) => data.rates ? data.rates.VES : null
             }
