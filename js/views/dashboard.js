@@ -848,34 +848,36 @@ export function renderDashboard() {
             return;
         }
 
-        // Si no es empleado (es decir, es Administrador)
-        if (auth.currentUser) {
-            // Primero mostramos lo que tengamos en caché
-            const cachedName = localStorage.getItem('businessName');
-            if (cachedName) greetingEl.textContent = "Hola, " + cachedName;
-
-            // Si el usuario tiene un displayName guardado
-            if (auth.currentUser.displayName) {
-                const name = auth.currentUser.displayName;
-                greetingEl.textContent = "Hola, " + name;
-                localStorage.setItem('businessName', name);
-                return;
-            }
-
+        // 3. Si es Administrador, cargar desde Firebase
+        if (auth.currentUser || businessId) {
             try {
-                const docRef = doc(db, "businesses", auth.currentUser.uid);
+                const uid = auth.currentUser?.uid || businessId;
+                const docRef = doc(db, "businesses", uid);
                 const docSnap = await getDoc(docRef);
+                
+                let finalName = "";
+
                 if (docSnap.exists()) {
-                    const name = docSnap.data().name;
-                    greetingEl.textContent = "Hola, " + name;
-                    // Guardar solo en caché vinculada al correo
-                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, name);
-                    
-                    // LIMPIEZA: Borrar llaves antiguas
-                    localStorage.removeItem('userName');
-                    localStorage.removeItem('employeeName');
-                    localStorage.removeItem('businessName');
+                    // PRIORIDAD 1: Nombre de la Empresa en la base de datos
+                    finalName = docSnap.data().name;
+                } else if (auth.currentUser?.displayName) {
+                    // PRIORIDAD 2: Nombre de perfil solo si no hay empresa
+                    finalName = auth.currentUser.displayName;
                 } else {
+                    finalName = "Administrador";
+                }
+
+                if (finalName) {
+                    greetingEl.textContent = "Hola, " + finalName;
+                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, finalName);
+                }
+
+                // LIMPIEZA DE RASTROS
+                localStorage.removeItem('userName');
+                localStorage.removeItem('employeeName');
+                localStorage.removeItem('businessName');
+
+            } catch (error) {
                     greetingEl.textContent = "Hola, Administrador";
                 }
             } catch (error) {
