@@ -57,6 +57,7 @@ export function renderDashboard() {
             </nav>
 
             <div class="sidebar-bottom">
+                <button id="closeShiftBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem; background-color: #f59e0b; border-color: #f59e0b; font-weight: bold; font-size: 0.9rem;">🔒 Cerrar Turno</button>
                 <button id="logoutBtn" class="btn btn-outline sidebar-logout-btn">🚪 Cerrar Sesión</button>
             </div>
 
@@ -926,12 +927,174 @@ export function renderDashboard() {
         }
     });
 
-    // Logout
+    // Cerrar Sesión (Protección de sesión sin cerrar turno)
     const logoutBtn = container.querySelector('#logoutBtn');
-    logoutBtn.addEventListener('click', () => {
-        // En un caso real se cerraría sesión de Firebase aquí
-        navigate('#login');
+    logoutBtn.addEventListener('click', async () => {
+        try {
+            await auth.signOut();
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('storeId');
+            localStorage.removeItem('storeName');
+            localStorage.removeItem('employeeName');
+            localStorage.removeItem('businessName');
+            navigate('#login');
+        } catch (error) {
+            console.error("Error al cerrar sesión:", error);
+            navigate('#login');
+        }
     });
+
+    // CERRAR TURNO (Arqueo y Cierre Definitivo)
+    const closeShiftBtn = container.querySelector('#closeShiftBtn');
+    closeShiftBtn.addEventListener('click', async () => {
+        const currentShiftId = localStorage.getItem('currentShiftId');
+        const shiftStartTime = localStorage.getItem('shiftStartTime');
+        const userEmail = localStorage.getItem('userEmail');
+        
+        if (!currentShiftId || !shiftStartTime) {
+            showNotification("No hay un turno activo registrado.", "error");
+            return;
+        }
+
+        closeShiftBtn.disabled = true;
+        closeShiftBtn.textContent = "Calculando...";
+
+        try {
+            const startTimestamp = new Date(shiftStartTime);
+            
+            // 1. Consultar Pagos recibidos por este usuario en este turno
+            const qPayments = query(
+                collection(db, "businesses", businessId, "payments"),
+                where("employeeEmail", "==", userEmail),
+                where("createdAt", ">=", startTimestamp)
+            );
+            const snapPayments = await getDocs(qPayments);
+
+            const totals = {
+                BS: { EFECTIVO: 0, PUNTO: 0, PAGO_MOVIL: 0, TRANSFERENCIA: 0 },
+                USD: { EFECTIVO: 0, ZELLE: 0, PAYPAL: 0, BINANCE: 0 }
+            };
+            let totalTickets = 0;
+
+            snapPayments.forEach(pDoc => {
+                const p = pDoc.data();
+                const cur = p.currency === 'BS' ? 'BS' : 'USD';
+                const method = p.method || 'EFECTIVO';
+                if (totals[cur][method] !== undefined) {
+                    totals[cur][method] += p.amount;
+                }
+            });
+
+            // 2. Consultar número de tickets
+            const qSales = query(
+                collection(db, "businesses", businessId, "sales"),
+                where("employeeEmail", "==", userEmail),
+                where("createdAt", ">=", startTimestamp)
+            );
+            const snapSales = await getDocs(qSales);
+            totalTickets = snapSales.size;
+
+            // 3. Mostrar Modal de Resumen
+            showShiftSummaryModal({
+                totalTickets,
+                totals,
+                onConfirm: async () => {
+                    // Cierre formal en Firestore
+                    await updateDoc(doc(db, "businesses", businessId, "sessions", currentShiftId), {
+                        turnoStatus: 'CERRADO',
+                        endTime: new Date().toISOString(),
+                        summary: {
+                            totalTickets,
+                            totals
+                        }
+                    });
+
+                    // Limpieza total y Logout
+                    localStorage.clear();
+                    await auth.signOut();
+                    navigate('#login');
+                },
+                onCancel: () => {
+                    closeShiftBtn.disabled = false;
+                    closeShiftBtn.textContent = "🔒 Cerrar Turno";
+                }
+            });
+
+        } catch (error) {
+            console.error("Error al cerrar turno:", error);
+            showNotification("Error: " + error.message, "error");
+            closeShiftBtn.disabled = false;
+            closeShiftBtn.textContent = "🔒 Cerrar Turno";
+        }
+    });
+
+    function showShiftSummaryModal({ totalTickets, totals, onConfirm, onCancel }) {
+        const modal = document.createElement('div');
+        modal.style = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1.5rem;";
+        
+        const fmt = (n) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        modal.innerHTML = `
+            <div class="card" style="width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; border-top: 5px solid #f59e0b;">
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <h2 style="color: #f59e0b;">Resumen de Cierre de Turno</h2>
+                    <p class="text-muted">Verifique sus totales antes de confirmar</p>
+                </div>
+
+                <div style="background: rgba(245, 158, 11, 0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
+                    <p style="margin: 0; font-size: 0.9rem; opacity: 0.8;">Ventas / Tickets Realizados</p>
+                    <p style="margin: 0; font-size: 1.8rem; font-weight: 800; color: var(--primary);">${totalTickets}</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div>
+                        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Bolívares (Bs.)</h4>
+                        <div style="display: grid; gap: 0.4rem; font-size: 0.9rem;">
+                            <div style="display: flex; justify-content: space-between;"><span>Efectivo:</span> <strong>${fmt(totals.BS.EFECTIVO)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Punto:</span> <strong>${fmt(totals.BS.PUNTO)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>P. Móvil:</span> <strong>${fmt(totals.BS.PAGO_MOVIL)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Transf:</span> <strong>${fmt(totals.BS.TRANSFERENCIA)}</strong></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Dólares ($)</h4>
+                        <div style="display: grid; gap: 0.4rem; font-size: 0.9rem;">
+                            <div style="display: flex; justify-content: space-between;"><span>Efectivo:</span> <strong style="color: var(--success);">${fmt(totals.USD.EFECTIVO)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Zelle:</span> <strong style="color: #3b82f6;">${fmt(totals.USD.ZELLE)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>PayPal:</span> <strong style="color: #003087;">${fmt(totals.USD.PAYPAL)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Binance:</span> <strong style="color: #f3ba2f;">${fmt(totals.USD.BINANCE)}</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(239, 68, 68, 0.05); padding: 1rem; border-radius: 8px; border: 1px dashed var(--danger); margin-bottom: 2rem;">
+                    <p style="margin: 0; font-size: 0.85rem; color: var(--danger); text-align: center; font-weight: 500;">
+                        ⚠️ Al confirmar, el turno se cerrará permanentemente y la sesión finalizará.
+                    </p>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <button id="cancelShiftClose" class="btn btn-outline" style="flex: 1;">Cancelar</button>
+                    <button id="confirmShiftClose" class="btn btn-primary" style="flex: 1; background-color: #f59e0b; border-color: #f59e0b;">Aceptar y Cerrar</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#cancelShiftClose').onclick = () => {
+            modal.remove();
+            onCancel();
+        };
+
+        modal.querySelector('#confirmShiftClose').onclick = async () => {
+            const btn = modal.querySelector('#confirmShiftClose');
+            btn.disabled = true;
+            btn.textContent = "Cerrando...";
+            await onConfirm();
+            modal.remove();
+        };
+    }
 
     // Tasa BCV Logic
     const bcvForm = container.querySelector('#bcvForm');

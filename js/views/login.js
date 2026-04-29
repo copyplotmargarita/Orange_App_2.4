@@ -100,6 +100,12 @@ export function renderLogin() {
                 await signOut(auth);
                 throw new Error("Acceso denegado: Tu cargo (" + cargo + ") no tiene privilegios de Administrador.");
             }
+
+            // VALIDACIÓN DE ESTADO: Solo permitir si está ACTIVO
+            if (empData.status !== 'ACTIVO') {
+                await signOut(auth);
+                throw new Error(`Acceso denegado: Tu estado actual es "${empData.status}". Contacte al administrador.`);
+            }
             
             // Si todo está bien, guardamos el rol localmente
             localStorage.setItem('userRole', role);
@@ -116,7 +122,27 @@ export function renderLogin() {
                     throw new Error("No hay tiendas configuradas para este negocio. Contacte al administrador.");
                 }
 
-                // Renderizar Selección de Tienda
+                // BUSCAR TURNO ABIERTO PREVIO antes de mostrar selección (por si ya estaba trabajando)
+                const qTurno = query(
+                    collection(db, "businesses", businessId, "sessions"), 
+                    where("employeeEmail", "==", email),
+                    where("turnoStatus", "==", "ABIERTO")
+                );
+                const turnoSnap = await getDocs(qTurno);
+
+                if (!turnoSnap.empty) {
+                    const tDoc = turnoSnap.docs[0];
+                    const tData = tDoc.data();
+                    localStorage.setItem('currentShiftId', tDoc.id);
+                    localStorage.setItem('shiftStartTime', tData.startTime);
+                    localStorage.setItem('storeId', tData.storeId);
+                    localStorage.setItem('storeName', tData.storeName);
+                    localStorage.setItem('userEmail', email);
+                    navigate('#dashboard');
+                    return;
+                }
+
+                // Renderizar Selección de Tienda (Solo si no hay turno abierto)
                 const card = container.querySelector('.auth-card');
                 let optionsHtml = stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                 
@@ -133,7 +159,7 @@ export function renderLogin() {
                                 ${optionsHtml}
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary mb-4" id="storeSubmitBtn">Aceptar e Ingresar</button>
+                        <button type="submit" class="btn btn-primary mb-4" id="storeSubmitBtn">Abrir Turno e Ingresar</button>
                     </form>
                 `;
 
@@ -142,37 +168,76 @@ export function renderLogin() {
                     ev.preventDefault();
                     const storeBtn = card.querySelector('#storeSubmitBtn');
                     storeBtn.disabled = true;
-                    storeBtn.textContent = 'Registrando turno...';
+                    storeBtn.textContent = 'Abriendo turno...';
 
                     const selectEl = card.querySelector('#storeSelect');
                     const selectedStoreId = selectEl.value;
                     const selectedStoreName = selectEl.options[selectEl.selectedIndex].text;
 
                     try {
-                        // Registrar sesión en Firestore
-                        await addDoc(collection(db, "businesses", businessId, "sessions"), {
+                        const startTime = new Date().toISOString();
+                        // Registrar nuevo turno (session)
+                        const docRef = await addDoc(collection(db, "businesses", businessId, "sessions"), {
                             storeId: selectedStoreId,
                             storeName: selectedStoreName,
                             employeeEmail: email,
                             employeeName: empData ? (empData.name || email) : email,
-                            startTime: new Date().toISOString(),
+                            role: cargo,
+                            startTime: startTime,
+                            turnoStatus: 'ABIERTO',
                             status: 'active'
                         });
 
+                        localStorage.setItem('currentShiftId', docRef.id);
+                        localStorage.setItem('shiftStartTime', startTime);
                         localStorage.setItem('storeId', selectedStoreId);
                         localStorage.setItem('storeName', selectedStoreName);
+                        localStorage.setItem('userEmail', email);
                         navigate('#dashboard');
                     } catch (err) {
-                        console.error("Error registrando turno:", err);
-                        alert("Hubo un error al registrar el turno: " + err.message);
+                        console.error("Error al abrir turno:", err);
+                        alert("Error: " + err.message);
                         storeBtn.disabled = false;
-                        storeBtn.textContent = 'Aceptar e Ingresar';
+                        storeBtn.textContent = 'Abrir Turno e Ingresar';
                     }
                 });
                 
-                return; // Evitamos navegar al dashboard todavía
+                return; 
             }
 
+            // SI ES ADMINISTRADOR PRINCIPAL
+            // 1. Buscar turno abierto previo
+            const qAdmin = query(
+                collection(db, "businesses", businessId, "sessions"), 
+                where("employeeEmail", "==", email),
+                where("turnoStatus", "==", "ABIERTO")
+            );
+            const adminTurnoSnap = await getDocs(qAdmin);
+
+            if (!adminTurnoSnap.empty) {
+                const tDoc = adminTurnoSnap.docs[0];
+                localStorage.setItem('currentShiftId', tDoc.id);
+                localStorage.setItem('shiftStartTime', tDoc.data().startTime);
+            } else {
+                // Crear nuevo turno para Admin
+                const startTime = new Date().toISOString();
+                const docRef = await addDoc(collection(db, "businesses", businessId, "sessions"), {
+                    storeId: 'general',
+                    storeName: 'Sede Principal',
+                    employeeEmail: email,
+                    employeeName: localStorage.getItem('businessName') || 'Administrador',
+                    role: 'Administrador',
+                    startTime: startTime,
+                    turnoStatus: 'ABIERTO',
+                    status: 'active'
+                });
+                localStorage.setItem('currentShiftId', docRef.id);
+                localStorage.setItem('shiftStartTime', startTime);
+            }
+
+            localStorage.setItem('userEmail', email);
+            localStorage.setItem('storeId', 'general');
+            localStorage.setItem('storeName', 'Sede Principal');
             navigate('#dashboard');
 
         } catch (error) {
