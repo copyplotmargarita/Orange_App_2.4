@@ -34,7 +34,7 @@ export function renderDashboard() {
             </div>
             
             <div class="sidebar-user">
-                <p id="greetingName">Hola, ${localStorage.getItem('userName') || localStorage.getItem('businessName') || localStorage.getItem('employeeName') || 'Cargando...'}</p>
+                <p id="greetingName">Hola...</p>
                 <div class="status-indicator">
                     <span class="online-dot"></span>
                     <span class="status-text">Sesión Activa</span>
@@ -771,11 +771,14 @@ export function renderDashboard() {
         const greetingEl = container.querySelector('#greetingName');
         const storeName = localStorage.getItem('storeName');
         const businessId = localStorage.getItem('businessId');
+        const userEmail = localStorage.getItem('userEmail');
 
-        // 1. Intentar mostrar nombre desde Caché inmediatamente
-        const cachedName = localStorage.getItem('userName') || localStorage.getItem('businessName') || localStorage.getItem('employeeName');
-        if (cachedName) {
-            greetingEl.textContent = `Hola, ${cachedName}${isEmployee && storeName ? ' - ' + storeName : ''}`;
+        // 1. Intentar mostrar nombre desde Caché específica de este usuario
+        if (userEmail) {
+            const cachedName = localStorage.getItem(`userName_${userEmail}`);
+            if (cachedName) {
+                greetingEl.textContent = `Hola, ${cachedName}${isEmployee && storeName ? ' - ' + storeName : ''}`;
+            }
         }
 
         // 2. Si es empleado, cargar datos específicos
@@ -805,7 +808,8 @@ export function renderDashboard() {
             const display = storeName ? `Hola, ${empName} - ${storeName}` : `Hola, ${empName}`;
             greetingEl.textContent = display;
             
-            localStorage.setItem('userName', empName);
+            // Guardar en caché vinculada al correo
+            if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
             localStorage.setItem('employeeName', empName);
 
             // 🔔 Campana en tiempo real: escuchar órdenes pendientes para esta tienda
@@ -860,6 +864,8 @@ export function renderDashboard() {
                 if (docSnap.exists()) {
                     const name = docSnap.data().name;
                     greetingEl.textContent = "Hola, " + name;
+                    // Guardar en caché vinculada al correo
+                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, name);
                     localStorage.setItem('businessName', name);
                 } else {
                     greetingEl.textContent = "Hola, Administrador";
