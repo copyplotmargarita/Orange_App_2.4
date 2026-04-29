@@ -929,24 +929,26 @@ export function renderDashboard() {
         try {
             const dateId = new Date().toISOString().split('T')[0];
             
-            // 1. Guardar en Historial de Firebase
+            // 1. Guardar en Historial de Firebase (Redondeado a 2 decimales)
+            const formattedRate = parseFloat(rate).toFixed(2);
+            
             await setDoc(doc(db, "businesses", businessId, "bcv_history", dateId), {
-                rate: parseFloat(rate),
+                rate: parseFloat(formattedRate),
                 date: dateId,
                 createdAt: serverTimestamp(),
                 createdBy: auth.currentUser?.uid || 'admin'
             });
 
             // 2. Actualizar LocalStorage y UI
-            localStorage.setItem('bcvRate', rate);
+            localStorage.setItem('bcvRate', formattedRate);
             localStorage.setItem('bcvDate', todayStr);
             
             bcvRateLoaded = true;
             bcvOverlay.style.display = 'none';
-            bcvDisplay.textContent = `Bs. ${rate}`;
+            bcvDisplay.textContent = `Bs. ${formattedRate}`;
             bcvDisplay.className = 'bcv-value success';
             
-            showNotification(`Tasa BCV actualizada: Bs. ${rate}`, 'success');
+            showNotification(`Tasa BCV actualizada: Bs. ${formattedRate}`, 'success');
 
             // Recargar para que los precios se actualicen
             const evt = new Event('hashchange');
@@ -1031,14 +1033,15 @@ export function renderDashboard() {
                     rate = parseFloat(rate.replace(',', '.'));
                 }
 
-                if (rate && !isNaN(rate) && rate > 10) { // Validamos que sea un número razonable (>10 Bs)
-                    bcvInput.value = rate;
-                    bcvStatusMsg.innerHTML = `✅ ¡Tasa de <strong>Bs. ${rate}</strong> obtenida desde ${source.name}!`;
+                if (rate && !isNaN(rate) && rate > 10) { 
+                    const cleanRate = parseFloat(rate).toFixed(2);
+                    bcvInput.value = cleanRate;
+                    bcvStatusMsg.innerHTML = `✅ ¡Tasa de <strong>Bs. ${cleanRate}</strong> obtenida desde ${source.name}!`;
                     bcvStatusMsg.style.color = "var(--success)";
                     
                     // Notificar y Guardar
                     setTimeout(() => {
-                        saveBcvRate(rate);
+                        saveBcvRate(cleanRate);
                     }, 800);
                     return;
                 }
