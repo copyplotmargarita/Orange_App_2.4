@@ -808,9 +808,13 @@ export function renderDashboard() {
             const display = storeName ? `Hola, ${empName} - ${storeName}` : `Hola, ${empName}`;
             greetingEl.textContent = display;
             
-            // Guardar en caché vinculada al correo
+            // Guardar solo en caché vinculada al correo
             if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
-            localStorage.setItem('employeeName', empName);
+            
+            // LIMPIEZA: Borrar llaves antiguas que causan la mezcla
+            localStorage.removeItem('userName');
+            localStorage.removeItem('employeeName');
+            localStorage.removeItem('businessName');
 
             // 🔔 Campana en tiempo real: escuchar órdenes pendientes para esta tienda
             const empStoreId = localStorage.getItem('storeId');
@@ -864,9 +868,13 @@ export function renderDashboard() {
                 if (docSnap.exists()) {
                     const name = docSnap.data().name;
                     greetingEl.textContent = "Hola, " + name;
-                    // Guardar en caché vinculada al correo
+                    // Guardar solo en caché vinculada al correo
                     if (userEmail) localStorage.setItem(`userName_${userEmail}`, name);
-                    localStorage.setItem('businessName', name);
+                    
+                    // LIMPIEZA: Borrar llaves antiguas
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('employeeName');
+                    localStorage.removeItem('businessName');
                 } else {
                     greetingEl.textContent = "Hola, Administrador";
                 }
