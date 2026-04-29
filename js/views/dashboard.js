@@ -34,7 +34,7 @@ export function renderDashboard() {
             </div>
             
             <div class="sidebar-user">
-                <p id="greetingName">Hola, Cargando...</p>
+                <p id="greetingName">Hola, ${localStorage.getItem('employeeName') || localStorage.getItem('businessName') || 'Usuario'}</p>
                 <div class="status-indicator">
                     <span class="online-dot"></span>
                     <span class="status-text">Sesión Activa</span>
@@ -837,9 +837,15 @@ export function renderDashboard() {
 
         // Si no es empleado (es decir, es Administrador)
         if (auth.currentUser) {
+            // Primero mostramos lo que tengamos en caché
+            const cachedName = localStorage.getItem('businessName');
+            if (cachedName) greetingEl.textContent = "Hola, " + cachedName;
+
             // Si el usuario tiene un displayName guardado
             if (auth.currentUser.displayName) {
-                greetingEl.textContent = "Hola, " + auth.currentUser.displayName;
+                const name = auth.currentUser.displayName;
+                greetingEl.textContent = "Hola, " + name;
+                localStorage.setItem('businessName', name);
                 return;
             }
 
@@ -847,7 +853,9 @@ export function renderDashboard() {
                 const docRef = doc(db, "businesses", auth.currentUser.uid);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    greetingEl.textContent = "Hola, " + docSnap.data().name;
+                    const name = docSnap.data().name;
+                    greetingEl.textContent = "Hola, " + name;
+                    localStorage.setItem('businessName', name);
                 } else {
                     greetingEl.textContent = "Hola, Administrador";
                 }
