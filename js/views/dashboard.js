@@ -76,7 +76,7 @@ export function renderDashboard() {
                         <span class="bcv-label hide-mobile">Tasa BCV</span>
                         <div class="bcv-value-container">
                             <span id="bcvDisplay" class="bcv-value ${bcvRateLoaded ? 'success' : 'danger'}">
-                                ${bcvRateLoaded ? `Bs. ${localStorage.getItem('bcvRate')}` : (isAdmin ? 'Actualizar' : 'Cargar tasa')}
+                                ${bcvRateLoaded ? `Bs. ${parseFloat(localStorage.getItem('bcvRate')).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : (isAdmin ? 'Actualizar' : 'Cargar tasa')}
                             </span>
                             ${!isEmployee ? `<button id="editBcvBtn" class="edit-bcv-btn" title="Editar Tasa BCV">✏️</button>` : ''}
                         </div>
@@ -945,10 +945,13 @@ export function renderDashboard() {
             
             bcvRateLoaded = true;
             bcvOverlay.style.display = 'none';
-            bcvDisplay.textContent = `Bs. ${formattedRate}`;
+            
+            // Formatear con coma para la vista
+            const displayRate = parseFloat(formattedRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            bcvDisplay.textContent = `Bs. ${displayRate}`;
             bcvDisplay.className = 'bcv-value success';
             
-            showNotification(`Tasa BCV actualizada: Bs. ${formattedRate}`, 'success');
+            showNotification(`Tasa BCV actualizada: Bs. ${displayRate}`, 'success');
 
             // Recargar para que los precios se actualicen
             const evt = new Event('hashchange');
