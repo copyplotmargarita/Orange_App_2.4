@@ -879,9 +879,6 @@ export function renderDashboard() {
                 localStorage.removeItem('businessName');
 
             } catch (error) {
-                    greetingEl.textContent = "Hola, Administrador";
-                }
-            } catch (error) {
                 console.error("Error cargando nombre:", error);
                 greetingEl.textContent = "Hola, Administrador";
             }
