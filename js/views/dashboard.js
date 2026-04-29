@@ -973,7 +973,7 @@ export function renderDashboard() {
         btn.textContent = originalText;
     });
 
-    // Lógica de Automatización de BCV 100% Autónoma
+    // Lógica de Automatización de BCV 100% Autónoma (VERSIÓN CORREGIDA)
     async function fetchBcvRate() {
         const bcvInput = container.querySelector('#bcvInput');
         const bcvStatusMsg = document.createElement('p');
@@ -986,20 +986,22 @@ export function renderDashboard() {
 
         const sources = [
             {
-                url: 'https://ve.dolarapi.com/v1/dolares/bcv',
+                // Fuente 1: DolarApi (Oficial)
+                url: 'https://ve.dolarapi.com/v1/dolares/oficial',
                 parse: (data) => data.promedio || data.price
             },
             {
-                url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
+                // Fuente 2: PyDolar Venezuela (Vercel - Muy estable para CORS)
+                url: 'https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv',
                 parse: (data) => {
                     if (data.monitors && data.monitors.bcv) return data.monitors.bcv.price;
-                    if (data.price) return data.price;
-                    return null;
+                    return data.price || data.promedio;
                 }
             },
             {
-                url: 'https://criptodolar.net/api/v1/quotes/usd/bcv',
-                parse: (data) => data.price || data.market_price
+                // Fuente 3: Exchangerate (Global CDN - Fallback de emergencia)
+                url: 'https://api.exchangerate-api.com/v4/latest/USD',
+                parse: (data) => data.rates ? data.rates.VES : null
             }
         ];
 
@@ -1008,18 +1010,23 @@ export function renderDashboard() {
                 const host = new URL(source.url).hostname;
                 bcvStatusMsg.textContent = `🔍 Intentando con ${host}...`;
                 
-                const response = await fetch(source.url, { signal: AbortSignal.timeout(6000) });
-                if (!response.ok) throw new Error('API no disponible');
+                const response = await fetch(source.url, { 
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: AbortSignal.timeout(6000) 
+                });
+                
+                if (!response.ok) throw new Error('API no responde');
                 
                 const data = await response.json();
                 const rate = source.parse(data);
                 
-                if (rate && !isNaN(rate)) {
+                if (rate && !isNaN(rate) && rate > 0) {
                     bcvInput.value = rate;
                     bcvStatusMsg.innerHTML = `✅ Tasa encontrada: <strong>Bs. ${rate}</strong>. Guardando...`;
                     bcvStatusMsg.style.color = "var(--success)";
                     
-                    // AUTO-GUARDADO: Si encontramos la tasa, la procesamos de una vez
+                    // AUTO-GUARDADO: Si encontramos la tasa, la procesamos
                     setTimeout(() => saveBcvRate(rate), 1000); 
                     return;
                 }
@@ -1029,7 +1036,7 @@ export function renderDashboard() {
             }
         }
 
-        bcvStatusMsg.textContent = "❌ No se pudo automatizar. Por favor, ingrese la tasa manualmente.";
+        bcvStatusMsg.textContent = "❌ Error: Las fuentes oficiales están bloqueadas o caídas. Ingrese la tasa manualmente.";
         bcvStatusMsg.style.color = "var(--danger)";
     }
 
