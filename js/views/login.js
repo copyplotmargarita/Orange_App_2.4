@@ -66,51 +66,55 @@ export function renderLogin() {
             
             // 1. ¿Es el dueño principal del negocio?
             const businessDoc = await getDoc(doc(db, "businesses", uid));
-            if (businessDoc.exists()) {
-                // Es el dueño, forzamos su rol a admin sin importar qué haya seleccionado en el dropdown
-                localStorage.setItem('userRole', 'admin');
-                localStorage.setItem('businessId', uid);
-                navigate('#dashboard');
-                return;
-            }
-            
-            // 2. Si no es el dueño, debe ser un empleado. Buscamos su cargo en la BD
             let empData = null;
             let businessId = null;
-            const businessesSnap = await getDocs(collection(db, "businesses"));
-            for (const bDoc of businessesSnap.docs) {
-                const q = query(collection(db, "businesses", bDoc.id, "employees"), where("email", "==", email));
-                const empSnap = await getDocs(q);
-                if (!empSnap.empty) {
-                    empData = empSnap.docs[0].data();
-                    businessId = bDoc.id;
-                    break;
-                }
-            }
-            
-            if (!empData) {
-                await signOut(auth);
-                throw new Error("Usuario no encontrado en la base de datos.");
-            }
-            
-            // 3. Validar privilegios contra el rol seleccionado en el formulario
-            const cargo = empData.role; // "Administrador", "Cajero", "Vendedor", etc.
-            
-            if (role === 'admin' && cargo !== 'Administrador') {
-                await signOut(auth);
-                throw new Error("Acceso denegado: Tu cargo (" + cargo + ") no tiene privilegios de Administrador.");
-            }
+            let cargo = "Administrador";
 
-            // VALIDACIÓN DE ESTADO: Solo permitir si está ACTIVO
-            if (empData.status !== 'ACTIVO') {
-                await signOut(auth);
-                throw new Error(`Acceso denegado: Tu estado actual es "${empData.status}". Contacte al administrador.`);
+            if (businessDoc.exists()) {
+                // Es el dueño, forzamos su rol a admin
+                businessId = uid;
+                const bData = businessDoc.data();
+                empData = { name: bData.name || 'Administrador', role: 'Administrador' };
+                localStorage.setItem('userRole', 'admin');
+                localStorage.setItem('businessId', businessId);
+                localStorage.setItem('employeeName', empData.name);
+            } else {
+                // 2. Si no es el dueño, debe ser un empleado. Buscamos su cargo en la BD
+                const businessesSnap = await getDocs(collection(db, "businesses"));
+                for (const bDoc of businessesSnap.docs) {
+                    const q = query(collection(db, "businesses", bDoc.id, "employees"), where("email", "==", email));
+                    const empSnap = await getDocs(q);
+                    if (!empSnap.empty) {
+                        empData = empSnap.docs[0].data();
+                        businessId = bDoc.id;
+                        break;
+                    }
+                }
+                
+                if (!empData) {
+                    await signOut(auth);
+                    throw new Error("Usuario no encontrado en la base de datos.");
+                }
+                
+                // 3. Validar privilegios contra el rol seleccionado en el formulario
+                cargo = empData.role; // "Administrador", "Cajero", "Vendedor", etc.
+                
+                if (role === 'admin' && cargo !== 'Administrador') {
+                    await signOut(auth);
+                    throw new Error("Acceso denegado: Tu cargo (" + cargo + ") no tiene privilegios de Administrador.");
+                }
+
+                // VALIDACIÓN DE ESTADO: Solo permitir si está ACTIVO
+                if (empData.status !== 'ACTIVO') {
+                    await signOut(auth);
+                    throw new Error(`Acceso denegado: Tu estado actual es "${empData.status}". Contacte al administrador.`);
+                }
+                
+                // Si todo está bien, guardamos el rol localmente
+                localStorage.setItem('userRole', role);
+                localStorage.setItem('businessId', businessId);
+                localStorage.setItem('employeeName', empData ? (empData.name || email) : email);
             }
-            
-            // Si todo está bien, guardamos el rol localmente
-            localStorage.setItem('userRole', role);
-            localStorage.setItem('businessId', businessId);
-            localStorage.setItem('employeeName', empData ? (empData.name || email) : email);
 
             if (role === 'employee') {
                 // Obtener tiendas del negocio
@@ -205,7 +209,7 @@ export function renderLogin() {
                 return; 
             }
 
-            // SI ES ADMINISTRADOR PRINCIPAL
+            // SI ES ADMINISTRADOR (Dueño o Empleado con cargo Admin)
             // 1. Buscar turno abierto previo
             const qAdmin = query(
                 collection(db, "businesses", businessId, "sessions"), 
@@ -216,8 +220,12 @@ export function renderLogin() {
 
             if (!adminTurnoSnap.empty) {
                 const tDoc = adminTurnoSnap.docs[0];
+                const tData = tDoc.data();
                 localStorage.setItem('currentShiftId', tDoc.id);
-                localStorage.setItem('shiftStartTime', tDoc.data().startTime);
+                localStorage.setItem('shiftStartTime', tData.startTime);
+                // Si el admin tenía una tienda específica (poco común pero posible), la respetamos
+                localStorage.setItem('storeId', tData.storeId || 'general');
+                localStorage.setItem('storeName', tData.storeName || 'Sede Principal');
             } else {
                 // Crear nuevo turno para Admin
                 const startTime = new Date().toISOString();
@@ -225,19 +233,19 @@ export function renderLogin() {
                     storeId: 'general',
                     storeName: 'Sede Principal',
                     employeeEmail: email,
-                    employeeName: localStorage.getItem('businessName') || 'Administrador',
-                    role: 'Administrador',
+                    employeeName: empData.name || 'Administrador',
+                    role: cargo,
                     startTime: startTime,
                     turnoStatus: 'ABIERTO',
                     status: 'active'
                 });
                 localStorage.setItem('currentShiftId', docRef.id);
                 localStorage.setItem('shiftStartTime', startTime);
+                localStorage.setItem('storeId', 'general');
+                localStorage.setItem('storeName', 'Sede Principal');
             }
 
             localStorage.setItem('userEmail', email);
-            localStorage.setItem('storeId', 'general');
-            localStorage.setItem('storeName', 'Sede Principal');
             navigate('#dashboard');
 
         } catch (error) {

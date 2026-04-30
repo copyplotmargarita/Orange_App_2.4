@@ -960,11 +960,10 @@ export function renderDashboard() {
         try {
             const startTimestamp = new Date(shiftStartTime);
             
-            // 1. Consultar Pagos recibidos por este usuario en este turno
+            // 1. Consultar Pagos recibidos por este usuario (Filtro base para evitar índice compuesto)
             const qPayments = query(
                 collection(db, "businesses", businessId, "payments"),
-                where("employeeEmail", "==", userEmail),
-                where("createdAt", ">=", startTimestamp)
+                where("employeeEmail", "==", userEmail)
             );
             const snapPayments = await getDocs(qPayments);
 
@@ -976,6 +975,10 @@ export function renderDashboard() {
 
             snapPayments.forEach(pDoc => {
                 const p = pDoc.data();
+                // Filtro manual por fecha del turno
+                const pDate = p.createdAt?.toDate ? p.createdAt.toDate() : new Date(p.createdAt);
+                if (pDate < startTimestamp) return;
+
                 const cur = p.currency === 'BS' ? 'BS' : 'USD';
                 const method = p.method || 'EFECTIVO';
                 if (totals[cur][method] !== undefined) {
@@ -986,11 +989,17 @@ export function renderDashboard() {
             // 2. Consultar número de tickets
             const qSales = query(
                 collection(db, "businesses", businessId, "sales"),
-                where("employeeEmail", "==", userEmail),
-                where("createdAt", ">=", startTimestamp)
+                where("employeeEmail", "==", userEmail)
             );
             const snapSales = await getDocs(qSales);
-            totalTickets = snapSales.size;
+            
+            snapSales.forEach(sDoc => {
+                const s = sDoc.data();
+                const sDate = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+                if (sDate >= startTimestamp) {
+                    totalTickets++;
+                }
+            });
 
             // 3. Mostrar Modal de Resumen
             showShiftSummaryModal({
