@@ -12,7 +12,7 @@ import { renderSales } from './sales.js';
 import { renderReports } from './reports.js';
 
 import { auth, db } from '../services/firebase.js';
-import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderDashboard() {
     const container = document.createElement('div');
@@ -947,6 +947,7 @@ export function renderDashboard() {
         const currentShiftId = localStorage.getItem('currentShiftId');
         const shiftStartTime = localStorage.getItem('shiftStartTime');
         const userEmail = localStorage.getItem('userEmail');
+        const businessId = localStorage.getItem('businessId');
         
         if (!currentShiftId || !shiftStartTime) {
             showNotification("No hay un turno activo registrado.", "error");
