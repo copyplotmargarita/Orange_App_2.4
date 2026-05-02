@@ -60,32 +60,53 @@ export function renderReports(container) {
         const content = container.querySelector('#reportsContent');
         content.innerHTML = `
             <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
                     <div class="form-group">
-                        <label>Seleccionar Tienda</label>
+                        <label>🏪 Seleccionar Tienda</label>
                         <select id="storeSelect" class="form-control"></select>
                     </div>
                     <div class="form-group">
-                        <label>Desde</label>
+                        <label>📅 Desde</label>
                         <input type="date" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
                     </div>
                     <div class="form-group">
-                        <label>Hasta</label>
+                        <label>📅 Hasta</label>
                         <input type="date" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
                     </div>
-                    <button id="btnFilterStore" class="btn btn-primary" style="height: 42px;">🔍 Consultar</button>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button id="btnFilterStore" class="btn btn-primary" style="height: 40px; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; width: 100%;">🔍 Consultar</button>
+                    </div>
                 </div>
                 <div id="storeResults" style="margin-top: 1rem;">
                     <div style="text-align: center; padding: 3rem; color: var(--text-muted);">Seleccione una tienda y rango de fechas para consultar.</div>
                 </div>
             </div>
+            <style>
+                .form-group { margin-bottom: 0 !important; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+            </style>
         `;
 
         // Load stores
         const storesSnap = await getDocs(collection(db, "businesses", businessId, "stores"));
         const storeSelect = content.querySelector('#storeSelect');
         storeSelect.innerHTML = '<option value="general">Almacén General</option>' + 
-            storesSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().name}</option>`).join('');
+            storesSnap.docs.map(doc => ({id: doc.id, ...doc.data()})).sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
         content.querySelector('#btnFilterStore').onclick = async () => {
             const storeId = storeSelect.value;
@@ -156,30 +177,51 @@ export function renderReports(container) {
         const content = container.querySelector('#reportsContent');
         content.innerHTML = `
             <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
                     <div class="form-group">
-                        <label>Seleccionar Empleado</label>
+                        <label>👤 Seleccionar Empleado</label>
                         <select id="employeeSelect" class="form-control"></select>
                     </div>
                     <div class="form-group">
-                        <label>Desde</label>
+                        <label>📅 Desde</label>
                         <input type="date" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
                     </div>
                     <div class="form-group">
-                        <label>Hasta</label>
+                        <label>📅 Hasta</label>
                         <input type="date" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
                     </div>
-                    <button id="btnFilterEmployee" class="btn btn-primary" style="height: 42px;">🔍 Consultar</button>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button id="btnFilterEmployee" class="btn btn-primary" style="height: 40px; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; width: 100%;">🔍 Consultar</button>
+                    </div>
                 </div>
                 <div id="employeeResults" style="margin-top: 1rem;"></div>
             </div>
+            <style>
+                .form-group { margin-bottom: 0 !important; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+            </style>
         `;
 
         // Load employees
         const empSnap = await getDocs(collection(db, "businesses", businessId, "employees"));
         const employeeSelect = content.querySelector('#employeeSelect');
         employeeSelect.innerHTML = '<option value="">Seleccione...</option>' + 
-            empSnap.docs.map(doc => `<option value="${doc.data().email}">${doc.data().name}</option>`).join('');
+            empSnap.docs.map(doc => doc.data()).sort((a,b)=>a.name.localeCompare(b.name)).map(e => `<option value="${e.email}">${e.name}</option>`).join('');
 
         content.querySelector('#btnFilterEmployee').onclick = async () => {
             const email = employeeSelect.value;

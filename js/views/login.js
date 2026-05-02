@@ -1,4 +1,4 @@
-import { navigate } from '../app.js';
+import { navigate } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 import { doc, getDoc, collection, getDocs, query, where, addDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";

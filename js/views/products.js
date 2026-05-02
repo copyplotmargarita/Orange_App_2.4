@@ -127,178 +127,262 @@ export function renderProducts(container) {
         const purchaseSupplierId = window.tempPurchaseState?.supplierId || '';
 
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem;">← Cancelar</button>
-                <h2>${editProduct ? 'Editar Producto' : 'Crear Nuevo Producto'}</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; flex-direction: column; text-align: center;">
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+                <p class="text-muted text-sm">Configura los detalles técnicos, costos y precios de venta</p>
             </div>
             
-            <form id="productForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start;" class="grid-1-mobile">
-                <!-- Columna Izquierda: Datos Principales -->
-                <div class="card">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">Datos Principales</h3>
+            <form id="productForm">
+                <div style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem;">
                     
-                    <div class="form-group mb-4">
-                        <label>Código de Barras <small class="text-muted">(Opcional)</small></label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="text" id="prodBarcode" class="form-control" placeholder="Escanee o escriba el código" value="${editProduct?.barcode || ''}" style="font-family: monospace;">
-                            <button type="button" class="btn btn-outline" style="width: auto; padding: 0.5rem;" title="El código de barras agilizará las ventas en el futuro" disabled>
-                                <span>|||</span>
+                    <!-- Sección: Identidad y Configuración -->
+                    <div class="card" style="border-top: 4px solid var(--primary); padding: 2rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">📦 Identidad del Producto</h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                            <div class="form-group">
+                            <label>🔍 CÓDIGO DE BARRAS <small class="text-muted">(SCANNER)</small></label>
+                            <div style="display: flex; gap: 0.35rem;">
+                                <input type="text" id="prodBarcode" class="form-control" placeholder="Escanea o escribe el código" value="${editProduct?.barcode || ''}" style="font-family: monospace; font-weight: bold; letter-spacing: 1px;">
+                                <button type="button" class="btn btn-outline" style="width: auto; padding: 0 1rem; background: var(--background); height: 40px;" title="Escaneo Activo">
+                                    <span style="font-size: 1.2rem;">📡</span>
+                                </button>
+                            </div>
+                        </div>
+
+                            <div class="form-group">
+                                <label>🛍️ NOMBRE DEL PRODUCTO</label>
+                                <input type="text" id="prodName" class="form-control" placeholder="Ej. Harina P.A.N 1kg" required value="${editProduct?.name || ''}">
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="form-group">
+                                    <label>🏷️ CATEGORÍA</label>
+                                    <select id="prodCategory" class="form-control" required ${editProduct ? 'disabled' : ''}>
+                                        <option value="">Seleccione...</option>
+                                        <option value="NEW" style="font-weight: bold; color: var(--primary);">+ CREAR CATEGORIA</option>
+                                        <option value="INSUMO" ${editProduct?.category === 'INSUMO' ? 'selected' : ''}>INSUMO</option>
+                                        <option value="RECETA" ${editProduct?.category === 'RECETA' ? 'selected' : ''}>RECETA</option>
+                                        <option value="SERVICIOS" ${editProduct?.category === 'SERVICIOS' ? 'selected' : ''}>SERVICIOS</option>
+                                        ${[...new Set(products.map(p => p.category).filter(c => c && !['INSUMO', 'RECETA', 'SERVICIOS'].includes(c)))].sort().map(cat => `
+                                            <option value="${cat}" ${editProduct?.category === cat ? 'selected' : ''}>${cat}</option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+
+                                <div class="form-group" id="subCategoryGroup" style="display: none;">
+                                    <label>📂 SUB-CATEGORÍA</label>
+                                    <select id="prodSubCategory" class="form-control">
+                                        <option value="">Seleccione...</option>
+                                        <option value="NEW_SUB" style="font-weight: bold; color: var(--primary);">+ CREAR SUB-CATEGORIA</option>
+                                        ${[...new Set(products.filter(p => p.category === 'RECETA').map(p => p.subCategory).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(sub => `<option value="${sub}" ${editProduct?.subCategory === sub ? 'selected' : ''}>${sub}</option>`).join('')}
+                                    </select>
+                                </div>
+
+                                <div class="form-group" id="saleableGroup" style="display: none;">
+                                    <label>🛒 ¿DISPONIBLE PARA VENTA?</label>
+                                    <div style="display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 40px;">
+                                        <div id="btnSaleableYes" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--background); color: var(--text-main); font-weight: 800; font-size: 0.8rem;">SÍ</div>
+                                        <div id="btnSaleableNo" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--primary); color: white; font-weight: 800; font-size: 0.8rem;">NO</div>
+                                    </div>
+                                    <input type="hidden" id="prodIsSaleable" value="${editProduct?.isSaleable ? 'true' : 'false'}">
+                                </div>
+
+                                <div class="form-group" id="supplierGroup" style="display: none;">
+                                    <label>🏭 PROVEEDOR</label>
+                                    <select id="prodSupplier" class="form-control">
+                                        <option value="">Seleccione...</option>
+                                        ${[...suppliers].sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${s.id}" ${(editProduct?.supplierId === s.id || (isFromPurchase && purchaseSupplierId === s.id)) ? 'selected' : ''}>${s.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>🖼️ IMAGEN DEL PRODUCTO</label>
+                                <div style="display: flex; align-items: center; gap: 1.5rem; background: var(--background); padding: 1rem; border-radius: 12px; border: 1px dashed var(--border);">
+                                    <div id="imagePreview" style="width: 70px; height: 70px; border-radius: 12px; background: var(--surface); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: var(--shadow-sm); border: 2px solid var(--border);">
+                                        ${editProduct?.image ? `<img src="${editProduct.image}" style="width: 100%; height: 100%; object-fit: cover;">` : '<span style="font-size: 2rem; opacity: 0.5;">📷</span>'}
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <input type="file" id="prodImage" accept="image/*" class="form-control" style="font-size: 0.8rem; height: auto; padding: 0.5rem; border: none; background: transparent;">
+                                        <p class="text-xs text-muted mt-2">Formatos: JPG, PNG. Máx 1MB.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sistema de Unidades -->
+                    <div id="unitSection" class="card" style="display: none; border: none; border-left: 5px solid #8b5cf6; padding: 2rem; background: var(--surface); position: relative;">
+                        <div style="margin-bottom: 2rem; text-align: left;">
+                            <h3 style="font-size: 1.25rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #8b5cf6; margin: 0; line-height: 1.2;">
+                                UNIDADES Y CONVERSIÓN
+                            </h3>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 0.35rem;">
+                            <div class="form-group">
+                                <label>📦 UNIDAD DE COMPRA</label>
+                                <select id="prodPurchaseUnit" class="form-control">
+                                    <option value="" disabled ${!editProduct?.purchaseUnit ? 'selected' : ''}>Seleccionar unidad...</option>
+                                    <option value="Saco" ${editProduct?.purchaseUnit==='Saco'?'selected':''}>Saco</option>
+                                    <option value="Caja" ${editProduct?.purchaseUnit==='Caja'?'selected':''}>Caja</option>
+                                    <option value="Bulto" ${editProduct?.purchaseUnit==='Bulto'?'selected':''}>Bulto</option>
+                                    <option value="Paquete" ${editProduct?.purchaseUnit==='Paquete'?'selected':''}>Paquete</option>
+                                    <option value="Unidad" ${editProduct?.purchaseUnit==='Unidad'?'selected':''}>Unidad</option>
+                                    <option value="Kilo" ${editProduct?.purchaseUnit==='Kilo'?'selected':''}>Kilo</option>
+                                    <option value="Litro" ${editProduct?.purchaseUnit==='Litro'?'selected':''}>Litro</option>
+                                    <option value="Gramo" ${editProduct?.purchaseUnit==='Gramo'?'selected':''}>Gramo</option>
+                                    <option value="Mililitro" ${editProduct?.purchaseUnit==='Mililitro'?'selected':''}>Mililitro</option>
+                                </select>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 0.75rem; align-items: end;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label id="lblPurchaseToStock">CONTENIDO NETO</label>
+                                    <input type="text" inputmode="numeric" id="prodPurchaseToStockQty" class="form-control" required value="${editProduct?.purchaseToStockQty ? editProduct.purchaseToStockQty.toLocaleString('de-DE') : '1'}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>🔄 UNIDAD</label>
+                                    <select id="prodStockUnit" class="form-control">
+                                        <option value="Unidad" ${(editProduct?.stockUnit||'Unidad')==='Unidad'?'selected':''}>Unidad</option>
+                                        <option value="Kilo" ${editProduct?.stockUnit==='Kilo'?'selected':''}>Kilo</option>
+                                        <option value="Litro" ${editProduct?.stockUnit==='Litro'?'selected':''}>Litro</option>
+                                        <option value="Gramo" ${editProduct?.stockUnit==='Gramo'?'selected':''}>Gramo</option>
+                                        <option value="Mililitro" ${editProduct?.stockUnit==='Mililitro'?'selected':''}>Mililitro</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Nivel 3: Contenido de la Unidad (Ej. 750g) -->
+                            <div id="unitContentRow" style="display: none; grid-template-columns: 1.5fr 1fr; gap: 0.75rem; align-items: end;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>CONTENIDO POR UNIDAD</label>
+                                    <input type="text" inputmode="numeric" id="prodUnitContentQty" class="form-control" value="${editProduct?.unitContentQty ? editProduct.unitContentQty.toLocaleString('de-DE') : '1'}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>📏 UNIDAD MEDIDA</label>
+                                    <select id="prodUnitContentUnit" class="form-control">
+                                        <option value="Gramo" ${editProduct?.unitContentUnit==='Gramo'?'selected':''}>Gramo</option>
+                                        <option value="Mililitro" ${editProduct?.unitContentUnit==='Mililitro'?'selected':''}>Mililitro</option>
+                                        <option value="Unidad" ${editProduct?.unitContentUnit==='Unidad'?'selected':''}>Unidad</option>
+                                        <option value="Kilo" ${editProduct?.unitContentUnit==='Kilo'?'selected':''}>Kilo</option>
+                                        <option value="Litro" ${editProduct?.unitContentUnit==='Litro'?'selected':''}>Litro</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Tarjeta de Resumen Centrada (100px altura aprox) -->
+                            <div id="unitSummaryCard" style="background: rgba(139, 92, 246, 0.05); border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.2); padding: 0.75rem; display: flex; align-items: center; justify-content: space-around; height: 100px; box-sizing: border-box;">
+                                <div style="text-align: center;">
+                                    <p style="font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">UNIDAD DE RECETA</p>
+                                    <p id="recipeUnitDisplay" style="font-size: 1.25rem; font-weight: 900; color: #8b5cf6; margin: 0;">—</p>
+                                </div>
+                                <div style="width: 1px; background: rgba(139, 92, 246, 0.1); height: 50px;"></div>
+                                <div style="text-align: center;">
+                                    <p style="font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">FACTOR DE PRECISIÓN</p>
+                                    <p id="stockToRecipeFactorDisplay" style="font-size: 0.9rem; font-weight: 800; color: var(--text-main); margin: 0;">—</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección de Recetas (Si aplica) -->
+                    <div id="recipeYieldGroup" class="card" style="display: none; border-left: 4px solid #ec4899; padding: 2rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #ec4899; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">👩‍🍳 Configuración de Receta</h3>
+                        <div class="form-group">
+                            <label>🍽️ RENDIMIENTO (PORCIONES/UNIDADES)</label>
+                            <input type="number" step="0.01" id="prodYield" class="form-control" placeholder="¿Cuánto produce esta receta?" value="${editProduct?.yield || ''}">
+                            <button type="button" class="btn btn-primary mt-4" id="buildRecipeBtn" style="width: 100%; background: #ec4899; border-color: #ec4899; height: 50px; font-weight: 800;">
+                                ➕ CONSTRUIR RECETA / INGREDIENTES
                             </button>
                         </div>
                     </div>
 
-                    <div class="form-group mb-4">
-                        <label>Nombre del Producto <span class="text-danger">*</span></label>
-                        <input type="text" id="prodName" class="form-control" placeholder="Ej. Harina P.A.N" required value="${editProduct?.name || ''}">
-                    </div>
-                    
-                    <div class="form-group mb-4">
-                        <label>Categoría <span class="text-danger">*</span></label>
-                        <select id="prodCategory" class="form-control" required ${editProduct ? 'disabled' : ''}>
-                            <option value="">Seleccione...</option>
-                            <option value="NEW" style="font-weight: bold; color: #3b82f6;">+ CREAR CATEGORIA</option>
-                            <option value="SERVICIOS" ${editProduct?.category === 'SERVICIOS' ? 'selected' : ''}>SERVICIOS</option>
-                            <option value="INSUMO" ${editProduct?.category === 'INSUMO' ? 'selected' : ''}>INSUMO</option>
-                            <option value="INSUMO/RECETA" ${editProduct?.category === 'INSUMO/RECETA' ? 'selected' : ''}>INSUMO/RECETA</option>
-                            <option value="RECETA" ${editProduct?.category === 'RECETA' ? 'selected' : ''}>RECETA</option>
-                        </select>
-                    </div>
+                    <!-- Sección: Costos y Precios (Ahora debajo) -->
+                    <div class="card" style="border-top: 4px solid var(--success); padding: 2rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--success); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">💰 Estructura de Costos y Precios</h3>
 
-                     <!-- Modal para Nueva Categoría -->
-                     <div id="categoryModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; align-items: center; justify-content: center; padding: 1rem;">
-                        <div class="card" style="width: 100%; max-width: 400px; border-top: 4px solid var(--primary);">
-                            <h3 class="mb-4">Crear Nueva Categoría</h3>
-                            <div class="form-group mb-4">
-                                <label>Nombre de la Categoría</label>
-                                <input type="text" id="newCategoryInput" class="form-control" placeholder="Ej. BEBIDAS" style="text-transform: uppercase;">
-                            </div>
-                            <div style="display: flex; gap: 1rem;">
-                                <button type="button" class="btn btn-outline" id="cancelCatBtn">Cancelar</button>
-                                <button type="button" class="btn btn-primary" id="confirmCatBtn">Crear Categoría</button>
-                            </div>
-                        </div>
-                     </div>
-
-                    <div class="form-group mb-4" id="supplierGroup" style="display: none;">
-                        <label>Proveedor <span class="text-danger">*</span></label>
-                        <select id="prodSupplier" class="form-control">
-                            <option value="">Seleccione...</option>
-                            ${suppliers.map(s => `<option value="${s.id}" ${(editProduct?.supplierId === s.id || (isFromPurchase && purchaseSupplierId === s.id)) ? 'selected' : ''}>${s.name}</option>`).join('')}
-                        </select>
-                    </div>
-
-                    <!-- Sistema Universal de Unidades (3 Niveles) -->
-                    <div id="unitSection" style="display: none; flex-direction: column; gap: 1rem;" class="mb-4">
-                        <h4 style="margin: 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Unidades y Conversión</h4>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div id="costPriceInputsWrapper" style="${isFromPurchase ? 'display: none;' : 'display: flex; flex-direction: column; gap: 0.35rem;'}">
                             <div class="form-group">
-                                <label>Unidad de Compra <span class="text-danger">*</span><br><small class="text-muted" style="font-weight:normal;">¿Cómo llega del proveedor?</small></label>
-                                <input type="text" id="prodPurchaseUnit" class="form-control" list="purchaseUnitList"
-                                    placeholder="Saco, Caja, Kilo..." value="${editProduct?.purchaseUnit || ''}">
-                                <datalist id="purchaseUnitList">
-                                    <option value="Saco"><option value="Caja"><option value="Bulto">
-                                    <option value="Paquete"><option value="Unidad"><option value="Kilo"><option value="Litro">
-                                </datalist>
+                                <label id="costLabel">💵 COSTO DE ADQUISICIÓN</label>
+                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-size: 1.1rem; font-weight: 800; color: var(--success);">
                             </div>
+
+                            <div class="form-group" id="costPerUnitGroup" style="display: none; background: rgba(34, 197, 94, 0.05); padding: 1rem; border-radius: 12px; border: 1px dashed var(--success);">
+                                <label class="text-success" style="font-size: 0.65rem;">📉 COSTO POR UNIDAD MÍNIMA</label>
+                                <input type="text" id="prodCostPerUnit" class="form-control" readonly style="background: transparent; border: none; font-size: 1.1rem; font-weight: 800; padding: 0; height: auto;" value="${editProduct?.costPerUnit ? editProduct.costPerUnit.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}">
+                            </div>
+
                             <div class="form-group">
-                                <label>Cant. de Stock por Unidad de Compra <span class="text-danger">*</span><br><small class="text-muted" style="font-weight:normal;">¿Cuántas unidades de stock trae?</small></label>
-                                <input type="number" step="0.0001" id="prodPurchaseToStockQty" class="form-control"
-                                    placeholder="Ej. 45" value="${editProduct?.purchaseToStockQty || ''}">
+                                <label id="lblPriceDetal">🛒 PRECIO DETAL (+30%)</label>
+                                <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary);">
+                            </div>
+
+                            <div class="form-group">
+                                <label id="lblPriceMayor">🏢 PRECIO AL MAYOR (+25%)</label>
+                                <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                            </div>
+
+                            <div class="form-group">
+                                <label id="lblPriceSpecial">⭐ PRECIO ESPECIAL (+20%)</label>
+                                <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Unidad de Stock <span class="text-danger">*</span><br><small class="text-muted" style="font-weight:normal;">¿En qué unidad se guarda, transfiere y vende?</small></label>
-                            <select id="prodStockUnit" class="form-control">
-                                <option value="Unidad" ${(editProduct?.stockUnit||'Unidad')==='Unidad'?'selected':''}>Unidad</option>
-                                <option value="Kilo" ${editProduct?.stockUnit==='Kilo'?'selected':''}>Kilo</option>
-                                <option value="Litro" ${editProduct?.stockUnit==='Litro'?'selected':''}>Litro</option>
-                            </select>
+                        ${isFromPurchase ? `
+                        <div style="background: rgba(34, 197, 94, 0.05); padding: 1.5rem; border-radius: 12px; border: 1px dashed var(--success); text-align: center; margin-bottom: 1.5rem;">
+                            <span style="font-size: 2rem;">🔗</span>
+                            <p style="margin: 0.75rem 0 0.25rem; font-weight: bold; color: var(--success);">Modo Enlazado a Compra</p>
+                            <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Los costos y precios se calcularán automáticamente al procesar la compra.</p>
                         </div>
+                        ` : ''}
 
-                        <div style="background: var(--background); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                            <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 0.25rem;">Unidad de Receta (automática)</p>
-                            <p id="recipeUnitDisplay" style="font-weight:bold; color:var(--primary); margin:0;">—</p>
-                            <p id="stockToRecipeFactorDisplay" style="font-size:0.75rem; color:var(--text-muted); margin:0.25rem 0 0;">—</p>
+                        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                            <button type="button" class="btn btn-outline" id="backBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 900;">
+                                ${editProduct ? 'GUARDAR CAMBIOS' : 'CREAR PRODUCTO'}
+                            </button>
                         </div>
-                    </div>
-
-                    <!-- Eliminado sellGroup para simplificar -->
-
-                    <div class="form-group mb-4" id="recipeYieldGroup" style="display: none;">
-                        <label>Unidades por Receta <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" id="prodYield" class="form-control" value="${editProduct?.yield || ''}">
-                        <button type="button" class="btn btn-outline mt-2" id="buildRecipeBtn" style="width: 100%; border-color: var(--primary); color: var(--primary);">📝 Construir Receta</button>
-                    </div>
-
-                    <div class="form-group mb-4">
-                        <label>Imagen del Producto <span class="text-danger">*</span></label>
-                        <div id="imagePreview" style="width: 80px; height: 80px; border-radius: 8px; background: var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                            ${editProduct?.image ? `<img src="${editProduct.image}" style="width: 100%; height: 100%; object-fit: cover;">` : '<span style="font-size: 2rem;">📷</span>'}
-                        </div>
-                        <input type="file" id="prodImage" accept="image/*" class="form-control" style="flex: 1;">
                     </div>
                 </div>
-
-                <!-- Columna Derecha: Costos y Precios -->
-                <div class="card" style="display: ${isFromPurchase ? 'none' : 'block'};">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">Costos y Precios</h3>
-
-                    <div class="form-group mb-4">
-                        <label id="costLabel">Costo $ <span class="text-danger">*</span></label>
-                        <input type="number" step="0.0001" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost || ''}">
-                    </div>
-
-                    <div class="form-group mb-4" id="costPerUnitGroup" style="display: none;">
-                        <label>Costo $ por Unidad <small class="text-muted">(Auto-calculado)</small></label>
-                        <input type="number" step="0.0001" id="prodCostPerUnit" class="form-control" readonly style="background-color: var(--background);" value="${editProduct?.costPerUnit || ''}">
-                    </div>
-
-                    <div class="form-group mb-4">
-                        <label id="lblPriceDetal">Precio Detal $ (+30%) <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal || ''}">
-                    </div>
-
-                    <div class="form-group mb-4">
-                        <label id="lblPriceMayor">Precio Mayor $ (+25%) <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor || ''}">
-                    </div>
-
-                    <div class="form-group mb-4">
-                        <label id="lblPriceSpecial">Precio Especial $ (+20%) <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial || ''}">
-                    </div>
-
-                    <div style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
-                        <button type="submit" class="btn btn-primary" id="saveBtn" style="width: 100%;">${editProduct ? 'Guardar Cambios' : 'Crear Producto'}</button>
-                    </div>
-                </div>
-
-                ${isFromPurchase ? `
-                <div class="card" style="display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 2rem;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">⚙️</div>
-                    <h3>Configuración Automática</h3>
-                    <p class="text-muted">Los costos y precios de venta de este producto se calcularán automáticamente al procesar la compra actual.</p>
-                    <button type="submit" class="btn btn-primary" id="saveBtnPurchase" style="width: 100%; margin-top: 2rem;">Crear y Volver a la Compra</button>
-                </div>
-                ` : ''}
             </form>
-            
+
+            <!-- Modal para Nueva Categoría -->
+            <div id="categoryModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); z-index: 2000; align-items: center; justify-content: center; padding: 1rem;">
+                <div class="card" style="width: 100%; max-width: 400px; border-top: 5px solid var(--primary); padding: 2rem; box-shadow: var(--shadow-2xl);">
+                    <div style="text-align: center; margin-bottom: 1.5rem;">
+                        <span style="font-size: 3rem;">📁</span>
+                        <h2 style="font-weight: 900; margin-top: 1rem;">Nueva Categoría</h2>
+                        <p class="text-muted text-xs">Define un nuevo grupo para tus productos</p>
+                    </div>
+                    <div class="form-group mb-4">
+                        <label>NOMBRE DEL GRUPO</label>
+                        <input type="text" id="newCategoryInput" class="form-control" placeholder="Ej. BEBIDAS FRÍAS" style="text-transform: uppercase; font-weight: 800; text-align: center;">
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="button" class="btn btn-outline" id="cancelCatBtn" style="flex: 1;">CANCELAR</button>
+                        <button type="button" class="btn btn-primary" id="confirmCatBtn" style="flex: 1;">CREAR</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Modal/Pantalla Completa Constructor de Recetas -->
             <div id="recipeBuilderModal" style="display: none; position: fixed; inset: 0; background: var(--background); z-index: 2000; flex-direction: column;">
                 <div style="height: auto; min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;" class="flex-stack-mobile">
-                    <h2 style="margin: 0; font-size: 1.25rem;">Constructor de Receta</h2>
+                    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 900;">👩‍🍳 Constructor de Receta</h2>
                     <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                        <button type="button" class="btn btn-outline" id="cancelRecipeBtn" style="width: auto;">Cancelar</button>
-                        <button type="button" class="btn btn-primary" id="finishRecipeBtn" style="width: auto;">Finalizar Receta</button>
+                        <button type="button" class="btn btn-outline" id="cancelRecipeBtn" style="width: auto;">CANCELAR</button>
+                        <button type="button" class="btn btn-primary" id="finishRecipeBtn" style="width: auto; background: #ec4899; border-color: #ec4899;">FINALIZAR RECETA</button>
                     </div>
                 </div>
                 <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
                     <!-- Lado Izquierdo: Catálogo de Productos -->
                     <div style="flex: 1; display: flex; flex-direction: column; background: var(--background); border-right: 1px solid var(--border); overflow: hidden;">
                         <div style="padding: 1rem; border-bottom: 1px solid var(--border); background: var(--surface);">
-                            <input type="search" id="catalogSearch" class="form-control" placeholder="Buscar insumos para agregar...">
+                            <input type="search" id="catalogSearch" class="form-control" placeholder="🔍 Buscar insumos para agregar...">
                         </div>
                         <div id="catalogGrid" style="flex: 1; padding: 1rem; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; align-content: start;">
                             <!-- Catalog cards -->
@@ -308,17 +392,17 @@ export function renderProducts(container) {
                     <!-- Lado Derecho: DECK (Ingredientes) -->
                     <div style="flex: 1; display: flex; flex-direction: column; background: var(--surface);">
                         <div style="padding: 1rem; border-bottom: 1px solid var(--border);">
-                            <h3 style="margin: 0;">Ingredientes de la Receta</h3>
+                            <h3 style="margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-muted);">📋 INGREDIENTES SELECCIONADOS</h3>
                         </div>
                         <div style="flex: 1; overflow-y: auto; padding: 1rem;">
-                            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                                 <thead>
-                                    <tr style="border-bottom: 2px solid var(--border);">
-                                        <th style="padding: 0.5rem;">Insumo</th>
-                                        <th style="padding: 0.5rem;">Cant.</th>
-                                        <th style="padding: 0.5rem;">Costo Ud.</th>
-                                        <th style="padding: 0.5rem;">SubTotal</th>
-                                        <th style="padding: 0.5rem;"></th>
+                                    <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 1px;">
+                                        <th style="padding: 0.75rem;">Insumo</th>
+                                        <th style="padding: 0.75rem;">Cant.</th>
+                                        <th style="padding: 0.75rem;">Costo Ud.</th>
+                                        <th style="padding: 0.75rem;">SubTotal</th>
+                                        <th style="padding: 0.75rem;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="recipeTableBody">
@@ -326,19 +410,19 @@ export function renderProducts(container) {
                                 </tbody>
                             </table>
                         </div>
-                        <div style="padding: 1rem; border-top: 1px solid var(--border); background: var(--background);">
+                        <div style="padding: 1.5rem; border-top: 1px solid var(--border); background: var(--background);">
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; text-align: center;">
                                 <div class="card" style="padding: 1rem;">
-                                    <p class="text-sm text-muted mb-1">Unidades/Rendimiento</p>
-                                    <p style="font-size: 1.25rem; font-weight: bold;" id="rbYieldDisplay">0</p>
+                                    <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Rendimiento</p>
+                                    <p style="font-size: 1.25rem; font-weight: 900;" id="rbYieldDisplay">0</p>
                                 </div>
                                 <div class="card" style="padding: 1rem;">
-                                    <p class="text-sm text-muted mb-1">Costo Total Receta</p>
-                                    <p style="font-size: 1.25rem; font-weight: bold; color: var(--danger);" id="rbTotalCostDisplay">$ 0.0000</p>
+                                    <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Costo Total</p>
+                                    <p style="font-size: 1.25rem; font-weight: 900; color: var(--danger);" id="rbTotalCostDisplay">$ 0.0000</p>
                                 </div>
                                 <div class="card" style="padding: 1rem;">
-                                    <p class="text-sm text-muted mb-1">Costo por Unidad</p>
-                                    <p style="font-size: 1.25rem; font-weight: bold; color: var(--primary);" id="rbUnitCostDisplay">$ 0.0000</p>
+                                    <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Costo Unit.</p>
+                                    <p style="font-size: 1.25rem; font-weight: 900; color: var(--primary);" id="rbUnitCostDisplay">$ 0.0000</p>
                                 </div>
                             </div>
                         </div>
@@ -347,35 +431,86 @@ export function renderProducts(container) {
             </div>
 
             <!-- Modal para Cantidad de Insumo en Receta -->
-            <div id="recipeQtyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 5000; align-items: center; justify-content: center; padding: 1rem;">
-                <div class="card" style="width: 100%; max-width: 400px; border-top: 5px solid var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
-                    <h2 id="rqmTitle" style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1.25rem;">Añadir Insumo</h2>
-                    <p id="rqmSubtitle" class="text-muted mb-4" style="font-size: 0.9rem;">¿Qué cantidad de este ingrediente vas a usar?</p>
+            <div id="recipeQtyModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); z-index: 5000; align-items: center; justify-content: center; padding: 1rem;">
+                <div class="card" style="width: 100%; max-width: 400px; border-top: 5px solid var(--primary); padding: 2rem; box-shadow: var(--shadow-2xl);">
+                    <div style="text-align: center; margin-bottom: 1.5rem;">
+                        <h2 id="rqmTitle" style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1.5rem; font-weight: 900;">Añadir Insumo</h2>
+                        <p id="rqmSubtitle" class="text-muted" style="font-size: 0.8rem;">Indica la cantidad exacta para la receta</p>
+                    </div>
                     
                     <div class="form-group mb-4">
-                        <label id="rqmLabel">Cantidad (<span id="rqmUnit">ud</span>) <span class="text-danger">*</span></label>
-                        <input type="number" step="0.0001" id="rqmQtyInput" class="form-control" placeholder="Ej. 0.500" style="font-size: 1.25rem; font-weight: bold; text-align: center;">
+                        <label id="rqmLabel" style="text-align: center;">CANTIDAD A USAR (<span id="rqmUnit">ud</span>)</label>
+                        <input type="number" step="0.0001" id="rqmQtyInput" class="form-control" placeholder="0.000" style="font-size: 1.75rem; font-weight: 900; text-align: center; height: 70px; border-color: var(--primary);">
                     </div>
 
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                        <button type="button" class="btn btn-outline" id="rqmCancelBtn" style="width: auto;">Cancelar</button>
-                        <button type="button" class="btn btn-primary" id="rqmConfirmBtn" style="width: auto;">Agregar a Receta</button>
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="button" class="btn btn-outline" id="rqmCancelBtn" style="flex: 1;">CANCELAR</button>
+                        <button type="button" class="btn btn-primary" id="rqmConfirmBtn" style="flex: 1;">AGREGAR</button>
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Sub-Categoría -->
+            <div id="subCategoryModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
+                <div class="card" style="width:100%; max-width:400px; padding:2rem; border-top:4px solid var(--primary);">
+                    <h3 style="margin-bottom:1rem;">Nueva Sub-Categoría</h3>
+                    <div class="form-group mb-4">
+                        <label>NOMBRE DE LA SUB-CATEGORÍA</label>
+                        <input type="text" id="newSubCategoryInput" class="form-control" placeholder="Ej. TORTAS">
+                    </div>
+                    <div style="display:flex; gap:1rem; justify-content:flex-end;">
+                        <button class="btn btn-outline" id="cancelSubCatBtn">Cancelar</button>
+                        <button class="btn btn-primary" id="confirmSubCatBtn">Crear</button>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .form-group label { margin-bottom: 2px; color: var(--text-muted); font-weight: 700; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                .card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-md); transition: var(--transition); }
+                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
+                .btn:hover { transform: translateY(-2px); }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
+            </style>
         `;
 
         // DOM Elements
         const form = container.querySelector('#productForm');
         const catSelect = container.querySelector('#prodCategory');
         const supplierGroup = container.querySelector('#supplierGroup');
+        const subCategoryGroup = container.querySelector('#subCategoryGroup');
+        const prodSubCategory = container.querySelector('#prodSubCategory');
         const prodSupplier = container.querySelector('#prodSupplier');
+        const saleableGroup = container.querySelector('#saleableGroup');
+        const prodIsSaleable = container.querySelector('#prodIsSaleable');
+        const btnSaleableYes = container.querySelector('#btnSaleableYes');
+        const btnSaleableNo = container.querySelector('#btnSaleableNo');
         const unitSection = container.querySelector('#unitSection');
         const prodPurchaseUnit = container.querySelector('#prodPurchaseUnit');
         const prodPurchaseToStockQty = container.querySelector('#prodPurchaseToStockQty');
         const prodStockUnit = container.querySelector('#prodStockUnit');
+        const unitContentRow = container.querySelector('#unitContentRow');
+        const prodUnitContentQty = container.querySelector('#prodUnitContentQty');
+        const prodUnitContentUnit = container.querySelector('#prodUnitContentUnit');
+
         const recipeUnitDisplay = container.querySelector('#recipeUnitDisplay');
         const stockToRecipeFactorDisplay = container.querySelector('#stockToRecipeFactorDisplay');
+        const unitSummaryCard = container.querySelector('#unitSummaryCard');
 
         const recipeYieldGroup = container.querySelector('#recipeYieldGroup');
         const prodYield = container.querySelector('#prodYield');
@@ -393,11 +528,24 @@ export function renderProducts(container) {
         const imagePreview = container.querySelector('#imagePreview');
         let imageBase64 = editProduct?.image || null;
 
-        container.querySelector('#backBtn').addEventListener('click', renderList);
+        container.querySelector('#backBtn').addEventListener('click', () => {
+            if (window.tempPurchaseState) {
+                document.getElementById('navCompras').click();
+            } else {
+                renderList();
+            }
+        });
 
         // --- Lógica de UI Dinámica por Categoría ---
         function updateFormUI() {
             const cat = catSelect.value;
+            recipeYieldGroup.style.display = 'none';
+            unitSection.style.display = 'none';
+            supplierGroup.style.display = 'none';
+            subCategoryGroup.style.display = 'none';
+            costPerUnitGroup.style.display = 'none';
+            unitSummaryCard.style.display = 'flex';
+            saleableGroup.style.display = 'none';
 
             // Defaults
             prodSupplier.required = false;
@@ -412,11 +560,6 @@ export function renderProducts(container) {
             lblPriceMayor.innerHTML = 'Precio Mayor $ (+25%) <span class="text-danger">*</span>';
             lblPriceSpecial.innerHTML = 'Precio Especial $ (+20%) <span class="text-danger">*</span>';
 
-            supplierGroup.style.display = 'none';
-            unitSection.style.display = 'none';
-            recipeYieldGroup.style.display = 'none';
-            costPerUnitGroup.style.display = 'none';
-
             if (cat === 'RECETA') {
                 recipeYieldGroup.style.display = 'block';
                 prodYield.required = true;
@@ -426,6 +569,8 @@ export function renderProducts(container) {
                 lblPriceDetal.innerHTML = 'Precio Detal $ (+160%) <span class="text-danger">*</span>';
                 lblPriceMayor.innerHTML = 'Precio Mayor $ (+150%) <span class="text-danger">*</span>';
                 lblPriceSpecial.innerHTML = 'Precio Especial $ (+140%) <span class="text-danger">*</span>';
+                prodIsSaleable.value = 'true';
+                subCategoryGroup.style.display = 'block';
 
             } else if (cat === 'SERVICIOS') {
                 lblPriceDetal.innerHTML = 'Precio Detal $ <span class="text-muted" style="font-size:0.8rem;">(= Costo $)</span>';
@@ -434,6 +579,8 @@ export function renderProducts(container) {
                 prodPriceDetal.readOnly = true;
                 prodPriceMayor.readOnly = true;
                 prodPriceSpecial.readOnly = true;
+                prodIsSaleable.value = 'true';
+                unitSummaryCard.style.display = 'none';
 
             } else if (cat === 'NEW') {
                 const modal = container.querySelector('#categoryModal');
@@ -441,12 +588,44 @@ export function renderProducts(container) {
                 container.querySelector('#newCategoryInput').focus();
                 catSelect.value = '';
 
-            } else if (cat !== '') {
-                // INSUMO, INSUMO/RECETA y categorías personalizadas — productos físicos
+            } else if (cat === 'INSUMO') {
                 supplierGroup.style.display = 'block';
                 prodSupplier.required = true;
-                unitSection.style.display = 'flex';
+                unitSection.style.display = 'block';
                 costPerUnitGroup.style.display = 'block';
+                saleableGroup.style.display = 'block';
+            } else if (cat !== '') {
+                // Categorías personalizadas
+                supplierGroup.style.display = 'block';
+                prodSupplier.required = true;
+                unitSection.style.display = 'block';
+                costPerUnitGroup.style.display = 'none';
+                unitSummaryCard.style.display = 'none';
+                saleableGroup.style.display = 'none';
+                prodIsSaleable.value = 'true'; // Por defecto a la venta
+            }
+
+            // Sync Saleable UI
+            if (prodIsSaleable.value === 'true') {
+                btnSaleableYes.style.background = 'var(--primary)';
+                btnSaleableYes.style.color = 'white';
+                btnSaleableNo.style.background = 'var(--background)';
+                btnSaleableNo.style.color = 'var(--text-main)';
+            } else {
+                btnSaleableNo.style.background = 'var(--primary)';
+                btnSaleableNo.style.color = 'white';
+                btnSaleableYes.style.background = 'var(--background)';
+                btnSaleableYes.style.color = 'var(--text-main)';
+            }
+
+            // Toggle Nivel 3 (Contenido por Unidad)
+            const basicUnits = ['Unidad', 'Kilo', 'Litro', 'Gramo', 'Mililitro'];
+            const isBasicPurchase = basicUnits.includes(prodPurchaseUnit.value);
+            
+            if (unitSection.style.display !== 'none' && prodStockUnit.value === 'Unidad' && !isBasicPurchase) {
+                unitContentRow.style.display = 'grid';
+            } else {
+                unitContentRow.style.display = 'none';
             }
 
             calculateMath();
@@ -454,6 +633,15 @@ export function renderProducts(container) {
         
         catSelect.addEventListener('change', updateFormUI);
         
+        prodSubCategory.addEventListener('change', (e) => {
+            if (e.target.value === 'NEW_SUB') {
+                const modal = container.querySelector('#subCategoryModal');
+                modal.style.display = 'flex';
+                container.querySelector('#newSubCategoryInput').focus();
+                e.target.value = '';
+            }
+        });
+
         // Lógica del Modal de Categoría
         const categoryModal = container.querySelector('#categoryModal');
         const newCategoryInput = container.querySelector('#newCategoryInput');
@@ -490,18 +678,97 @@ export function renderProducts(container) {
             updateFormUI();
         });
 
+        // Lógica del Modal de Sub-Categoría
+        const subCategoryModal = container.querySelector('#subCategoryModal');
+        const newSubCategoryInput = container.querySelector('#newSubCategoryInput');
+
+        container.querySelector('#confirmSubCatBtn').addEventListener('click', () => {
+            const newSub = newSubCategoryInput.value.trim().toUpperCase();
+            if (!newSub) return;
+
+            let exists = false;
+            Array.from(prodSubCategory.options).forEach(opt => {
+                if (opt.value === newSub) exists = true;
+            });
+
+            if (!exists) {
+                const newOpt = document.createElement('option');
+                newOpt.value = newSub;
+                newOpt.textContent = newSub;
+                newOpt.selected = true;
+                prodSubCategory.add(newOpt, prodSubCategory.options[prodSubCategory.options.length - 1]);
+            } else {
+                prodSubCategory.value = newSub;
+            }
+
+            subCategoryModal.style.display = 'none';
+            newSubCategoryInput.value = "";
+        });
+
+        container.querySelector('#cancelSubCatBtn').addEventListener('click', () => {
+            subCategoryModal.style.display = 'none';
+            newSubCategoryInput.value = "";
+            prodSubCategory.value = "";
+        });
+
         if (editProduct) updateFormUI(); // Init if editing
+
+        // --- Helper: Máscara Numérica (Calculadora POS) ---
+        function applyNumericMask(input) {
+            input.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (!value) { e.target.value = ''; return; }
+                let number = parseInt(value, 10);
+                e.target.value = (number / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                calculateMath(); // Trigger math update
+            });
+            // Focus events to help the user
+            input.addEventListener('focus', (e) => { if (e.target.value === '0,00') e.target.value = ''; });
+            input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '0,00'; });
+        }
+
+        function applyIntegerMask(input) {
+            input.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (!value) { e.target.value = ''; return; }
+                let number = parseInt(value, 10);
+                e.target.value = number.toLocaleString('de-DE'); 
+                calculateMath();
+            });
+            input.addEventListener('focus', (e) => { if (e.target.value === '0' || e.target.value === '1') e.target.value = ''; });
+            input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '1'; });
+        }
+
+        const parseNum = (val) => {
+            if (!val) return 0;
+            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        };
+
+        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield].forEach(applyNumericMask);
+        [prodPurchaseToStockQty, prodUnitContentQty].forEach(applyIntegerMask);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {
-            if (stockUnit === 'Kilo')   return { recipeUnit: 'Gramo',      factor: 1000 };
-            if (stockUnit === 'Litro')  return { recipeUnit: 'Mililitro',  factor: 1000 };
+            if (stockUnit === 'Kilo')      return { recipeUnit: 'Gramo',      factor: 1000 };
+            if (stockUnit === 'Litro')     return { recipeUnit: 'Mililitro',  factor: 1000 };
+            if (stockUnit === 'Gramo')     return { recipeUnit: 'Gramo',      factor: 1    };
+            if (stockUnit === 'Mililitro') return { recipeUnit: 'Mililitro',  factor: 1    };
             return                             { recipeUnit: 'Unidad',     factor: 1    };
         }
 
         function calculateMath() {
             const cat = catSelect.value;
-            const cost = parseFloat(prodCost.value) || 0;
+            const cost = parseNum(prodCost.value);
+
+            // --- Actualizar visibilidad de Nivel 3 ---
+            const basicUnits = ['Unidad', 'Kilo', 'Litro', 'Gramo', 'Mililitro'];
+            const isBasicPurchase = basicUnits.includes(prodPurchaseUnit.value);
+
+            if (unitSection.style.display !== 'none' && prodStockUnit.value === 'Unidad' && !isBasicPurchase) {
+                unitContentRow.style.display = 'grid';
+            } else {
+                unitContentRow.style.display = 'none';
+            }
 
             // --- Actualizar etiqueta de costo con unidad de stock ---
             if (cat !== 'RECETA' && cat !== 'SERVICIOS') {
@@ -511,13 +778,28 @@ export function renderProducts(container) {
 
             // --- Derivar unidad de receta y factor de conversión ---
             if (prodStockUnit && unitSection.style.display !== 'none') {
-                const { recipeUnit, factor } = getRecipeUnitInfo(prodStockUnit.value);
+                let recipeUnit, factor;
+                
+                if (prodStockUnit.value === 'Unidad' && !isBasicPurchase) {
+                    // Si es Unidad y NO es compra básica, miramos el Nivel 3
+                    const info = getRecipeUnitInfo(prodUnitContentUnit.value);
+                    recipeUnit = info.recipeUnit;
+                    factor = (parseNum(prodUnitContentQty.value) || 1) * info.factor;
+                } else {
+                    // Si es Kilo/Litro/Gramo/ML O es compra básica de Unidad, derivamos automáticamente
+                    const info = getRecipeUnitInfo(prodStockUnit.value);
+                    recipeUnit = info.recipeUnit;
+                    factor = info.factor;
+                }
+
                 if (recipeUnitDisplay) recipeUnitDisplay.textContent = recipeUnit;
+                
+                const purchaseQty = parseFloat(prodPurchaseToStockQty.value) || 1;
+                const totalFactor = purchaseQty * factor;
+
                 if (stockToRecipeFactorDisplay) {
                     stockToRecipeFactorDisplay.textContent =
-                        factor === 1
-                            ? `1 ${prodStockUnit.value} = 1 ${recipeUnit}`
-                            : `1 ${prodStockUnit.value} = ${factor.toLocaleString()} ${recipeUnit}s`;
+                        `1 ${prodPurchaseUnit.value} = ${totalFactor.toLocaleString()} ${recipeUnit}${totalFactor > 1 ? 's' : ''}`;
                 }
                 // Costo por unidad de receta
                 const costPerRecipeUnit = factor > 0 ? cost / factor : 0;
@@ -546,9 +828,21 @@ export function renderProducts(container) {
             }
         }
 
+        prodPurchaseUnit.addEventListener('change', calculateMath);
         prodPurchaseToStockQty.addEventListener('input', calculateMath);
         prodStockUnit.addEventListener('change', calculateMath);
+        prodUnitContentQty.addEventListener('input', calculateMath);
+        prodUnitContentUnit.addEventListener('change', calculateMath);
         prodCost.addEventListener('input', calculateMath);
+
+        btnSaleableYes.addEventListener('click', () => {
+            prodIsSaleable.value = 'true';
+            updateFormUI();
+        });
+        btnSaleableNo.addEventListener('click', () => {
+            prodIsSaleable.value = 'false';
+            updateFormUI();
+        });
 
         // --- Image Upload (Base64) ---
         prodImage.addEventListener('change', (e) => {
@@ -744,6 +1038,7 @@ export function renderProducts(container) {
             btn.textContent = 'Guardando...';
 
             const category = catSelect.value;
+            const subCategory = prodSubCategory.value || null;
             if (!category) {
                 showNotification('Por favor seleccione una categoría');
                 btn.disabled = false;
@@ -760,18 +1055,36 @@ export function renderProducts(container) {
 
             const barcode = container.querySelector('#prodBarcode').value.trim() || null;
             const name = toTitleCase(container.querySelector('#prodName').value.trim());
+            const isSaleable = prodIsSaleable.value === 'true';
             const supplierId = prodSupplier.value || null;
             const purchaseUnit = prodPurchaseUnit ? prodPurchaseUnit.value.trim() : '';
-            const purchaseToStockQty = parseFloat(prodPurchaseToStockQty?.value) || 1;
+            const purchaseToStockQty = parseNum(prodPurchaseToStockQty?.value) || 1;
             const stockUnit = prodStockUnit ? prodStockUnit.value : 'Unidad';
-            const { recipeUnit, factor: stockToRecipeFactor } = getRecipeUnitInfo(stockUnit);
-            const pYield = parseFloat(prodYield.value) || null;
-            const cost = isFromPurchase ? 0 : (parseFloat(prodCost.value) || 0);
+            
+            const basicUnits = ['Unidad', 'Kilo', 'Litro', 'Gramo', 'Mililitro'];
+            const isBasicPurchase = basicUnits.includes(purchaseUnit);
+
+            let recipeUnit, stockToRecipeFactor;
+            const unitContentQty = parseNum(prodUnitContentQty?.value) || 1;
+            const unitContentUnit = prodUnitContentUnit?.value || 'Unidad';
+
+            if (stockUnit === 'Unidad' && !isBasicPurchase) {
+                const info = getRecipeUnitInfo(unitContentUnit);
+                recipeUnit = info.recipeUnit;
+                stockToRecipeFactor = unitContentQty * info.factor;
+            } else {
+                const info = getRecipeUnitInfo(stockUnit);
+                recipeUnit = info.recipeUnit;
+                stockToRecipeFactor = info.factor;
+            }
+
+            const pYield = parseNum(prodYield.value) || null;
+            const cost = parseNum(prodCost.value) || 0;
             const costPerStockUnit = cost; // cost IS per stockUnit
-            const costPerRecipeUnit = isFromPurchase ? 0 : (stockToRecipeFactor > 0 ? cost / stockToRecipeFactor : 0);
-            const priceDetal = isFromPurchase ? 0 : (parseFloat(prodPriceDetal.value) || 0);
-            const priceMayor = isFromPurchase ? 0 : (parseFloat(prodPriceMayor.value) || 0);
-            const priceSpecial = isFromPurchase ? 0 : (parseFloat(prodPriceSpecial.value) || 0);
+            const costPerRecipeUnit = stockToRecipeFactor > 0 ? cost / stockToRecipeFactor : 0;
+            const priceDetal = parseNum(prodPriceDetal.value) || 0;
+            const priceMayor = parseNum(prodPriceMayor.value) || 0;
+            const priceSpecial = parseNum(prodPriceSpecial.value) || 0;
 
             const businessId = localStorage.getItem('businessId');
 
@@ -780,11 +1093,16 @@ export function renderProducts(container) {
                     barcode,
                     name,
                     category,
+                    subCategory,
+                    isSaleable,
                     supplierId,
                     // Sistema universal de 3 niveles
                     purchaseUnit,
                     purchaseToStockQty,
                     stockUnit,
+                    // Nivel 3 (Contenido de Unidad)
+                    unitContentQty: stockUnit === 'Unidad' ? unitContentQty : null,
+                    unitContentUnit: stockUnit === 'Unidad' ? unitContentUnit : null,
                     recipeUnit,
                     stockToRecipeFactor,
                     // Costos

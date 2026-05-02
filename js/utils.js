@@ -53,3 +53,50 @@ export function showNotification(msg, type = 'error') {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }
+
+/**
+ * Verifica si una fecha es fin de semana o feriado nacional en Venezuela
+ */
+export function isVenezuelaHoliday(date) {
+    const d = new Date(date);
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const dayOfWeek = d.getDay(); // 0: Dom, 6: Sab
+
+    // Fines de semana
+    if (dayOfWeek === 0 || dayOfWeek === 6) return true;
+
+    // Feriados fijos en Venezuela (Día-Mes)
+    const fixedHolidays = [
+        "1-1",   // Año Nuevo
+        "19-4",  // Declaración Independencia
+        "1-5",   // Día del Trabajador
+        "24-6",  // Batalla de Carabobo
+        "5-7",   // Día de la Independencia
+        "24-7",  // Natalicio del Libertador
+        "12-10", // Día de la Resistencia Indígena
+        "24-12", // Víspera Navidad
+        "25-12", // Navidad
+        "31-12"  // Fin de Año
+    ];
+
+    return fixedHolidays.includes(`${day}-${month}`);
+}
+
+/**
+ * Obtiene el siguiente día hábil (lunes a viernes, no feriado)
+ */
+export function getNextBusinessDay(date) {
+    let next = new Date(date);
+    do {
+        next.setDate(next.getDate() + 1);
+    } while (isVenezuelaHoliday(next));
+    return next;
+}
+
+/**
+ * Utilidad global para navegar cambiando el hash de la URL
+ */
+export function navigate(hash) {
+    window.location.hash = hash;
+}

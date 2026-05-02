@@ -1,4 +1,4 @@
-$port = 8085
+$port = 8088
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 $listener.Prefixes.Add("http://127.0.0.1:$port/")
@@ -6,7 +6,7 @@ $listener.Prefixes.Add("http://127.0.0.1:$port/")
 try {
     $listener.Start()
     Write-Host "=======================================" -ForegroundColor Cyan
-    Write-Host " SERVIDOR LOCAL ACTIVO (ORANGE APP 2.4)" -ForegroundColor White -BackgroundColor Blue
+    Write-Host " SERVIDOR LOCAL ACTIVO (PORT 8088)" -ForegroundColor White -BackgroundColor Blue
     Write-Host "=======================================" -ForegroundColor Cyan
     Write-Host "URL: http://localhost:$port/" -ForegroundColor Green
     Write-Host "Presiona Ctrl+C para detener el servidor" -ForegroundColor Yellow

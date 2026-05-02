@@ -65,67 +65,88 @@ export function renderSuppliers(container) {
 
     function renderForm() {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem;">← Cancelar</button>
-                <h2>Creación de Proveedor</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">🏭 Nuevo Proveedor</h2>
+                <p class="text-muted text-sm">Registra los datos de tu proveedor y contacto</p>
             </div>
-            <div class="card" style="max-width: 600px;">
+            
+            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--warning);">
                 <form id="supplierForm">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">Datos del Proveedor</h3>
-                    
-                    <div class="form-group mb-4">
-                        <label>Nombre del Proveedor <span class="text-danger">*</span></label>
-                        <input type="text" id="supName" class="form-control" placeholder="Ej. Distribuidora XYZ" required>
-                    </div>
-                    
-                    <div class="form-group mb-4">
-                        <label>Documento de Identidad (Cédula o RIF) <span class="text-danger">*</span></label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <select id="supDocType" class="form-control" style="width: 80px;" required>
-                                <option value="V-">V-</option>
-                                <option value="J-">J-</option>
-                                <option value="E-">E-</option>
-                                <option value="G-">G-</option>
-                            </select>
-                            <input type="text" id="supDocNumber" class="form-control" placeholder="Ej. 14789652" required pattern="[0-9]+" title="Solo números">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">📦 Datos del Proveedor</h3>
+                        
+                        <div class="form-group">
+                            <label>Nombre del Proveedor <span class="text-danger">*</span></label>
+                            <input type="text" id="supName" class="form-control" placeholder="Ej. Distribuidora XYZ" required>
                         </div>
-                        <small class="text-muted">Este campo es único para evitar duplicados en el sistema.</small>
-                    </div>
+                        
+                        <div class="form-group">
+                            <label>Identidad (Cédula o RIF) <span class="text-danger">*</span></label>
+                            <div style="display: flex; gap: 0;">
+                                <select id="supDocType" class="form-control" style="width: 80px; border-radius: 10px 0 0 10px; border-right: none;" required>
+                                    <option value="V-">V-</option>
+                                    <option value="J-">J-</option>
+                                    <option value="E-">E-</option>
+                                    <option value="G-">G-</option>
+                                </select>
+                                <input type="text" id="supDocNumber" class="form-control" style="border-radius: 0 10px 10px 0;" placeholder="Ej. 14789652" required pattern="[0-9]+" title="Solo números">
+                            </div>
+                        </div>
 
-                    <div class="form-group mb-4">
-                        <label>Correo Electrónico</label>
-                        <input type="email" id="supEmail" class="form-control" placeholder="usuario@correo.com">
-                    </div>
+                        <div class="form-group">
+                            <label>Correo Electrónico</label>
+                            <input type="email" id="supEmail" class="form-control" placeholder="usuario@correo.com">
+                        </div>
 
-                    <div class="form-group mb-4">
-                        <label>Teléfono del Proveedor</label>
-                        <input type="tel" id="supPhone" class="form-control" placeholder="Ej. 4241234567" style="width: 100%;">
-                    </div>
+                        <div class="form-group">
+                            <label>Teléfono Principal</label>
+                            <input type="tel" id="supPhone" class="form-control" placeholder="Ej. 4241234567">
+                        </div>
 
-                    <h3 style="margin-top: 2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">Datos del Vendedor / Contacto</h3>
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">👤 Contacto / Vendedor</h3>
 
-                    <div class="form-group mb-4">
-                        <label>Nombre del Vendedor</label>
-                        <input type="text" id="sellerName" class="form-control" placeholder="Ej. Carlos Silva">
-                    </div>
+                        <div class="form-group">
+                            <label>Nombre del Vendedor</label>
+                            <input type="text" id="sellerName" class="form-control" placeholder="Ej. Carlos Silva">
+                        </div>
 
-                    <div class="form-group mb-4">
-                        <label>Teléfono del Vendedor</label>
-                        <input type="tel" id="sellerPhone" class="form-control" placeholder="Ej. 4141234567" style="width: 100%;">
-                    </div>
+                        <div class="form-group">
+                            <label>Teléfono del Vendedor</label>
+                            <input type="tel" id="sellerPhone" class="form-control" placeholder="Ej. 4141234567">
+                        </div>
 
-                    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                        <button type="button" class="btn btn-outline" id="cancelFormBtn">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="saveBtn">Crear Proveedor</button>
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 800;">CREAR</button>
+                        </div>
                     </div>
                 </form>
             </div>
+
             <style>
                 .iti { width: 100%; display: block; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
+                .btn:hover { transform: translateY(-2px); }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
             </style>
         `;
 
-        container.querySelector('#backBtn').addEventListener('click', renderList);
         container.querySelector('#cancelFormBtn').addEventListener('click', renderList);
 
         // Inicializar Intl Tel Input
@@ -248,38 +269,59 @@ export function renderSuppliers(container) {
                 </div>
 
                 <!-- Formulario de Edición -->
-                <div class="card">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">Editar Datos</h3>
+                <div class="card" style="padding: 2rem; border-top: 4px solid var(--warning);">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">✏️ Editar Datos</h3>
                     <form id="editSupplierForm">
-                        <div class="form-group mb-4">
-                            <label>Correo Electrónico (Proveedor)</label>
-                            <input type="email" id="editEmail" class="form-control" value="${supplier.email || ''}">
-                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                            <div class="form-group">
+                                <label>Correo Electrónico (Proveedor)</label>
+                                <input type="email" id="editEmail" class="form-control" value="${supplier.email || ''}">
+                            </div>
 
-                        <div class="form-group mb-4">
-                            <label>Teléfono del Proveedor</label>
-                            <input type="tel" id="editSupPhone" class="form-control" value="${supplier.phone || ''}" style="width: 100%;">
-                        </div>
+                            <div class="form-group">
+                                <label>Teléfono del Proveedor</label>
+                                <input type="tel" id="editSupPhone" class="form-control" value="${supplier.phone || ''}">
+                            </div>
 
-                        <div class="form-group mb-4">
-                            <label>Nombre del Vendedor</label>
-                            <input type="text" id="editSellerName" class="form-control" value="${supplier.sellerName || ''}">
-                        </div>
+                            <div class="form-group">
+                                <label>Nombre del Vendedor</label>
+                                <input type="text" id="editSellerName" class="form-control" value="${supplier.sellerName || ''}">
+                            </div>
 
-                        <div class="form-group mb-4">
-                            <label>Teléfono del Vendedor</label>
-                            <input type="tel" id="editSellerPhone" class="form-control" value="${supplier.sellerPhone || ''}" style="width: 100%;">
-                        </div>
+                            <div class="form-group">
+                                <label>Teléfono del Vendedor</label>
+                                <input type="tel" id="editSellerPhone" class="form-control" value="${supplier.sellerPhone || ''}">
+                            </div>
 
-                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                            <button type="button" class="btn btn-outline" id="cancelEditBtn">Cancelar</button>
-                            <button type="submit" class="btn btn-primary" id="saveEditBtn">Guardar Cambios</button>
+                            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                                <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                                <button type="submit" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 50px; font-weight: 800;">GUARDAR</button>
+                            </div>
                         </div>
                     </form>
                 </div>
             </div>
             <style>
                 .iti { width: 100%; display: block; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
+                .btn:hover { transform: translateY(-2px); }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
             </style>
         `;
 

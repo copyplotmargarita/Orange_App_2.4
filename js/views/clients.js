@@ -92,50 +92,50 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 <p class="text-muted text-sm">Registra los datos para facturación y delivery</p>
             </div>
             
-            <div class="card" style="max-width: 600px; margin: 0 auto; padding: 2.5rem; border-top: 4px solid var(--primary);">
+            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">
                 <form id="clientForm">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group" style="grid-column: span 2;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div class="form-group">
                             <label>👤 Nombre Completo</label>
-                            <input type="text" id="clientName" class="form-control" placeholder="Ej. Juan Pérez" required>
+                            <input type="text" id="clientName" class="form-control" placeholder="Ej. Juan Pérez" required style="height: 40px;">
                         </div>
                         
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label>🪪 Documento (Cédula o RIF)</label>
                             <div style="display: flex; gap: 0;">
-                                <select id="docType" class="form-control" style="width: 80px; border-radius: var(--radius-md) 0 0 var(--radius-md); border-right: none;" required>
-                                    <option value="V-">V-</option>
-                                    <option value="J-">J-</option>
+                                <select id="docType" class="form-control" style="width: 80px; border-radius: var(--radius-md) 0 0 var(--radius-md); border-right: none; height: 40px;" required>
                                     <option value="E-">E-</option>
                                     <option value="G-">G-</option>
+                                    <option value="J-">J-</option>
+                                    <option value="V-">V-</option>
                                 </select>
-                                <input type="text" id="docNumber" class="form-control" style="border-radius: 0 var(--radius-md) var(--radius-md) 0;" placeholder="12345678" required pattern="[0-9]+" title="Solo números">
+                                <input type="text" id="docNumber" class="form-control" style="border-radius: 0 var(--radius-md) var(--radius-md) 0; height: 40px;" placeholder="12345678" required pattern="[0-9]+" title="Solo números">
                             </div>
                         </div>
 
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label>📧 Correo Electrónico</label>
-                            <input type="email" id="clientEmail" class="form-control" placeholder="usuario@correo.com">
+                            <input type="email" id="clientEmail" class="form-control" placeholder="usuario@correo.com" style="height: 40px;">
                         </div>
 
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label>📱 Teléfono Móvil</label>
-                            <input type="tel" id="clientPhone" class="form-control" placeholder="4141234567" required>
+                            <input type="tel" id="clientPhone" class="form-control" placeholder="4141234567" required style="height: 40px;">
                         </div>
 
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label>📍 Dirección Residencial</label>
-                            <textarea id="clientAddress" class="form-control" rows="2" required style="resize: none;">PAMPATAR</textarea>
+                            <input type="text" id="clientAddress" class="form-control" required placeholder="Ej. Av. Principal, Edif. Centro" style="height: 40px;">
                         </div>
 
-                        <div class="form-group" style="grid-column: span 2; background: var(--background); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border);">
-                            <label style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0;">
-                                <span style="font-size: 0.75rem; font-weight: 800;">🚚 ¿REQUIERE DELIVERY?</span>
-                                <select id="deliverySelect" class="form-control" style="width: 90px; height: 32px; padding: 0 0.5rem; font-size: 0.75rem; font-weight: 700;">
+                        <div class="form-group" style="background: var(--background); padding: 0.75rem 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+                                <label style="margin-bottom: 0; font-size: 0.75rem; font-weight: 800; flex: 1;">🚚 ¿REQUIERE DELIVERY?</label>
+                                <select id="deliverySelect" class="form-control" style="width: 100px; height: 40px; padding: 0 0.75rem; font-size: 0.75rem; font-weight: 700;">
                                     <option value="NO">NO</option>
                                     <option value="SI">SÍ</option>
                                 </select>
-                            </label>
+                            </div>
                             
                             <div id="mapContainerWrapper" style="display: none; margin-top: 1rem;">
                                 <p class="text-xs text-muted mb-2">Selecciona la ubicación exacta en el mapa</p>
@@ -149,8 +149,8 @@ export function renderClients(container, onFinish = null, initialName = '') {
                     </div>
 
                     <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                        <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 45px;">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 2; height: 45px; font-weight: 700;">Crear Cliente</button>
+                        <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                        <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 700;">CREAR CLIENTE</button>
                     </div>
                 </form>
             </div>
@@ -165,8 +165,21 @@ export function renderClients(container, onFinish = null, initialName = '') {
             </div>
             <style>
                 .iti { width: 100%; }
-                .form-group label { margin-bottom: 0.4rem; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-                /* Estilos para el dropdown de países */
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
                 .iti__country-list { background-color: var(--surface) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; box-shadow: var(--shadow-lg) !important; }
                 .iti__country:hover { background-color: var(--background) !important; }
                 .iti__country-name, .iti__dial-code { color: var(--text-main) !important; }
@@ -462,8 +475,8 @@ export function renderClients(container, onFinish = null, initialName = '') {
                         </div>
 
                         <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                            <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 45px;">Cancelar</button>
-                            <button type="submit" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 45px; font-weight: 700;">Guardar Cambios</button>
+                            <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 40px;">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 40px; font-weight: 700;">Guardar Cambios</button>
                         </div>
                     </form>
                 </div>
@@ -471,7 +484,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
             <style>
                 .detail-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem; letter-spacing: 0.5px; }
                 .form-group label { margin-bottom: 0.4rem; color: var(--text-muted); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
-                .btn-action { display: flex; align-items: center; justify-content: center; height: 45px; border-radius: var(--radius-md); border: 1px solid var(--border); text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: var(--transition); width: 100%; }
+                .btn-action { display: flex; align-items: center; justify-content: center; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--border); text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: var(--transition); width: 100%; }
                 .btn-action:hover { transform: translateY(-2px); filter: brightness(1.1); }
             </style>
         `;

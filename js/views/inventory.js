@@ -135,10 +135,10 @@ export function renderInventory(container) {
 
     // ─── TAB 2: ALMACÉN PRODUCCIÓN ─────────────────────────────────────
     function renderProduccion(el) {
-        const insumos = products.filter(p => p.category === 'INSUMO' || p.category === 'INSUMO/RECETA' || (p.category && p.category !== 'SERVICIOS' && p.category !== 'RECETA'));
+        const insumos = products.filter(p => p.category === 'INSUMO' || (p.category && p.category !== 'SERVICIOS' && p.category !== 'RECETA'));
         let rows = insumos.map(p => {
             const stock = p.stockProduccion ?? 0;
-            const unit = p.stockUnit || 'ud';
+            const unit = p.recipeUnit || p.stockUnit || 'ud';
             const isNeg = stock < 0;
             return `<tr>
                 <td style="padding:0.6rem;">${p.name}</td>
@@ -558,7 +558,7 @@ export function renderInventory(container) {
         const list = container.querySelector('#transferList');
 
         const insumos = products.filter(p =>
-            p.category === 'INSUMO' || p.category === 'INSUMO/RECETA' ||
+            p.category === 'INSUMO' ||
             (p.category && p.category !== 'SERVICIOS' && p.category !== 'RECETA')
         );
 
@@ -610,8 +610,9 @@ export function renderInventory(container) {
                 const snap = await getDoc(prodRef);
                 if (snap.exists()) {
                     const d = snap.data();
+                    const factor = d.stockToRecipeFactor || 1;
                     const newGeneral = (d.stockGeneral ?? d.stock ?? 0) - item.qty;
-                    const newProduccion = (d.stockProduccion ?? 0) + item.qty;
+                    const newProduccion = (d.stockProduccion ?? 0) + (item.qty * factor);
                     await updateDoc(prodRef, { stockGeneral: newGeneral, stockProduccion: newProduccion });
                 }
             }

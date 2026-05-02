@@ -442,10 +442,15 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function renderProductList() {
-        const filtered = products.filter(p => 
-            p.name.toLowerCase().includes(searchProductTerm) || 
-            (p.barcode && p.barcode.includes(searchProductTerm))
-        );
+        const filtered = products.filter(p => {
+            const isMatch = p.name.toLowerCase().includes(searchProductTerm) || 
+                            (p.barcode && p.barcode.includes(searchProductTerm));
+            
+            // Si es admin, ve todo. Si es empleado, solo lo vendible (isSaleable !== false)
+            const canSee = (role === 'admin') || (p.isSaleable !== false);
+            
+            return isMatch && canSee;
+        });
 
         if (filtered.length === 0) return '<p class="text-muted" style="grid-column: 1/-1; text-align: center; padding: 2rem;">No se encontraron productos.</p>';
 
@@ -664,7 +669,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 </div>
                                 <div class="form-group">
                                     <label style="font-size: 0.8rem; opacity: 0.8;">Monto</label>
-                                    <input type="number" step="0.01" id="payAmount" class="form-control" placeholder="0.00" style="margin-top: 0.2rem; padding: 0.4rem; height: 35px; font-size: 0.85rem; font-weight: bold;">
+                                    <input type="text" inputmode="numeric" id="payAmount" class="form-control" placeholder="0,00" style="margin-top: 0.2rem; padding: 0.4rem; height: 35px; font-size: 0.85rem; font-weight: bold;">
                                 </div>
                                 <div class="form-group" id="refGroup" style="display: none;">
                                     <label style="font-size: 0.8rem; opacity: 0.8;">Referencia</label>
@@ -706,9 +711,9 @@ export function renderSales(container, preSelectedClient = null) {
                             <div class="form-group">
                                 <label style="font-weight: 600; font-size: 0.85rem;">Estado de Venta <span class="text-danger">*</span></label>
                                 <select id="saleStatus" class="form-control" style="font-weight: bold; margin-top: 0.4rem; border-color: var(--primary); height: 42px; padding: 0 0.75rem; font-size: 0.9rem; line-height: 42px;">
-                                    <option value="contado" ${saleStatus === 'contado' ? 'selected' : ''}>CONTADO</option>
                                     <option value="abono" ${saleStatus === 'abono' ? 'selected' : ''}>ABONO / PARCIAL</option>
                                     <option value="credito" ${saleStatus === 'credito' ? 'selected' : ''}>A CRÉDITO</option>
+                                    <option value="contado" ${saleStatus === 'contado' ? 'selected' : ''}>CONTADO</option>
                                 </select>
                             </div>
                             
@@ -854,17 +859,17 @@ export function renderSales(container, preSelectedClient = null) {
             let options = '';
             if (currency === 'USD') {
                 options = `
-                    <option value="EFECTIVO">Dólares Efectivo</option>
-                    <option value="ZELLE">Zelle</option>
-                    <option value="PAYPAL">PayPal</option>
                     <option value="BINANCE">Binance</option>
+                    <option value="EFECTIVO">Dólares Efectivo</option>
+                    <option value="PAYPAL">PayPal</option>
+                    <option value="ZELLE">Zelle</option>
                 `;
             } else {
                 options = `
-                    <option value="PUNTO">Punto de Venta</option>
-                    <option value="PAGO_MOVIL">Pago Móvil</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
                     <option value="EFECTIVO">Bs. Efectivo</option>
+                    <option value="PAGO_MOVIL">Pago Móvil</option>
+                    <option value="PUNTO">Punto de Venta</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
                 `;
             }
             payMethod.innerHTML = options;
@@ -874,9 +879,28 @@ export function renderSales(container, preSelectedClient = null) {
             const payAmountInput = container.querySelector('#payAmount');
             if (payAmountInput) {
                 const amount = currency === 'BS' ? (remainingUSD * bcvRate) : remainingUSD;
-                payAmountInput.value = Math.max(0, amount).toFixed(2);
+                payAmountInput.value = (Math.max(0, amount)).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
         };
+
+        const applyNumericMask = (input) => {
+            input.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (!value) { e.target.value = ''; return; }
+                let number = parseInt(value, 10);
+                e.target.value = (number / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            });
+            input.addEventListener('focus', (e) => { if (e.target.value === '0,00') e.target.value = ''; });
+            input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '0,00'; });
+        };
+
+        const parseNum = (val) => {
+            if (!val) return 0;
+            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        };
+
+        const payAmountInput = container.querySelector('#payAmount');
+        if (payAmountInput) applyNumericMask(payAmountInput);
 
         payCurrency.addEventListener('change', updatePayMethods);
         updatePayMethods(); // Initial load
@@ -887,7 +911,7 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         container.querySelector('#addPaymentBtn').addEventListener('click', () => {
-            const amount = parseFloat(container.querySelector('#payAmount').value);
+            const amount = parseNum(container.querySelector('#payAmount').value);
             const method = container.querySelector('#payMethod').value;
             const currency = container.querySelector('#payCurrency').value;
             const ref = container.querySelector('#payRef')?.value;

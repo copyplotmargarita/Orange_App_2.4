@@ -86,26 +86,26 @@ export function renderEmployees(container) {
 
     function renderForm() {
         container.innerHTML = `
-            <div style="margin-bottom: 2rem; text-align: center;">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
                 <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ Nuevo Colaborador</h2>
                 <p class="text-muted text-sm">Completa los datos para dar de alta al empleado</p>
             </div>
             
-            <div class="card" style="max-width: 550px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">
+            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">
                 <form id="employeeForm">
                     <div id="errorMsg" class="text-danger mb-4 text-center" style="font-size: 0.85rem; font-weight: 500;"></div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group" style="grid-column: span 2;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div class="form-group">
                             <label>👤 Nombre y Apellido</label>
                             <input type="text" id="empName" class="form-control" placeholder="Ej. Juan Pérez" required>
                         </div>
                         
                         <div class="form-group">
                             <label>🪪 Cédula</label>
-                            <div style="display: flex; align-items: center;">
-                                <span style="padding: 0.75rem; background: var(--background); border: 1px solid var(--border); border-right: none; border-radius: var(--radius-md) 0 0 var(--radius-md); font-weight: bold; color: var(--text-muted); font-size: 0.85rem;">V-</span>
-                                <input type="text" id="empCedula" class="form-control" style="border-radius: 0 var(--radius-md) var(--radius-md) 0;" placeholder="12345678" required pattern="[0-9]+" title="Solo números">
+                            <div style="display: flex; gap: 0;">
+                                <span style="padding: 0 0.75rem; background: var(--background); border: 1px solid var(--border); border-right: none; border-radius: 10px 0 0 10px; font-weight: bold; color: var(--text-muted); font-size: 0.85rem; display: flex; align-items: center; height: 40px;">V-</span>
+                                <input type="text" id="empCedula" class="form-control" style="border-radius: 0 10px 10px 0; height: 40px;" placeholder="12345678" required pattern="[0-9]+" title="Solo números">
                             </div>
                         </div>
 
@@ -119,38 +119,51 @@ export function renderEmployees(container) {
                             </select>
                         </div>
 
-                        <div class="form-group" id="roleCustomGroup" style="grid-column: span 2; display: none;">
+                        <div class="form-group" id="roleCustomGroup" style="display: none;">
                             <label>✍️ Especificar Cargo</label>
                             <input type="text" id="empRoleCustom" class="form-control" placeholder="Ej. Gerente de Tienda">
                         </div>
 
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label>📱 Teléfono Móvil</label>
                             <input type="tel" id="empPhone" class="form-control" placeholder="4141234567" required>
                         </div>
 
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label>📧 Correo Electrónico</label>
                             <input type="email" id="empEmail" class="form-control" placeholder="correo@ejemplo.com" required>
-                            <small style="color: var(--text-muted); font-size: 0.7rem; margin-top: 0.3rem; display: block;">Se usará para iniciar sesión en la app.</small>
+                            <small style="color: var(--text-muted); font-size: 0.65rem; margin-top: 2px; display: block;">Se usará para iniciar sesión en la app.</small>
                         </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                        <button type="button" class="btn btn-outline" id="cancelBtn" style="flex: 1; height: 42px;">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 2; height: 42px; font-weight: 700;">Crear Empleado</button>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-outline" id="cancelBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 800;">CREAR</button>
+                        </div>
                     </div>
                 </form>
             </div>
             <style>
-                .iti { width: 100%; }
-                .form-group { margin-bottom: 0; }
-                .form-group label { margin-bottom: 0.3rem; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-                /* Fix para el dropdown de países */
+                .iti { width: 100%; display: block; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
+                .btn:hover { transform: translateY(-2px); }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
                 .iti__country-list { background-color: var(--surface) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; box-shadow: var(--shadow-lg) !important; }
-                .iti__country:hover { background-color: var(--background) !important; }
-                .iti__country-name, .iti__dial-code { color: var(--text-main) !important; }
-                .iti__divider { border-bottom: 1px solid var(--border) !important; }
             </style>
         `;
 

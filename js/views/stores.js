@@ -63,32 +63,50 @@ export function renderStores(container) {
 
     function renderForm() {
         container.innerHTML = `
-            <div style="margin-bottom: 2rem; text-align: center;">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
                 <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ Nueva Sucursal</h2>
                 <p class="text-muted text-sm">Registra un nuevo punto de venta para tu negocio</p>
             </div>
             
-            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2.5rem; border-top: 4px solid var(--primary);">
+            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">
                 <form id="storeForm">
-                    <div style="display: grid; gap: 1rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
                             <label>🏪 Nombre de la Sucursal</label>
                             <input type="text" id="storeName" class="form-control" placeholder="Ej. Sede Principal o Tienda Norte" required>
                         </div>
                         <div class="form-group">
                             <label>📍 Dirección Completa</label>
-                            <textarea id="storeAddress" class="form-control" placeholder="Calle, Avenida, Centro Comercial, Local..." required style="min-height: 100px; resize: none;"></textarea>
+                            <textarea id="storeAddress" class="form-control" placeholder="Calle, Avenida, Centro Comercial, Local..." required style="min-height: 80px; resize: none; padding-top: 0.75rem;"></textarea>
                         </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                        <button type="button" class="btn btn-outline" id="cancelBtn" style="flex: 1; height: 45px;">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 2; height: 45px; font-weight: 700;">Registrar Tienda</button>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-outline" id="cancelBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 800;">REGISTRAR</button>
+                        </div>
                     </div>
                 </form>
             </div>
             <style>
-                .form-group label { margin-bottom: 0.4rem; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
+                .btn:hover { transform: translateY(-2px); }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
             </style>
         `;
 

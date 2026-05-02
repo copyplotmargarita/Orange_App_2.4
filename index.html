@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App de Ventas</title>
+    <title>Orange App - Dev</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,6 +22,15 @@
         if (savedTheme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
+
+        // Rastreador de errores visual para depuración
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style = "position:fixed; bottom:0; left:0; right:0; background:#ef4444; color:white; padding:10px; z-index:10000; font-family:monospace; font-size:12px; border-top:2px solid black;";
+            errorDiv.innerHTML = `<strong>Error Detectado:</strong> ${msg} <br> <small>${url}:${lineNo}</small>`;
+            document.body.appendChild(errorDiv);
+            return false;
+        };
     </script>
 </head>
 <body>

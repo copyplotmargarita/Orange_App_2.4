@@ -1,4 +1,4 @@
-import { navigate } from '../app.js';
+import { navigate } from '../utils.js';
 
 export function renderConfig() {
     const container = document.createElement('div');

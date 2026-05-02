@@ -1,5 +1,4 @@
-import { navigate } from '../app.js';
-import { showNotification } from '../utils.js';
+import { navigate, showNotification, isVenezuelaHoliday, getNextBusinessDay } from '../utils.js';
 import { renderStores } from './stores.js';
 import { renderEmployees } from './employees.js';
 import { renderClients } from './clients.js';
@@ -10,6 +9,7 @@ import { renderInventory } from './inventory.js';
 import { renderStoreReceive } from './storeReceive.js';
 import { renderSales } from './sales.js';
 import { renderReports } from './reports.js';
+import { renderMaintenance } from './maintenance.js';
 
 import { auth, db } from '../services/firebase.js';
 import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
@@ -24,8 +24,31 @@ export function renderDashboard() {
     const isAdmin = roleRaw.toLowerCase() === 'admin' || roleRaw.toLowerCase() === 'administrador';
     const isEmployee = roleRaw.toLowerCase() === 'employee' || roleRaw.toLowerCase() === 'empleado';
     
-    const todayStr = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     let bcvRateLoaded = localStorage.getItem('bcvRate') !== null && localStorage.getItem('bcvDate') === todayStr;
+
+    // Intentar recuperar la tasa desde Firebase si no está en LocalStorage
+    const businessId = localStorage.getItem('businessId');
+    if (!bcvRateLoaded && businessId) {
+        getDoc(doc(db, "businesses", businessId, "bcv_history", todayStr)).then(snap => {
+            if (snap.exists()) {
+                const data = snap.data();
+                localStorage.setItem('bcvRate', data.rate);
+                localStorage.setItem('bcvDate', todayStr);
+                
+                // Actualizar la UI si ya se renderizó
+                const displayEl = container.querySelector('#bcvDisplay');
+                const overlayEl = container.querySelector('#bcvOverlay');
+                if (displayEl) {
+                    displayEl.textContent = `Bs. ${parseFloat(data.rate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    displayEl.className = 'bcv-value success';
+                }
+                if (overlayEl) overlayEl.style.display = 'none';
+                bcvRateLoaded = true;
+            }
+        });
+    }
     
     container.innerHTML = `
         <aside id="sidebar" class="sidebar">
@@ -53,6 +76,7 @@ export function renderDashboard() {
                     <li><a href="#" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
                     <li><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
                     <li><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
+                    ${isAdmin ? '<li><a href="#" id="navMantenimiento" class="sidebar-link" style="color: var(--danger);">⚙️ Mantenimiento</a></li>' : ''}
                 </ul>
             </nav>
 
@@ -717,6 +741,16 @@ export function renderDashboard() {
             </div>`;
     }
 
+    container.querySelector('#navReportes')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        renderReports(mainContentArea);
+    });
+
+    container.querySelector('#navMantenimiento')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        renderMaintenance(mainContentArea);
+    });
+
     container.querySelectorAll('.sidebar-link').forEach(link => {
         if (!link.id) {
             link.addEventListener('click', (e) => {
@@ -767,6 +801,32 @@ export function renderDashboard() {
     };
     
     sidebarToggle.addEventListener('click', toggleSidebar);
+    
+    // Autocierre del sidebar después de 30 segundos de inactividad
+    let sidebarTimer = null;
+    const resetSidebarTimer = () => {
+        if (sidebarTimer) clearTimeout(sidebarTimer);
+        if (sidebarOpen) {
+            sidebarTimer = setTimeout(() => {
+                toggleSidebar();
+            }, 30000); // 30 segundos
+        }
+    };
+
+    // Resetear timer al interactuar con el sidebar
+    sidebar.addEventListener('mouseenter', () => { if (sidebarTimer) clearTimeout(sidebarTimer); });
+    sidebar.addEventListener('mouseleave', resetSidebarTimer);
+    
+    // Cerrar sidebar al seleccionar cualquier opción del menú (Delegación de eventos)
+    sidebar.addEventListener('click', (e) => {
+        const clickable = e.target.closest('.sidebar-link') || e.target.closest('.sidebar-brand') || e.target.closest('#closeShiftBtn');
+        if (clickable && sidebarOpen) {
+            toggleSidebar();
+        }
+    });
+
+    // Iniciar el temporizador inicial
+    resetSidebarTimer();
 
     async function loadUserName() {
         const greetingEl = container.querySelector('#greetingName');
@@ -1116,18 +1176,31 @@ export function renderDashboard() {
                 input.value = localStorage.getItem('bcvRate');
             }
             bcvOverlay.style.display = 'flex';
-            fetchBcvRate(); // Intentar actualizar al abrir manual también
+            fetchBcvRate(false); // Llenar el campo pero NO auto-guardar cuando es manual
         });
     }
 
     // Función centralizada para guardar la tasa (reutilizable para manual y automático)
-    async function saveBcvRate(rate) {
+    // Función centralizada para guardar la tasa (reutilizable para manual y automático)
+    async function saveBcvRate(rate, isAutomatic = false) {
         const businessId = localStorage.getItem('businessId');
         if (!rate || !businessId) return;
 
         try {
             const dateId = new Date().toISOString().split('T')[0];
             
+            // Si es automático, verificar PRIMERO si ya existe en Firebase para no sobreescribir entradas manuales
+            if (isAutomatic) {
+                const existingSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", dateId));
+                if (existingSnap.exists()) {
+                    console.log("BCV: Ya existe una tasa para hoy en Firebase. Omitiendo guardado automático.");
+                    // Sincronizar LocalStorage por si acaso
+                    localStorage.setItem('bcvRate', existingSnap.data().rate);
+                    localStorage.setItem('bcvDate', dateId);
+                    return true;
+                }
+            }
+
             // 1. Guardar en Historial de Firebase (Redondeado a 2 decimales)
             const formattedRate = parseFloat(rate).toFixed(2);
             
@@ -1140,7 +1213,7 @@ export function renderDashboard() {
 
             // 2. Actualizar LocalStorage y UI
             localStorage.setItem('bcvRate', formattedRate);
-            localStorage.setItem('bcvDate', todayStr);
+            localStorage.setItem('bcvDate', dateId);
             
             bcvRateLoaded = true;
             bcvOverlay.style.display = 'none';
@@ -1181,7 +1254,7 @@ export function renderDashboard() {
     });
 
     // Lógica de Automatización de BCV 100% Autónoma (VERSIÓN DEFINITIVA Y ROBUSTA)
-    async function fetchBcvRate() {
+    async function fetchBcvRate(autoSave = true) {
         const bcvInput = container.querySelector('#bcvInput');
         const bcvStatusMsg = document.createElement('p');
         bcvStatusMsg.style = "font-size: 0.8rem; color: var(--primary); margin-top: 0.5rem; font-weight: 500;";
@@ -1191,12 +1264,12 @@ export function renderDashboard() {
         if (existingMsg) existingMsg.remove();
         bcvForm.appendChild(bcvStatusMsg);
 
+        const isHoliday = isVenezuelaHoliday(new Date());
+        if (isHoliday) {
+            bcvStatusMsg.innerHTML = "ℹ️ Hoy es feriado o fin de semana. Buscando tasa actualizada...";
+        }
+
         const sources = [
-            {
-                name: 'GitHub Community (fjtrujillo)',
-                url: 'https://raw.githubusercontent.com/fjtrujillo/dolar-venezuela-api/master/dolar.json',
-                parse: (data) => data.bcv || data.BCV || (data.dolares && data.dolares.bcv)
-            },
             {
                 name: 'DolarApi Oficial',
                 url: 'https://ve.dolarapi.com/v1/dolares/oficial',
@@ -1217,51 +1290,54 @@ export function renderDashboard() {
             }
         ];
 
+        let bestRate = null;
+        let lastRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
+
         for (const source of sources) {
             try {
-                bcvStatusMsg.textContent = `🔍 Conectando con ${source.name}...`;
-                
-                // Usamos una técnica de fetch más simple para evitar problemas de compatibilidad
+                bcvStatusMsg.textContent = `🔍 Probando ${source.name}...`;
                 const response = await fetch(source.url);
-                if (!response.ok) throw new Error('Status ' + response.status);
+                if (!response.ok) continue;
                 
                 const data = await response.json();
-                console.log(`Datos de ${source.name}:`, data);
-                
                 let rate = source.parse(data);
                 
-                // Si el rate es un string con comas, lo limpiamos
-                if (typeof rate === 'string') {
-                    rate = parseFloat(rate.replace(',', '.'));
-                }
-
-                if (rate && !isNaN(rate) && rate > 10) { 
-                    const cleanRate = parseFloat(rate).toFixed(2);
-                    bcvInput.value = cleanRate;
-                    bcvStatusMsg.innerHTML = `✅ ¡Tasa de <strong>Bs. ${cleanRate}</strong> obtenida desde ${source.name}!`;
-                    bcvStatusMsg.style.color = "var(--success)";
-                    
-                    // Notificar y Guardar
-                    setTimeout(() => {
-                        saveBcvRate(cleanRate);
-                    }, 800);
-                    return;
+                if (typeof rate === 'string') rate = parseFloat(rate.replace(',', '.'));
+                
+                if (rate && !isNaN(rate) && rate > 10) {
+                    const currentRate = parseFloat(rate);
+                    // Si estamos en feriado/fin de semana, priorizamos una tasa que sea distinta a la anterior
+                    if (isHoliday && currentRate !== lastRate) {
+                        bestRate = currentRate;
+                        console.log(`Tasa nueva detectada en ${source.name}: ${currentRate}`);
+                        break; // Encontramos una actualización, paramos aquí
+                    }
+                    if (!bestRate) bestRate = currentRate;
                 }
             } catch (error) {
                 console.warn(`Error en ${source.name}:`, error.message);
-                continue;
             }
         }
 
-        bcvStatusMsg.innerHTML = "❌ No se pudo obtener la tasa de ninguna fuente oficial.<br>Por favor, ingrésela manualmente para continuar.";
-        bcvStatusMsg.style.color = "var(--danger)";
+        if (bestRate) {
+            const cleanRate = bestRate.toFixed(2);
+            bcvInput.value = cleanRate;
+            bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${cleanRate}</strong> obtenida correctamente.`;
+            bcvStatusMsg.style.color = "var(--success)";
+            if (autoSave) {
+                setTimeout(() => saveBcvRate(cleanRate, true), 800);
+            }
+        } else {
+            bcvStatusMsg.innerHTML = "❌ No se pudo obtener una tasa actualizada.<br>Por favor, ingrésela manualmente.";
+            bcvStatusMsg.style.color = "var(--danger)";
+        }
     }
 
     // Ejecutar la búsqueda de tasa con un pequeño delay
     setTimeout(() => {
         if (!bcvRateLoaded) {
             // Ambos roles intentan buscar la tasa automáticamente para ayudarse mutuamente
-            fetchBcvRate();
+            fetchBcvRate(true);
         }
     }, 1500);
 

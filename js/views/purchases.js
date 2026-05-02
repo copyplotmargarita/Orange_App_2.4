@@ -1,11 +1,39 @@
 import { db } from '../services/firebase.js';
 import { collection, getDocs, getDoc, setDoc, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
+// --- Helpers Globales ---
+const parseNum = (val) => {
+    if (!val) return 0;
+    const str = val.toString().replace(/\./g, '').replace(',', '.');
+    return parseFloat(str) || 0;
+};
+
+const fmtNum = (n) => {
+    return parseFloat(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+function applyNumericMask(input, callback) {
+    if (!input) return;
+    input.addEventListener('input', (e) => {
+        let value = e.target.value.replace(/\D/g, ''); 
+        if (!value) { e.target.value = ''; if (callback) callback(); return; }
+        let number = parseInt(value, 10);
+        e.target.value = (number / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (callback) callback();
+    });
+    input.addEventListener('focus', (e) => { if (e.target.value === '0,00') e.target.value = ''; });
+    input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '0,00'; });
+}
+
 export function renderPurchases(container) {
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'view-container';
+    }
     let purchases = [];
     let suppliers = [];
     let products = [];
-    let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
+    let bcvRate = parseNum(localStorage.getItem('bcvRate')) || 0;
     const role = localStorage.getItem('userRole');
 
     // Función para notificaciones profesionales
@@ -299,130 +327,127 @@ export function renderPurchases(container) {
         const todayStr = new Date().toISOString().split('T')[0];
         
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem;">← Cancelar</button>
-                    <h2>Cargar Compra</h2>
-                </div>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">📦 Cargar Compra</h2>
+                <p class="text-muted text-sm">Registra la recepción de mercancía y facturas</p>
             </div>
-
-            <form id="purchaseForm">
-                <!-- 1. Cabecera del Documento -->
-                <div class="card mb-4" style="padding: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">1. Datos del Documento</h3>
+            
+            <form id="purchaseForm" style="max-width: 500px; margin: 0 auto;">
+                <!-- 1. Datos del Documento -->
+                <div class="card mb-3" style="padding: 2rem; border-top: 4px solid var(--primary);">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">1. Datos del Documento</h3>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;" class="grid-1-mobile">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
                             <label>Proveedor <span class="text-danger">*</span></label>
                             <select id="pSupplier" class="form-control" required>
                                 <option value="">Seleccione un proveedor...</option>
                                 <option value="CREATE_NEW" style="font-weight: bold; color: var(--primary);">+ CREAR PROVEEDOR</option>
-                                ${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
                             </select>
                         </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Emisión <span class="text-danger">*</span></label>
+                                <input type="date" id="pEmissionDate" class="form-control" required value="${todayStr}">
+                            </div>
+                            <div class="form-group">
+                                <label>Recepción <span class="text-danger">*</span></label>
+                                <input type="date" id="pReceptionDate" class="form-control" required value="${todayStr}">
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>Tasa BCV de la Factura <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" id="pBcvRate" class="form-control" required value="${bcvRate}">
-                            <small class="text-muted">Tasa usada para los cálculos de esta factura.</small>
+                            <input type="text" inputmode="numeric" id="pBcvRate" class="form-control" required value="${bcvRate.toLocaleString('de-DE', {minimumFractionDigits:2})}">
+                            <small id="bcvWarning" style="color: var(--warning); display: none; margin-top: 4px; font-size: 0.7rem; font-weight: 700;">⚠️ No hay tasa cargada para la Fecha de Emisión, por favor cargue acá la tasa para esa fecha.</small>
                         </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;" class="grid-1-mobile">
-                        <div class="form-group">
-                            <label>Fecha de Emisión <span class="text-danger">*</span></label>
-                            <input type="date" id="pEmissionDate" class="form-control" required value="${todayStr}">
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha de Recepción <span class="text-danger">*</span></label>
-                            <input type="date" id="pReceptionDate" class="form-control" required value="${todayStr}">
-                        </div>
-                    </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;" class="grid-1-mobile">
                         <div class="form-group">
                             <label>Tipo de Documento <span class="text-danger">*</span></label>
                             <select id="pDocType" class="form-control" required>
                                 <option value="">Seleccione...</option>
+                                <option value="FACTURA">FACTURA</option>
                                 <option value="GUIA DE DESPACHO">GUIA DE DESPACHO</option>
                                 <option value="NOTA DE ENTREGA">NOTA DE ENTREGA</option>
                                 <option value="PRESUPUESTO">PRESUPUESTO</option>
-                                <option value="FACTURA">FACTURA</option>
                             </select>
                         </div>
+                        
                         <div class="form-group">
                             <label>Número de Documento <span class="text-danger">*</span></label>
                             <input type="text" id="pDocNumber" class="form-control" required placeholder="Ej. 001-A">
                         </div>
+                        
                         <div class="form-group">
                             <label>Estado de la Compra <span class="text-danger">*</span></label>
                             <select id="pStatus" class="form-control" required>
                                 <option value="">Seleccione...</option>
+                                <option value="ABONO">ABONO</option>
+                                <option value="CONTADO">CONTADO</option>
                                 <option value="CREDITO">CREDITO</option>
                                 <option value="PAGADO">PAGADO</option>
-                                <option value="CONTADO">CONTADO</option>
-                                <option value="ABONO">ABONO</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
                 <!-- 2. Moneda y Productos -->
-                <div class="card mb-4" style="padding: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">2. Productos Recibidos</h3>
+                <div class="card mb-3" style="padding: 2rem;">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">2. Productos Recibidos</h3>
                     
-                    <div style="display: flex; gap: 1.5rem; align-items: flex-start; margin-bottom: 1rem;" class="flex-stack-mobile">
-                        <div class="form-group" style="min-width: 200px; width: 100%;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div class="form-group">
                             <label>Moneda de la Factura <span class="text-danger">*</span></label>
-                            <div style="display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;">
-                                <div id="btnCurrencyBs" style="flex: 1; padding: 0.5rem; text-align: center; cursor: pointer; background: var(--primary); color: white; font-weight: bold;">EN BOLÍVARES</div>
-                                <div id="btnCurrencyUsd" style="flex: 1; padding: 0.5rem; text-align: center; cursor: pointer; background: var(--background); color: var(--text-main);">EN DÓLARES</div>
+                            <div style="display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 40px;">
+                                <div id="btnCurrencyBs" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--primary); color: white; font-weight: 800; font-size: 0.7rem;">EN BOLÍVARES</div>
+                                <div id="btnCurrencyUsd" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--background); color: var(--text-main); font-weight: 800; font-size: 0.7rem;">EN DÓLARES</div>
                             </div>
                             <input type="hidden" id="pCurrency" value="BS">
                         </div>
                         
-                        <div style="padding-top: 1.5rem;">
-                            <button type="button" class="btn btn-outline" id="openProductBuilderBtn" style="border-color: var(--primary); color: var(--primary);">
-                                📦 CARGAR PRODUCTOS
-                            </button>
-                        </div>
+                        <button type="button" class="btn btn-outline" id="openProductBuilderBtn" style="height: 50px; font-weight: 800; border-style: dashed; border-width: 2px; color: var(--primary); border-color: var(--primary); margin-top: 0.5rem;">
+                            📦 SELECCIONAR PRODUCTOS
+                        </button>
                     </div>
 
                     <!-- Area to display selected products list summary -->
-                    <div id="selectedProductsArea" style="display: none; margin-bottom: 1.5rem;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 1rem; font-size: 0.9rem;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid var(--border);">
-                                    <th style="padding: 0.5rem;">Producto</th>
-                                    <th style="padding: 0.5rem;">Cant.</th>
-                                    <th style="padding: 0.5rem;">Costo Ud.</th>
-                                    <th style="padding: 0.5rem;">Total $</th>
-                                    <th style="padding: 0.5rem;">Total Bs</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pTableBody"></tbody>
-                        </table>
+                    <div id="selectedProductsArea" style="display: none; margin-top: 1.5rem;">
+                        <div style="overflow-x: auto; margin-bottom: 1rem;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border);">
+                                        <th style="padding: 0.5rem;">Item</th>
+                                        <th style="padding: 0.5rem;">Cant.</th>
+                                        <th style="padding: 0.5rem;">Total $</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pTableBody"></tbody>
+                            </table>
+                        </div>
                     </div>
 
-                    <div style="display: flex; gap: 2rem; background: var(--background); padding: 1rem; border-radius: 8px;">
-                        <div>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Cantidad de items</p>
-                            <p style="font-size: 1.25rem; font-weight: bold;" id="pItemsCount">0</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; background: var(--background); padding: 1rem; border-radius: 12px; margin-top: 1rem;">
+                        <div style="text-align: center;">
+                            <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Items</p>
+                            <p id="pItemsCount" style="font-size: 1rem; font-weight: 900; color: var(--text-main); margin: 0;">0</p>
                         </div>
-                        <div>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Monto Total Bs</p>
-                            <p style="font-size: 1.25rem; font-weight: bold;" id="pTotalBs">Bs. 0.00</p>
+                        <div style="text-align: center; border-left: 1px solid var(--border);">
+                            <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">TOTAL BS</p>
+                            <p id="pTotalBs" style="font-size: 1rem; font-weight: 900; color: var(--text-main); margin: 0;">Bs. 0.00</p>
                         </div>
-                        <div>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Monto Total $</p>
-                            <p style="font-size: 1.25rem; font-weight: bold; color: var(--primary);" id="pTotalUsd">$ 0.00</p>
+                        <div style="text-align: center; border-left: 1px solid var(--border);">
+                            <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">TOTAL DÓLARES</p>
+                            <p id="pTotalUsd" style="font-size: 1.1rem; font-weight: 900; color: var(--primary); margin: 0;">$ 0.00</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- 3. Pagos (Condicional) -->
-                <div class="card mb-4" id="paymentSection" style="display: none; padding: 1.5rem; border-left: 4px solid var(--success);">
-                    <h3 style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">3. Registro de Pago</h3>
+                <div class="card mb-3" id="paymentSection" style="display: none; padding: 2rem; border-left: 4px solid var(--success);">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--success); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">3. Registro de Pago</h3>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
                             <label>Fecha del Pago <span class="text-danger">*</span></label>
                             <input type="date" id="pPaymentDate" class="form-control" value="${todayStr}">
@@ -431,42 +456,40 @@ export function renderPurchases(container) {
                             <label>Forma de Pago <span class="text-danger">*</span></label>
                             <select id="pPaymentMethod" class="form-control">
                                 <option value="">Seleccione...</option>
-                                <option value="Bs. Efectivo">Bs. Efectivo</option>
-                                <option value="Pago Móvil">Pago Móvil</option>
-                                <option value="Transferencia">Transferencia</option>
-                                <option value="Tarjeta de Débito">Tarjeta de Débito</option>
-                                <option value="BioPago">BioPago</option>
-                                <option value="Dólares en Efectivo">Dólares en Efectivo</option>
-                                <option value="Zelle">Zelle</option>
-                                <option value="Paypal">Paypal</option>
                                 <option value="Binance">Binance</option>
+                                <option value="BioPago">BioPago</option>
+                                <option value="Bs. Efectivo">Bs. Efectivo</option>
+                                <option value="Dólares en Efectivo">Dólares en Efectivo</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                                <option value="Paypal">Paypal</option>
+                                <option value="Tarjeta de Débito">Tarjeta de Débito</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Zelle">Zelle</option>
                             </select>
                         </div>
-                    </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                         <div class="form-group" id="receivedBsGroup" style="display: none;">
                             <label>Recibido Bs <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" id="pReceivedBs" class="form-control">
+                            <input type="text" inputmode="numeric" id="pReceivedBs" class="form-control" style="font-weight: bold; color: var(--success);">
                         </div>
                         <div class="form-group" id="receivedUsdGroup" style="display: none;">
                             <label>Recibido $ <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" id="pReceivedUsd" class="form-control">
+                            <input type="text" inputmode="numeric" id="pReceivedUsd" class="form-control" style="font-weight: bold; color: var(--success);">
                         </div>
                         <div class="form-group" id="equivalentUsdGroup" style="display: none;">
                             <label>Equivalente $ <small class="text-muted">(Auto-calculado)</small></label>
-                            <input type="number" step="0.01" id="pEquivalentUsd" class="form-control" readonly style="background-color: var(--background);">
+                            <input type="text" id="pEquivalentUsd" class="form-control" readonly style="background: transparent; border-style: dashed;">
                         </div>
                         <div class="form-group">
                             <label>Saldo Pendiente $</label>
-                            <input type="number" step="0.01" id="pPendingBalance" class="form-control" readonly style="background-color: var(--background); color: var(--danger); font-weight: bold;">
+                            <input type="text" id="pPendingBalance" class="form-control" readonly style="background: rgba(239, 68, 68, 0.05); color: var(--danger); font-weight: 900; font-size: 1.1rem; border-color: var(--danger);">
                         </div>
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                    <button type="button" class="btn btn-outline" id="cancelFormBtn" style="width: auto;">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="width: auto;">Crear Compra</button>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                    <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="flex: 1; height: 50px; font-weight: 800;">CREAR COMPRA</button>
                 </div>
             </form>
 
@@ -477,34 +500,58 @@ export function renderPurchases(container) {
 
             <!-- Modal para Cantidad y Costo de Item -->
             <div id="itemModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
-                <div class="card" style="width: 100%; max-width: 450px; border-top: 5px solid var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
-                    <h2 id="itemModalTitle" style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1.5rem;">Cargar Producto</h2>
-                    <p id="itemModalSubtitle" class="text-muted mb-4" style="font-size: 0.9rem;">Ingrese los datos de recepción para este producto.</p>
+                <div class="card" style="width: 100%; max-width: 450px; padding: 2rem; border-top: 5px solid var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+                    <h2 id="itemModalTitle" style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; color: var(--primary); margin-bottom: 0.5rem;">Cargar Producto</h2>
+                    <p id="itemModalSubtitle" class="text-muted mb-4" style="font-size: 0.85rem;">Ingrese los datos de recepción.</p>
                     
-                    <div class="form-group mb-4">
-                        <label>¿Cómo está recibiendo este producto? <span class="text-danger">*</span></label>
-                        <select id="itemReceptionType" class="form-control"></select>
-                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div class="form-group">
+                            <label>¿Cómo lo recibe? <span class="text-danger">*</span></label>
+                            <select id="itemReceptionType" class="form-control"></select>
+                        </div>
 
-                    <div class="form-group mb-4">
-                        <label id="lblItemQty">Cantidad recibida <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" id="itemQtyInput" class="form-control" placeholder="Ej. 2">
-                    </div>
+                        <div class="form-group">
+                            <label id="lblItemQty">Cantidad <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="itemQtyInput" class="form-control" placeholder="0,00">
+                        </div>
 
-                    <div class="form-group mb-4">
-                        <label id="lblItemTotalCost">¿Costo TOTAL de este producto en factura? <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" id="itemTotalCostInput" class="form-control" placeholder="Ej. 150.00">
-                        <small class="text-muted" style="display: block; margin-top: 0.5rem; line-height: 1.3;">
-                            El sistema calculará el costo unitario dividiendo el total entre la cantidad ingresada.
-                        </small>
-                    </div>
+                        <div class="form-group">
+                            <label id="lblItemTotalCost">Costo TOTAL en factura <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="itemTotalCostInput" class="form-control" placeholder="0,00">
+                            <small class="text-muted" style="display: block; margin-top: 4px; line-height: 1.2; font-size: 0.65rem;">
+                                El sistema calculará el costo unitario automáticamente.
+                            </small>
+                        </div>
 
-                    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                        <button type="button" class="btn btn-outline" id="cancelItemBtn" style="flex: 1;">Cancelar</button>
-                        <button type="button" class="btn btn-primary" id="confirmItemBtn" style="flex: 1;">Confirmar Ingreso</button>
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-outline" id="cancelItemBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                            <button type="button" class="btn btn-primary" id="confirmItemBtn" style="flex: 1; height: 50px; font-weight: 800;">CONFIRMAR</button>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <style>
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
+                .btn:hover { transform: translateY(-2px); }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
+            </style>
         `;
 
         container.innerHTML = html;
@@ -564,25 +611,74 @@ export function renderPurchases(container) {
             currentPurchaseProducts = st.products || [];
             shouldOpenBuilder = st.openProductBuilder || false;
             
-            // Re-trigger events to update UI
-            if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
-                pStatus.dispatchEvent(new Event('change'));
-                if (pPaymentMethod.value) {
-                    pPaymentMethod.dispatchEvent(new Event('change'));
-                }
-            }
-
             delete window.tempPurchaseState;
         }
 
         // Navigation
-        container.querySelector('#backBtn').addEventListener('click', renderDeck);
         container.querySelector('#cancelFormBtn').addEventListener('click', renderDeck);
+
+        const updatePayments = () => {
+            const bcv = parseNum(pBcvRate.value);
+            const totalUsdStr = container.querySelector('#pTotalUsd').textContent.replace('$', '').trim();
+            const totalUsd = parseNum(totalUsdStr);
+            const receivedBs = parseNum(pReceivedBs.value);
+            const receivedUsd = parseNum(pReceivedUsd.value);
+            
+            const eqUsd = bcv > 0 ? receivedBs / bcv : 0;
+            if (pEquivalentUsd) pEquivalentUsd.value = fmtNum(eqUsd);
+            
+            const totalReceived = receivedUsd + eqUsd;
+            const pending = totalUsd - totalReceived;
+            if (pPendingBalance) pPendingBalance.value = fmtNum(Math.max(0, pending));
+        };
+
+
+        const bcvWarning = container.querySelector('#bcvWarning');
+
+        // Función para buscar tasa por fecha
+        const fetchRateByDate = async (date) => {
+            const businessId = localStorage.getItem('businessId');
+            if (!businessId || !date) return;
+            
+            try {
+                const docRef = doc(db, "businesses", businessId, "bcv_history", date);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const rate = docSnap.data().rate;
+                    pBcvRate.value = fmtNum(rate);
+                    bcvWarning.style.display = 'none';
+                    pBcvRate.classList.remove('input-warning');
+                } else {
+                    bcvWarning.style.display = 'block';
+                    pBcvRate.classList.add('input-warning');
+                    // Si es hoy, tal vez podamos usar la del localstorage si coincide
+                    const savedRate = localStorage.getItem('bcvRate');
+                    const savedDate = localStorage.getItem('bcvDate');
+                    if (date === savedDate && savedRate) {
+                        pBcvRate.value = fmtNum(parseNum(savedRate));
+                    }
+                }
+                calculatePendingBalance();
+            } catch (err) {
+                console.error("Error fetching rate by date:", err);
+            }
+        };
+
+        pEmissionDate.addEventListener('change', (e) => fetchRateByDate(e.target.value));
+        // Ejecutar una vez al inicio
+        fetchRateByDate(pEmissionDate.value);
+
+        [pBcvRate, pReceivedBs, pReceivedUsd].forEach(inp => applyNumericMask(inp, updatePayments));
+        
+        const itemQtyInput = container.querySelector('#itemQtyInput');
+        const itemTotalCostInput = container.querySelector('#itemTotalCostInput');
+        [itemQtyInput, itemTotalCostInput].forEach(inp => applyNumericMask(inp));
 
         pSupplier.addEventListener('change', () => {
             if (pSupplier.value === 'CREATE_NEW') {
                 window.tempPurchaseState = {
-                    supplierId: '', // Leave empty so it selects the new one later
+                    supplierId: '', 
                     bcvRate: pBcvRate.value,
                     emissionDate: pEmissionDate.value,
                     receptionDate: pReceptionDate.value,
@@ -683,25 +779,21 @@ export function renderPurchases(container) {
 
         // Calculations
         function calculatePendingBalance() {
-            const docRate = parseFloat(pBcvRate.value) || 1;
+            const docRate = parseNum(pBcvRate.value) || 1;
             let paidUsd = 0;
 
             if (pStatus.value === 'PAGADO') {
-                // If marked as PAGADO without specific payment methods, pending is 0
                 paidUsd = totalPurchaseUsd;
             } else if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
                 const method = pPaymentMethod.value;
                 const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Transferencia', 'Tarjeta de Débito', 'BioPago'];
                 
                 if (bsMethods.includes(method)) {
-                    const recBs = parseFloat(pReceivedBs.value) || 0;
-                    // Note: Use the rate of the Payment Date or the Document Date? The prompt says: "la tasa BCV de Fecha del pago".
-                    // But we don't have historical rate fetching API yet, so we assume `pBcvRate.value` is the operational rate.
-                    // To be perfect, we should ask the user to input the Payment Rate if it's different. I'll use the document's BCV rate for simplicity unless specified.
+                    const recBs = parseNum(pReceivedBs.value) || 0;
                     paidUsd = recBs / docRate; 
-                    pEquivalentUsd.value = paidUsd.toFixed(2);
+                    pEquivalentUsd.value = fmtNum(paidUsd);
                 } else {
-                    paidUsd = parseFloat(pReceivedUsd.value) || 0;
+                    paidUsd = parseNum(pReceivedUsd.value) || 0;
                 }
             }
 
@@ -709,7 +801,7 @@ export function renderPurchases(container) {
             if (pending < 0) pending = 0;
             if (pStatus.value === 'CREDITO') pending = totalPurchaseUsd;
 
-            pPendingBalance.value = pending.toFixed(2);
+            pPendingBalance.value = fmtNum(pending);
         }
 
         pReceivedBs.addEventListener('input', calculatePendingBalance);
@@ -728,7 +820,7 @@ export function renderPurchases(container) {
                 pSupplier.addEventListener('change', () => pSupplier.classList.remove('input-error'), { once: true });
                 return;
             }
-            renderProductBuilder(currentPurchaseProducts, pCurrency.value, parseFloat(pBcvRate.value) || 1, supplierId);
+            renderProductBuilder(currentPurchaseProducts, pCurrency.value, parseNum(pBcvRate.value) || 1, supplierId);
         });
 
         // Este handler recibe los datos del modal cuando el usuario hace clic en "Procesar Selección"
@@ -747,7 +839,7 @@ export function renderPurchases(container) {
             totalPurchaseUsd = currentPurchaseProducts.reduce((acc, p) => acc + p.subTotalUsd, 0);
             totalPurchaseBs = currentPurchaseProducts.reduce((acc, p) => acc + p.subTotalBs, 0);
 
-            container.querySelector('#pItemsCount').textContent = currentPurchaseProducts.reduce((acc, curr) => acc + curr.qty, 0);
+            container.querySelector('#pItemsCount').textContent = currentPurchaseProducts.length;
             container.querySelector('#pTotalBs').textContent = `Bs. ${totalPurchaseBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             container.querySelector('#pTotalUsd').textContent = `$ ${totalPurchaseUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             
@@ -776,9 +868,17 @@ export function renderPurchases(container) {
         // Initialize totals just in case state was restored
         updateTotals();
 
+        // Re-trigger events to update UI AFTER listeners are attached
+        if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
+            pStatus.dispatchEvent(new Event('change'));
+            if (pPaymentMethod.value) {
+                pPaymentMethod.dispatchEvent(new Event('change'));
+            }
+        }
+
         // Si venimos de crear un producto faltante, reabrimos el modal automáticamente
         if (shouldOpenBuilder) {
-            renderProductBuilder(currentPurchaseProducts, pCurrency.value, parseFloat(pBcvRate.value) || 1, pSupplier.value);
+            renderProductBuilder(currentPurchaseProducts, pCurrency.value, parseNum(pBcvRate.value) || 1, pSupplier.value);
         }
 
         // Save Logic
@@ -799,7 +899,7 @@ export function renderPurchases(container) {
             // Build purchase object
             const purchaseData = {
                 supplierId: container.querySelector('#pSupplier').value,
-                bcvRate: parseFloat(container.querySelector('#pBcvRate').value) || 1,
+                bcvRate: parseNum(container.querySelector('#pBcvRate').value) || 1,
                 emissionDate: container.querySelector('#pEmissionDate').value,
                 receptionDate: container.querySelector('#pReceptionDate').value,
                 docType: container.querySelector('#pDocType').value,
@@ -818,11 +918,11 @@ export function renderPurchases(container) {
             if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
                 purchaseData.paymentDate = pPaymentDate.value;
                 purchaseData.paymentMethod = pPaymentMethod.value;
-                purchaseData.receivedBs = parseFloat(pReceivedBs.value) || 0;
-                purchaseData.receivedUsd = parseFloat(pReceivedUsd.value) || 0;
-                purchaseData.equivalentUsd = parseFloat(pEquivalentUsd.value) || 0;
+                purchaseData.receivedBs = parseNum(pReceivedBs.value) || 0;
+                purchaseData.receivedUsd = parseNum(pReceivedUsd.value) || 0;
+                purchaseData.equivalentUsd = parseNum(pEquivalentUsd.value) || 0;
             }
-            purchaseData.pendingBalanceUsd = parseFloat(pPendingBalance.value) || 0;
+            purchaseData.pendingBalanceUsd = parseNum(pPendingBalance.value) || 0;
 
             try {
                 // 1. Guardar la compra
@@ -880,18 +980,21 @@ export function renderPurchases(container) {
         // Render structure
         let html = `
             <div style="height: auto; min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;" class="flex-stack-mobile">
-                <h2 style="margin: 0; color: var(--primary); font-size: 1.25rem;">Cargar Productos a la Compra</h2>
-                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto;">Descartar</button>
-                    <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto;">Procesar Selección</button>
+                <h2 style="margin: 0; color: var(--primary); font-size: 1.25rem; font-weight: 800;">📦 SELECCIONAR PRODUCTOS</h2>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto; height: 40px; font-weight: 700; padding: 0 1.5rem;">DESCARTAR</button>
+                    <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 40px; font-weight: 800; padding: 0 1.5rem;">PROCESAR</button>
                 </div>
             </div>
             <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
                 <!-- Lado Izquierdo: Catálogo -->
                 <div style="flex: 1; display: flex; flex-direction: column; background: var(--background); border-right: 1px solid var(--border);">
-                    <div style="padding: 1rem; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.5rem;">
-                        <input type="search" id="pbSearch" class="form-control" placeholder="Buscar productos para ingresar..." style="flex: 1;">
-                        <button class="btn btn-outline" id="pbCreateProductBtn" style="border-color: var(--primary); color: var(--primary); white-space: nowrap; width: 100%;">+ Crear Producto Faltante</button>
+                    <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div class="form-group">
+                            <label style="margin-bottom: 4px; font-weight: 800; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Buscar en catálogo</label>
+                            <input type="search" id="pbSearch" class="form-control" placeholder="Nombre del producto..." style="height: 40px;">
+                        </div>
+                        <button class="btn btn-outline" id="pbCreateProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed;">+ CREAR PRODUCTO NUEVO</button>
                     </div>
                     <div id="pbCatalogGrid" style="flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
                         <!-- List Items -->
@@ -980,6 +1083,7 @@ export function renderPurchases(container) {
             const prod = products.find(p => p.id === productId);
             if (!prod) return;
 
+            const itemModal = document.getElementById('itemModal');
             const itemReceptionType = document.getElementById('itemReceptionType');
             const itemQtyInput = document.getElementById('itemQtyInput');
             const itemTotalCostInput = document.getElementById('itemTotalCostInput');
@@ -998,26 +1102,19 @@ export function renderPurchases(container) {
             const receptionSelect = document.getElementById('itemReceptionType');
             const lblQty = document.getElementById('lblItemQty');
 
-            if (purchaseUnit) {
-                // Producto nuevo: unidad de compra fija según configuración
-                receptionSelect.innerHTML = `<option value="${purchaseUnit}">${purchaseUnit}(s)</option>`;
-                receptionSelect.disabled = true;
-                receptionSelect.style.background = 'var(--background)';
-                if (lblQty) lblQty.textContent = `Cantidad recibida (${purchaseUnit}) → se convertirá a ${stockUnit}`;
+            const units = ["Unidad", "Caja", "Bulto", "Saco", "Paquete", "Kilo", "Litro", "Gramo"];
+            receptionSelect.innerHTML = units.map(u => `<option value="${u}">${u}${u === 'Unidad' ? ' (Suelto)' : ''}</option>`).join('');
+            receptionSelect.disabled = false;
+            receptionSelect.style.background = '';
+
+            if (purchaseUnit && units.includes(purchaseUnit)) {
+                receptionSelect.value = purchaseUnit;
+                if (lblQty) lblQty.textContent = `Cantidad recibida (${purchaseUnit})`;
+            } else if (prod.presentationType && units.includes(prod.presentationType)) {
+                receptionSelect.value = prod.presentationType;
+                if (lblQty) lblQty.textContent = `Cantidad recibida`;
             } else {
-                // Producto legado: dropdown completo
-                receptionSelect.disabled = false;
-                receptionSelect.style.background = '';
-                receptionSelect.innerHTML = `
-                    <option value="Unidad">Unidad (Suelto)</option>
-                    <option value="Caja">Caja</option>
-                    <option value="Bulto">Bulto</option>
-                    <option value="Saco">Saco</option>
-                    <option value="Paquete">Paquete</option>
-                    <option value="Kilo">Kilo</option>
-                    <option value="Litro">Litro</option>
-                `;
-                if (prod.presentationType) receptionSelect.value = prod.presentationType;
+                receptionSelect.value = "Unidad";
                 if (lblQty) lblQty.textContent = `Cantidad recibida`;
             }
 
@@ -1026,96 +1123,143 @@ export function renderPurchases(container) {
             itemModal.style.display = 'flex';
             setTimeout(() => itemQtyInput.focus(), 50);
 
-            // Cleanup previous listeners
-            const newConfirm = () => {
-                const qty = parseFloat(itemQtyInput.value);
-                const totalCost = parseFloat(itemTotalCostInput.value);
-                const receptionType = itemReceptionType.value;
+            confirmItemBtn.onclick = () => {
+                try {
+                    const qty = parseNum(itemQtyInput.value);
+                    const totalCost = parseNum(itemTotalCostInput.value);
 
-                if (isNaN(qty) || qty <= 0) {
-                    showToast("Por favor ingrese una cantidad válida.", "error");
-                    return;
-                }
-                if (isNaN(totalCost) || totalCost < 0) {
-                    showToast("Por favor ingrese un costo válido.", "error");
-                    return;
-                }
-
-                // Sistema 3 niveles: cantidad en stockUnit = purchaseQty * purchaseToStockQty
-                const stockQtyReceived = qty * purchaseToStockQty;
-
-                let costPerStockUnitUsd = 0;
-                let costPerStockUnitBs = 0;
-
-                if (currency === 'BS') {
-                    costPerStockUnitBs = totalCost / stockQtyReceived;
-                    costPerStockUnitUsd = costPerStockUnitBs / rate;
-                } else {
-                    costPerStockUnitUsd = totalCost / stockQtyReceived;
-                    costPerStockUnitBs = costPerStockUnitUsd * rate;
-                }
-
-                const subTotalUsd = costPerStockUnitUsd * stockQtyReceived;
-                const subTotalBs = costPerStockUnitBs * stockQtyReceived;
-
-                const existingIndex = tempProducts.findIndex(p => p.id === prod.id);
-                const entry = {
-                    id: prod.id,
-                    name: prod.name,
-                    stockUnit,
-                    purchaseUnit,
-                    purchaseToStockQty,
-                    purchaseQty: qty,
-                    qty: stockQtyReceived,           // en stockUnit
-                    costPerStockUnitUsd,
-                    costPerStockUnitBs,
-                    costUsd: costPerStockUnitUsd,    // alias para compatibilidad display
-                    costBs: costPerStockUnitBs,
-                    subTotalUsd,
-                    subTotalBs
-                };
-
-                if (existingIndex >= 0) {
-                    if (confirm('Este producto ya está en la lista de recepción. ¿Desea reemplazarlo?')) {
-                        tempProducts[existingIndex] = entry;
+                    if (!qty || qty <= 0) {
+                        showToast("Por favor ingrese una cantidad válida.", "error");
+                        return;
                     }
-                } else {
-                    tempProducts.push(entry);
+                    if (totalCost < 0) {
+                        showToast("Por favor ingrese un costo válido.", "error");
+                        return;
+                    }
+
+                    const stockQtyReceived = qty * purchaseToStockQty;
+                    let costPerStockUnitUsd = 0;
+                    let costPerStockUnitBs = 0;
+
+                    if (currency === 'BS') {
+                        costPerStockUnitBs = stockQtyReceived > 0 ? totalCost / stockQtyReceived : 0;
+                        costPerStockUnitUsd = rate > 0 ? costPerStockUnitBs / rate : 0;
+                    } else {
+                        costPerStockUnitUsd = stockQtyReceived > 0 ? totalCost / stockQtyReceived : 0;
+                        costPerStockUnitBs = costPerStockUnitUsd * rate;
+                    }
+
+                    const subTotalUsd = costPerStockUnitUsd * stockQtyReceived;
+                    const subTotalBs = costPerStockUnitBs * stockQtyReceived;
+
+                    const existingIndex = tempProducts.findIndex(p => p.id === prod.id);
+                    const entry = {
+                        id: prod.id,
+                        name: prod.name,
+                        stockUnit,
+                        purchaseUnit,
+                        purchaseToStockQty,
+                        purchaseQty: qty,
+                        qty: stockQtyReceived,
+                        costPerStockUnitUsd,
+                        costPerStockUnitBs,
+                        costUsd: costPerStockUnitUsd,
+                        costBs: costPerStockUnitBs,
+                        subTotalUsd,
+                        subTotalBs
+                    };
+
+                    if (existingIndex >= 0) {
+                        if (confirm('Este producto ya está en la lista de recepción. ¿Desea reemplazarlo?')) {
+                            tempProducts[existingIndex] = entry;
+                        }
+                    } else {
+                        tempProducts.push(entry);
+                    }
+
+                    itemModal.style.display = 'none';
+                    updateTempList();
+                } catch (err) {
+                    console.error("Error in handleConfirm:", err);
+                    showToast("Error al procesar el item: " + err.message, "error");
                 }
-
-                itemModal.style.display = 'none';
-                updateTempList();
-                confirmItemBtn.removeEventListener('click', newConfirm);
             };
 
-            const newCancel = () => {
+            cancelItemBtn.onclick = () => {
                 itemModal.style.display = 'none';
-                confirmItemBtn.removeEventListener('click', newConfirm);
-                cancelItemBtn.removeEventListener('click', newCancel);
             };
-
-            confirmItemBtn.onclick = newConfirm;
-            cancelItemBtn.onclick = newCancel;
         }
 
         function updateTempList() {
-            tempTotalUsd = tempProducts.reduce((acc, p) => acc + p.subTotalUsd, 0);
-            tempTotalBs = tempProducts.reduce((acc, p) => acc + p.subTotalBs, 0);
+            tempTotalUsd = tempProducts.reduce((acc, p) => acc + (p.subTotalUsd || 0), 0);
+            tempTotalBs = tempProducts.reduce((acc, p) => acc + (p.subTotalBs || 0), 0);
 
-            pbTableBody.innerHTML = tempProducts.map((p, index) => `
-                <tr style="border-bottom: 1px solid var(--border);">
+            pbTableBody.innerHTML = tempProducts.map((p, index) => {
+                const costDisplay = (p.purchaseQty && p.purchaseQty > 0) ? (p.subTotalUsd / p.purchaseQty) : 0;
+                return `
+                <tr style="border-bottom: 1px solid var(--border);" data-index="${index}">
                     <td style="padding: 0.5rem; font-size: 0.9rem;">${p.name}</td>
-                    <td style="padding: 0.5rem; font-size: 0.9rem;">${p.purchaseQty} ${p.purchaseUnit} <small class="text-muted">(= ${p.qty} ${p.stockUnit})</small></td>
-                    <td style="padding: 0.5rem; font-size: 0.9rem;">${currency === 'BS' ? `Bs. ${p.costBs.toLocaleString('de-DE', {minimumFractionDigits: 2})}` : `$ ${p.costUsd.toLocaleString('de-DE', {minimumFractionDigits: 4})}`} / ${p.stockUnit}</td>
-                    <td style="padding: 0.5rem; font-size: 0.9rem; font-weight: bold; color: var(--primary);">$ ${p.subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
+                    <td style="padding: 0.5rem; font-size: 0.9rem;">
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <input type="text" inputmode="numeric" class="form-control edit-qty" value="${(p.purchaseQty || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 80px; height: 30px; padding: 0.25rem; font-size: 0.85rem; text-align: center;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${p.purchaseUnit || 'ud'}</span>
+                        </div>
+                    </td>
+                    <td style="padding: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
+                        $ ${costDisplay.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </td>
+                    <td style="padding: 0.5rem; font-size: 0.9rem;">
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <span style="font-size: 0.85rem; font-weight: bold; color: var(--primary);">$</span>
+                            <input type="text" inputmode="numeric" class="form-control edit-subtotal" value="${(p.subTotalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 100px; height: 30px; padding: 0.25rem; font-size: 0.85rem; font-weight: bold; color: var(--primary);">
+                        </div>
+                    </td>
                     <td style="padding: 0.5rem; text-align: right;">
-                        <button class="btn btn-outline" onclick="window.editTempProduct(${index})" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--warning); color: var(--warning); margin-right: 0.25rem;" title="Editar">✏️</button>
                         <button class="btn btn-outline" onclick="window.removeTempProduct(${index})" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--danger); color: var(--danger);" title="Eliminar">X</button>
                     </td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
 
-            pbItemsDisplay.textContent = tempProducts.reduce((acc, p) => acc + p.qty, 0);
+            pbTableBody.querySelectorAll('tr').forEach(tr => {
+                const index = parseInt(tr.dataset.index);
+                const p = tempProducts[index];
+                if (!p) return;
+
+                const qtyInp = tr.querySelector('.edit-qty');
+                const subInp = tr.querySelector('.edit-subtotal');
+
+                const syncData = () => {
+                    const newQty = parseNum(qtyInp.value);
+                    const newSub = parseNum(subInp.value);
+                    
+                    p.purchaseQty = newQty;
+                    p.qty = newQty * (p.purchaseToStockQty || 1);
+                    p.subTotalUsd = newSub;
+                    p.subTotalBs = newSub * rate;
+                    
+                    if (p.qty > 0) {
+                        p.costPerStockUnitUsd = p.subTotalUsd / p.qty;
+                        p.costPerStockUnitBs = p.subTotalBs / p.qty;
+                        p.costUsd = p.costPerStockUnitUsd;
+                        p.costBs = p.costPerStockUnitBs;
+                    }
+
+                    tempTotalUsd = tempProducts.reduce((acc, prod) => acc + (prod.subTotalUsd || 0), 0);
+                    tempTotalBs = tempProducts.reduce((acc, prod) => acc + (prod.subTotalBs || 0), 0);
+                    pbItemsDisplay.textContent = tempProducts.length;
+                    pbTotalBsDisplay.textContent = `Bs. ${tempTotalBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    pbTotalUsdDisplay.textContent = `$ ${tempTotalUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    
+                    const currentCost = p.purchaseQty > 0 ? (p.subTotalUsd / p.purchaseQty) : 0;
+                    tr.children[2].textContent = `$ ${currentCost.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                };
+
+                applyNumericMask(qtyInp, syncData);
+                applyNumericMask(subInp, syncData);
+            });
+
+            pbItemsDisplay.textContent = tempProducts.length;
             pbTotalBsDisplay.textContent = `Bs. ${tempTotalBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             pbTotalUsdDisplay.textContent = `$ ${tempTotalUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
@@ -1284,4 +1428,5 @@ export function renderPurchases(container) {
     }
 
     loadData();
+    return container;
 }

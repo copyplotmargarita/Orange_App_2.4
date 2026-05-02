@@ -1,4 +1,4 @@
-import { navigate } from '../app.js';
+import { navigate } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase } from '../utils.js';
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
