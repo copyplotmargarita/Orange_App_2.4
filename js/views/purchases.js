@@ -611,6 +611,10 @@ export function renderPurchases(container) {
             currentPurchaseProducts = st.products || [];
             shouldOpenBuilder = st.openProductBuilder || false;
             
+            if (st.autoOpenProductId) {
+                window.autoOpenProductId = st.autoOpenProductId;
+            }
+            
             delete window.tempPurchaseState;
         }
 
@@ -1316,6 +1320,13 @@ export function renderPurchases(container) {
 
         renderCatalog();
         updateTempList();
+
+        if (window.autoOpenProductId) {
+            const prodId = window.autoOpenProductId;
+            delete window.autoOpenProductId;
+            // Esperar un momento a que el DOM del catálogo esté listo
+            setTimeout(() => handleProductSelect(prodId), 100);
+        }
     }
 
     function renderDetail(purchase) {

@@ -88,7 +88,8 @@ export function renderProducts(container) {
                     : `<div style="width: 100%; height: 130px; background: var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-muted); position: relative;">Sin Imagen${stockBadge}</div>`;
 
                 html += `
-                    <div class="card product-card" data-id="${prod.id}" style="padding: 0; overflow: hidden; cursor: ${role !== 'employee' ? 'pointer' : 'default'};">
+                    <div class="card product-card" data-id="${prod.id}" style="padding: 0; overflow: hidden; position: relative; cursor: ${role !== 'employee' ? 'pointer' : 'default'};">
+                        ${role !== 'employee' ? `<button class="delete-product-btn" data-id="${prod.id}" style="position: absolute; top: 0.5rem; left: 0.5rem; background: rgba(239, 68, 68, 0.9); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; z-index: 10; font-weight: bold; border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">×</button>` : ''}
                         ${imageHtml}
                         <div style="padding: 0.75rem;">
                             <h3 style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${prod.name}">${prod.name}</h3>
@@ -96,7 +97,6 @@ export function renderProducts(container) {
                                 <p style="font-weight: bold; font-size: 1rem; color: var(--text-main);">$ ${formatCurrency(prod.priceDetal)}</p>
                                 <p style="font-weight: bold; font-size: 1rem; color: var(--text-main);">Bs. ${formatCurrency(priceBsNum)}</p>
                             </div>
-                            <!-- Categoría eliminada para diseño más limpio -->
                         </div>
                     </div>
                 `;
@@ -109,6 +109,27 @@ export function renderProducts(container) {
         const addBtn = container.querySelector('#addProductBtn');
         if (addBtn) addBtn.addEventListener('click', () => renderForm());
         
+        container.querySelectorAll('.delete-product-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const prod = products.find(p => p.id === id);
+                if (!prod) return;
+
+                if (confirm(`¿Eliminar permanentemente "${prod.name}"?`)) {
+                    try {
+                        const businessId = localStorage.getItem('businessId');
+                        await deleteDoc(doc(db, "businesses", businessId, "products", id));
+                        showNotification("Producto eliminado", "success");
+                        loadData();
+                    } catch (error) {
+                        console.error("Error al eliminar:", error);
+                        showNotification("Error al eliminar", "error");
+                    }
+                }
+            });
+        });
+
         container.querySelectorAll('.product-card').forEach(card => {
             if (role !== 'employee') {
                 card.addEventListener('click', () => {
@@ -1127,6 +1148,10 @@ export function renderProducts(container) {
                     prodData.createdAt = new Date().toISOString();
                     const newDocRef = doc(collection(db, "businesses", businessId, "products"));
                     await setDoc(newDocRef, prodData);
+                    
+                    if (window.tempPurchaseState) {
+                        window.tempPurchaseState.autoOpenProductId = newDocRef.id;
+                    }
                 } else {
                     await setDoc(doc(db, "businesses", businessId, "products", editProduct.id), prodData, { merge: true });
                 }
