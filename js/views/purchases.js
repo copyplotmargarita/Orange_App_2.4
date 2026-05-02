@@ -97,45 +97,64 @@ export function renderPurchases(container) {
         }
     }
 
+    let currentFilterSupplier = '';
+    let currentFilterStatus = '';
+
     function renderDeck() {
+        let filteredPurchases = purchases;
+        if (currentFilterSupplier) filteredPurchases = filteredPurchases.filter(p => p.supplierId === currentFilterSupplier);
+        if (currentFilterStatus) filteredPurchases = filteredPurchases.filter(p => p.status === currentFilterStatus);
+
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <h2>Cuentas por Pagar (Compras)</h2>
-                ${role !== 'employee' ? `<button class="btn btn-primary" id="addPurchaseBtn" style="width: auto;">+ Cargar Compra</button>` : ''}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;" class="flex-stack-mobile">
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--primary);">📋 Cuentas por Pagar</h2>
+                <div style="display: flex; gap: 0.75rem; align-items: center;" class="flex-stack-mobile">
+                    <select id="filterSupplier" class="form-control" style="width: auto; min-width: 180px; height: 42px; font-size: 0.85rem; border-radius: 10px;">
+                        <option value="">Todos los Proveedores</option>
+                        ${suppliers.map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                    </select>
+                    <select id="filterStatus" class="form-control" style="width: auto; min-width: 150px; height: 42px; font-size: 0.85rem; border-radius: 10px;">
+                        <option value="">Todos los Estados</option>
+                        <option value="CREDITO" ${currentFilterStatus === 'CREDITO' ? 'selected' : ''}>A CRÉDITO</option>
+                        <option value="ABONO" ${currentFilterStatus === 'ABONO' ? 'selected' : ''}>ABONO</option>
+                        <option value="PAGADO" ${currentFilterStatus === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
+                        <option value="CONTADO" ${currentFilterStatus === 'CONTADO' ? 'selected' : ''}>CONTADO</option>
+                    </select>
+                    ${role !== 'employee' ? `<button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0.75rem 1.5rem; height: 42px; border-radius: 10px;">+ Cargar Compra</button>` : ''}
+                </div>
             </div>
         `;
 
-        // Group debt by supplier
+        // Group debt by supplier (based on filtered results)
         const supplierDebt = {};
         suppliers.forEach(s => {
-            supplierDebt[s.id] = { name: s.name, debt: 0, invoices: 0 };
+            supplierDebt[s.id] = { id: s.id, name: s.name, debt: 0, invoices: 0 };
         });
 
-        purchases.forEach(p => {
-            if (p.status !== 'PAGADO' && p.status !== 'CONTADO') {
-                if (!supplierDebt[p.supplierId]) {
-                    supplierDebt[p.supplierId] = { name: 'Proveedor Desconocido', debt: 0, invoices: 0 };
-                }
+        filteredPurchases.forEach(p => {
+            if (!supplierDebt[p.supplierId]) {
+                supplierDebt[p.supplierId] = { id: p.supplierId, name: 'Proveedor Desconocido', debt: 0, invoices: 0 };
+            }
+            // Solo mostramos tarjetas para facturas con deuda real
+            if (p.status === 'CREDITO' || p.status === 'ABONO') {
                 supplierDebt[p.supplierId].debt += parseFloat(p.pendingBalanceUsd || 0);
                 supplierDebt[p.supplierId].invoices++;
             }
         });
 
-        const activeSuppliers = Object.values(supplierDebt).filter(s => s.invoices > 0);
+        // Filtrar proveedores que realmente tienen deuda activa (> 0)
+        const activeSuppliers = Object.values(supplierDebt).filter(s => s.debt > 0.01);
 
         if (activeSuppliers.length === 0) {
             html += `<div style="padding: 3rem; text-align: center; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
-                <p style="color: var(--text-muted); font-size: 1.1rem;">No hay deudas pendientes con proveedores en este momento.</p>
+                <p style="color: var(--text-muted); font-size: 1.1rem;">No hay registros que coincidan con los filtros.</p>
             </div>`;
         } else {
             html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem;">`;
             
             activeSuppliers.forEach(sup => {
-                // Find supplier ID from name (or better, keep the ID in the loop)
-                const sId = Object.keys(supplierDebt).find(key => supplierDebt[key].name === sup.name);
-                
                 html += `
-                    <div class="card supplier-debt-card" data-id="${sId}" style="padding: 1rem; border-left: 4px solid var(--danger); cursor: pointer; transition: transform 0.2s;">
+                    <div class="card supplier-debt-card" data-id="${sup.id}" style="padding: 1rem; border-left: 4px solid var(--danger); cursor: pointer; transition: transform 0.2s;">
                         <h3 style="color: var(--primary); margin-bottom: 0.75rem; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sup.name}">${sup.name}</h3>
                         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                             <div>
@@ -162,7 +181,7 @@ export function renderPurchases(container) {
                         <tr style="background-color: var(--background); border-bottom: 1px solid var(--border);">
                             <th style="padding: 1rem;">Fecha</th>
                             <th style="padding: 1rem;">Documento</th>
-                            <th style="padding: 1rem;">Numero</th>
+                            <th style="padding: 1rem;">Número</th>
                             <th style="padding: 1rem;">Proveedor</th>
                             <th style="padding: 1rem;">Estado</th>
                             <th style="padding: 1rem;">Total $</th>
@@ -172,11 +191,11 @@ export function renderPurchases(container) {
                     <tbody>
         `;
 
-        if (purchases.length === 0) {
-            html += `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay compras registradas.</td></tr>`;
+        if (filteredPurchases.length === 0) {
+            html += `<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron compras con los filtros seleccionados.</td></tr>`;
         } else {
             // Sort desc
-            purchases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(p => {
+            [...filteredPurchases].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(p => {
                 const supObj = suppliers.find(s => s.id === p.supplierId);
                 const supName = supObj ? supObj.name : 'Desconocido';
                 
@@ -212,6 +231,19 @@ export function renderPurchases(container) {
         `;
 
         container.innerHTML = html;
+
+        // Listeners Filtros
+        const filterSup = container.querySelector('#filterSupplier');
+        const filterSta = container.querySelector('#filterStatus');
+
+        filterSup.addEventListener('change', () => {
+            currentFilterSupplier = filterSup.value;
+            renderDeck();
+        });
+        filterSta.addEventListener('change', () => {
+            currentFilterStatus = filterSta.value;
+            renderDeck();
+        });
 
         const addBtn = container.querySelector('#addPurchaseBtn');
         if (addBtn) addBtn.addEventListener('click', () => renderForm());
@@ -270,6 +302,7 @@ export function renderPurchases(container) {
                             <th style="padding: 1rem;">Estado</th>
                             <th style="padding: 1rem;">Total $</th>
                             <th style="padding: 1rem;">Deuda $</th>
+                            <th style="padding: 1rem; text-align: right;">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -298,6 +331,9 @@ export function renderPurchases(container) {
                         <td style="padding: 1rem; color: var(--danger); font-weight: bold;">
                             $ ${(p.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}
                         </td>
+                        <td style="padding: 1rem; text-align: right;">
+                            <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 800; width: auto;">CARGAR PAGO</button>
+                        </td>
                     </tr>
                 `;
             });
@@ -313,13 +349,231 @@ export function renderPurchases(container) {
 
         container.querySelector('#backToDeckBtn').addEventListener('click', renderDeck);
 
+        container.querySelectorAll('.pay-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const purchase = pending.find(p => p.id === btn.dataset.id);
+                if (purchase) renderPaymentForm(purchase);
+            });
+        });
+
         container.querySelectorAll('.purchase-row').forEach(row => {
             row.addEventListener('mouseover', () => row.style.backgroundColor = 'var(--background)');
             row.addEventListener('mouseout', () => row.style.backgroundColor = 'transparent');
             row.addEventListener('click', () => {
-                const purchase = pending.find(p => p.id === row.dataset.id);
+                const purchase = purchases.find(p => p.id === row.dataset.id);
                 if (purchase) renderDetail(purchase);
             });
+        });
+    }
+
+    function renderPaymentForm(purchase) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const supObj = suppliers.find(s => s.id === purchase.supplierId);
+        const supName = supObj ? supObj.name : 'Desconocido';
+        const docRate = purchase.bcvRate || bcvRate || 1;
+
+        container.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--success);">💰 Cargar Pago</h2>
+                <p class="text-muted text-sm">Registrar abono a factura pendiente</p>
+            </div>
+
+            <div style="max-width: 500px; margin: 0 auto;">
+                <div class="card mb-4" style="padding: 1.5rem; border-top: 4px solid var(--success);">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">Detalle de Deuda</h3>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Factura:</span>
+                        <strong>${purchase.docType} ${purchase.docNumber}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Proveedor:</span>
+                        <strong>${supName}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--danger); font-size: 1.25rem;">
+                        <span>Saldo Pendiente:</span>
+                        <strong>$ ${purchase.pendingBalanceUsd.toLocaleString('de-DE', {minimumFractionDigits: 2})}</strong>
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 2rem;">
+                    <form id="paymentForm">
+                        <div class="form-group">
+                            <label>Fecha del Pago <span class="text-danger">*</span></label>
+                            <input type="date" id="pPaymentDate" class="form-control" required value="${todayStr}">
+                        </div>
+                        <div class="form-group">
+                            <label>Forma de Pago <span class="text-danger">*</span></label>
+                            <select id="pPaymentMethod" class="form-control" required>
+                                <option value="">Seleccione...</option>
+                                <option value="Binance">Binance</option>
+                                <option value="BioPago">BioPago</option>
+                                <option value="Bs. Efectivo">Bs. Efectivo</option>
+                                <option value="Dólares en Efectivo">Dólares en Efectivo</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                                <option value="Paypal">Paypal</option>
+                                <option value="Tarjeta de Débito">Tarjeta de Débito</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Zelle">Zelle</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="bsGroup" style="display: none;">
+                            <label>Monto Bs <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pReceivedBs" class="form-control" placeholder="0,00">
+                        </div>
+                        <div class="form-group" id="usdGroup" style="display: none;">
+                            <label>Monto $ <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pReceivedUsd" class="form-control" placeholder="0,00">
+                        </div>
+
+                        <div class="form-group" id="referenceGroup" style="display: none;">
+                            <label>Número de Referencia <span class="text-danger">*</span></label>
+                            <input type="text" id="pReference" class="form-control" placeholder="Ej. 123456">
+                        </div>
+
+                        <div style="background: var(--background); padding: 1rem; border-radius: 12px; margin-top: 1rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Abono Total $:</span>
+                                <strong id="pTotalAbonoUsd">$ 0,00</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: var(--danger);">
+                                <span>Nuevo Saldo $:</span>
+                                <strong id="pNewPendingUsd">$ ${purchase.pendingBalanceUsd.toLocaleString('de-DE', {minimumFractionDigits: 2})}</strong>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-outline" id="cancelPaymentBtn" style="flex: 1;">VOLVER</button>
+                            <button type="submit" class="btn btn-primary" id="savePaymentBtn" style="flex: 1; background: var(--success); border-color: var(--success);">GUARDAR PAGO</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        const pMethod = container.querySelector('#pPaymentMethod');
+        const pRef = container.querySelector('#pReference');
+        const refGroup = container.querySelector('#referenceGroup');
+        const bsGroup = container.querySelector('#bsGroup');
+        const usdGroup = container.querySelector('#usdGroup');
+        const pBs = container.querySelector('#pReceivedBs');
+        const pUsd = container.querySelector('#pReceivedUsd');
+        const abonoDisplay = container.querySelector('#pTotalAbonoUsd');
+        const newPendingDisplay = container.querySelector('#pNewPendingUsd');
+
+        const updateCalc = () => {
+            const bs = parseNum(pBs.value);
+            const usd = parseNum(pUsd.value);
+            const abonoFromBs = docRate > 0 ? bs / docRate : 0;
+            const totalAbono = usd + abonoFromBs;
+            const newPending = Math.max(0, purchase.pendingBalanceUsd - totalAbono);
+
+            abonoDisplay.textContent = `$ ${totalAbono.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            newPendingDisplay.textContent = `$ ${newPending.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            return { totalAbono, newPending };
+        };
+
+        pMethod.addEventListener('change', () => {
+            const val = pMethod.value;
+            const bsMethods = ['BioPago', 'Bs. Efectivo', 'Pago Móvil', 'Tarjeta de Débito', 'Transferencia'];
+            const usdMethods = ['Binance', 'Dólares en Efectivo', 'Paypal', 'Zelle'];
+            const refMethods = ['Binance', 'Pago Móvil', 'Paypal', 'Transferencia', 'Zelle'];
+
+            // Reset
+            pBs.value = '';
+            pUsd.value = '';
+            pRef.value = '';
+            bsGroup.style.display = 'none';
+            usdGroup.style.display = 'none';
+            refGroup.style.display = 'none';
+            pBs.required = false;
+            pUsd.required = false;
+            pRef.required = false;
+
+            if (bsMethods.includes(val)) {
+                bsGroup.style.display = 'block';
+                pBs.required = true;
+                pBs.value = fmtNum(purchase.pendingBalanceUsd * docRate);
+            } else if (usdMethods.includes(val)) {
+                usdGroup.style.display = 'block';
+                pUsd.required = true;
+                pUsd.value = fmtNum(purchase.pendingBalanceUsd);
+            }
+
+            if (refMethods.includes(val)) {
+                refGroup.style.display = 'block';
+                pRef.required = true;
+            }
+            updateCalc();
+        });
+
+        [pBs, pUsd].forEach(inp => applyNumericMask(inp, updateCalc));
+
+        container.querySelector('#cancelPaymentBtn').addEventListener('click', () => renderSupplierDetail(purchase.supplierId));
+
+        container.querySelector('#paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = container.querySelector('#savePaymentBtn');
+            btn.disabled = true;
+            btn.textContent = 'Guardando...';
+
+            const { totalAbono, newPending } = updateCalc();
+            if (totalAbono <= 0) {
+                showToast("Ingrese un monto válido", "error");
+                btn.disabled = false;
+                btn.textContent = 'GUARDAR PAGO';
+                return;
+            }
+
+            try {
+                const businessId = localStorage.getItem('businessId');
+                
+                // 1. Crear el registro del pago (con su propio ID)
+                const paymentRef = doc(collection(db, "businesses", businessId, "purchases", purchase.id, "payments"));
+                const paymentData = {
+                    date: container.querySelector('#pPaymentDate').value,
+                    method: pMethod.value,
+                    reference: pRef.value || null,
+                    amountBs: parseNum(pBs.value),
+                    amountUsd: parseNum(pUsd.value),
+                    equivalentUsd: totalAbono,
+                    createdAt: new Date().toISOString(),
+                    type: 'MANUAL'
+                };
+                await setDoc(paymentRef, paymentData);
+
+                // 2. Actualizamos la compra
+                const updatedData = {
+                    receivedBs: (purchase.receivedBs || 0) + parseNum(pBs.value),
+                    receivedUsd: (purchase.receivedUsd || 0) + parseNum(pUsd.value),
+                    pendingBalanceUsd: newPending,
+                    status: newPending <= 0.01 ? 'PAGADO' : 'ABONO',
+                    // Guardamos info del último pago para compatibilidad y fallback
+                    paymentDate: paymentData.date,
+                    paymentMethod: paymentData.method,
+                    reference: paymentData.reference,
+                    equivalentUsd: (purchase.equivalentUsd || 0) + totalAbono
+                };
+
+                await updateDoc(doc(db, "businesses", businessId, "purchases", purchase.id), updatedData);
+                
+                const supRef = doc(db, "businesses", businessId, "suppliers", purchase.supplierId);
+                const supSnap = await getDoc(supRef);
+                if (supSnap.exists()) {
+                    const currentDebt = supSnap.data().debt || 0;
+                    await updateDoc(supRef, { debt: Math.max(0, currentDebt - totalAbono) });
+                }
+
+                showToast("Pago registrado con éxito", "success");
+                await loadData();
+                renderSupplierDetail(purchase.supplierId);
+            } catch (err) {
+                console.error("Error guardando pago:", err);
+                showToast("Error al guardar pago", "error");
+                btn.disabled = false;
+                btn.textContent = 'GUARDAR PAGO';
+            }
         });
     }
 
@@ -411,21 +665,7 @@ export function renderPurchases(container) {
                         </button>
                     </div>
 
-                    <!-- Area to display selected products list summary -->
-                    <div id="selectedProductsArea" style="display: none; margin-top: 1.5rem;">
-                        <div style="overflow-x: auto; margin-bottom: 1rem;">
-                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid var(--border);">
-                                        <th style="padding: 0.5rem;">Item</th>
-                                        <th style="padding: 0.5rem;">Cant.</th>
-                                        <th style="padding: 0.5rem;">Total $</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <!-- Area to display selected products list summary (Removed as per redundancy request) -->
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; background: var(--background); padding: 1rem; border-radius: 12px; margin-top: 1rem;">
                         <div style="text-align: center;">
@@ -479,6 +719,10 @@ export function renderPurchases(container) {
                         <div class="form-group" id="equivalentUsdGroup" style="display: none;">
                             <label>Equivalente $ <small class="text-muted">(Auto-calculado)</small></label>
                             <input type="text" id="pEquivalentUsd" class="form-control" readonly style="background: transparent; border-style: dashed;">
+                        </div>
+                        <div class="form-group" id="referenceGroup" style="display: none;">
+                            <label>Número de Referencia <span class="text-danger">*</span></label>
+                            <input type="text" id="pReference" class="form-control" placeholder="Ej. 123456">
                         </div>
                         <div class="form-group">
                             <label>Saldo Pendiente $</label>
@@ -750,6 +994,17 @@ export function renderPurchases(container) {
             pReceivedBs.value = '';
             pReceivedUsd.value = '';
             pEquivalentUsd.value = '';
+            const pReference = container.querySelector('#pReference');
+            const referenceGroup = container.querySelector('#referenceGroup');
+            pReference.value = '';
+            referenceGroup.style.display = 'none';
+            pReference.required = false;
+
+            const refMethods = ['Binance', 'Pago Móvil', 'Paypal', 'Transferencia', 'Zelle'];
+            if (refMethods.includes(method)) {
+                referenceGroup.style.display = 'block';
+                pReference.required = true;
+            }
 
             if (bsMethods.includes(method)) {
                 receivedBsGroup.style.display = 'block';
@@ -759,7 +1014,7 @@ export function renderPurchases(container) {
                 pReceivedUsd.required = false;
 
                 if (pStatus.value === 'CONTADO') {
-                    pReceivedBs.value = totalPurchaseBs.toFixed(2);
+                    pReceivedBs.value = fmtNum(totalPurchaseBs);
                 }
             } else if (usdMethods.includes(method)) {
                 receivedUsdGroup.style.display = 'block';
@@ -769,7 +1024,7 @@ export function renderPurchases(container) {
                 pReceivedBs.required = false;
 
                 if (pStatus.value === 'CONTADO') {
-                    pReceivedUsd.value = totalPurchaseUsd.toFixed(2);
+                    pReceivedUsd.value = fmtNum(totalPurchaseUsd);
                 }
             } else {
                 receivedBsGroup.style.display = 'none';
@@ -847,25 +1102,6 @@ export function renderPurchases(container) {
             container.querySelector('#pTotalBs').textContent = `Bs. ${totalPurchaseBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             container.querySelector('#pTotalUsd').textContent = `$ ${totalPurchaseUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             
-            const area = container.querySelector('#selectedProductsArea');
-            const tbody = container.querySelector('#pTableBody');
-            
-            if (currentPurchaseProducts.length > 0) {
-                area.style.display = 'block';
-                tbody.innerHTML = currentPurchaseProducts.map((p, index) => `
-                    <tr>
-                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.name}</td>
-                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.qty} ${p.unit || 'ud'}</td>
-                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${pCurrency.value === 'BS' ? `Bs. ${p.costBs.toLocaleString('de-DE', {minimumFractionDigits: 2})}` : `$ ${p.costUsd.toLocaleString('de-DE', {minimumFractionDigits: 4})}`}</td>
-                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--primary);">$ ${p.subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
-                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold;">Bs. ${p.subTotalBs.toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
-                    </tr>
-                `).join('');
-            } else {
-                area.style.display = 'none';
-                tbody.innerHTML = '';
-            }
-
             calculatePendingBalance();
         }
 
@@ -925,6 +1161,7 @@ export function renderPurchases(container) {
                 purchaseData.receivedBs = parseNum(pReceivedBs.value) || 0;
                 purchaseData.receivedUsd = parseNum(pReceivedUsd.value) || 0;
                 purchaseData.equivalentUsd = parseNum(pEquivalentUsd.value) || 0;
+                purchaseData.reference = container.querySelector('#pReference').value || null;
             }
             purchaseData.pendingBalanceUsd = parseNum(pPendingBalance.value) || 0;
 
@@ -932,6 +1169,21 @@ export function renderPurchases(container) {
                 // 1. Guardar la compra
                 const newPurchaseRef = doc(collection(db, "businesses", businessId, "purchases"));
                 await setDoc(newPurchaseRef, purchaseData);
+
+                // 1.5 Si hay pago inicial, crear el registro en la sub-colección de pagos
+                if (purchaseData.status === 'CONTADO' || purchaseData.status === 'ABONO') {
+                    const firstPaymentRef = doc(collection(db, "businesses", businessId, "purchases", newPurchaseRef.id, "payments"));
+                    await setDoc(firstPaymentRef, {
+                        date: purchaseData.paymentDate,
+                        method: purchaseData.paymentMethod,
+                        reference: purchaseData.reference,
+                        amountBs: purchaseData.receivedBs,
+                        amountUsd: purchaseData.receivedUsd,
+                        equivalentUsd: purchaseData.equivalentUsd,
+                        createdAt: new Date().toISOString(),
+                        type: 'INITIAL'
+                    });
+                }
 
                 // 2. Actualizar Inventario y Costos
                 // Iteramos los productos y lanzamos updates individuales a Firebase
@@ -1329,7 +1581,29 @@ export function renderPurchases(container) {
         }
     }
 
-    function renderDetail(purchase) {
+    async function renderDetail(purchase) {
+        const businessId = localStorage.getItem('businessId');
+        let payments = [];
+        try {
+            const paySnap = await getDocs(collection(db, "businesses", businessId, "purchases", purchase.id, "payments"));
+            payments = paySnap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => new Date(a.date) - new Date(b.date));
+        } catch (e) {
+            console.error("Error fetching payments for " + purchase.id + ":", e);
+        }
+
+        // Fallback para pagos registrados antes de la sub-colección o si falló la carga
+        const legacyAmount = purchase.equivalentUsd || (purchase.totalUsd - purchase.pendingBalanceUsd);
+        if (payments.length === 0 && legacyAmount > 0.01) {
+            payments.push({
+                id: 'legacy',
+                date: purchase.paymentDate || purchase.receptionDate || purchase.emissionDate,
+                method: purchase.paymentMethod || 'Abono Registrado',
+                reference: purchase.reference || '-',
+                equivalentUsd: legacyAmount,
+                type: 'LEGACY'
+            });
+        }
+
         const supObj = suppliers.find(s => s.id === purchase.supplierId);
         const supName = supObj ? supObj.name : 'Proveedor Desconocido';
         
@@ -1406,29 +1680,61 @@ export function renderPurchases(container) {
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 1.5rem; align-items: stretch;">
+                <!-- Historial de Pagos (Izquierda) -->
                 <div class="card" style="padding: 1.5rem; background: var(--background);">
-                    <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Información de Pago</h4>
-                    ${purchase.paymentDate ? `
-                        <p style="margin-bottom: 0.5rem;"><strong>Fecha:</strong> ${purchase.paymentDate}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Método:</strong> ${purchase.paymentMethod}</p>
-                        ${purchase.receivedBs > 0 ? `<p style="margin-bottom: 0.5rem;"><strong>Abono Bs:</strong> Bs. ${purchase.receivedBs.toLocaleString('de-DE', {minimumFractionDigits: 2})} <span class="text-muted">(Equiv. $${purchase.equivalentUsd.toFixed(2)})</span></p>` : ''}
-                        ${purchase.receivedUsd > 0 ? `<p style="margin-bottom: 0.5rem;"><strong>Abono $:</strong> $ ${purchase.receivedUsd.toLocaleString('de-DE', {minimumFractionDigits: 2})}</p>` : ''}
-                    ` : '<p class="text-muted">No se registraron pagos iniciales.</p>'}
+                    <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Historial de Pagos</h4>
+                    ${payments.length > 0 ? `
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                                        <th style="padding: 0.5rem;">Fecha</th>
+                                        <th style="padding: 0.5rem;">Método</th>
+                                        <th style="padding: 0.5rem;">Ref.</th>
+                                        <th style="padding: 0.5rem; text-align: right;">Abono Bs.</th>
+                                        <th style="padding: 0.5rem; text-align: right;">Abono $</th>
+                                        <th style="padding: 0.5rem; text-align: right;">Equiv. $</th>
+                                        <th style="padding: 0.5rem; text-align: right;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${payments.map(p => {
+                                        const amtBs = p.amountBs || (p.id === 'legacy' ? (purchase.receivedBs || 0) : 0);
+                                        const amtUsd = p.amountUsd || (p.id === 'legacy' ? (purchase.receivedUsd || 0) : 0);
+                                        return `
+                                        <tr style="border-bottom: 1px solid var(--border);">
+                                            <td style="padding: 0.5rem;">${p.date}</td>
+                                            <td style="padding: 0.5rem;">${p.method}</td>
+                                            <td style="padding: 0.5rem;"><small>${p.reference || '-'}</small></td>
+                                            <td style="padding: 0.5rem; text-align: right;">${amtBs > 0 ? `Bs. ${amtBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
+                                            <td style="padding: 0.5rem; text-align: right;">${amtUsd > 0 ? `$ ${amtUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
+                                            <td style="padding: 0.5rem; text-align: right; font-weight: bold; color: var(--success);">$ ${(p.equivalentUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                            <td style="padding: 0.5rem; text-align: right;">
+                                                <button class="delete-pay-btn" data-id="${p.id}" data-amount="${p.equivalentUsd}" style="background: none; border: none; color: var(--danger); cursor: pointer; font-weight: bold; font-size: 1.2rem;">×</button>
+                                            </td>
+                                        </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : '<p class="text-muted">No se registraron pagos para esta factura.</p>'}
                 </div>
-                
-                <div class="card" style="padding: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 1.1rem;">
-                        <span>Total Facturado:</span>
-                        <strong>$ ${(purchase.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</strong>
+
+                <!-- Totales (Derecha) -->
+                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 1rem;">
+                        <span style="color: var(--text-muted);">Total Facturado:</span>
+                        <strong>$ ${(purchase.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; color: var(--text-muted);">
-                        <span>Referencia BCV:</span>
-                        <span>Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span style="color: var(--text-muted);">Referencia BCV:</span>
+                        <span style="font-size: 0.9rem;">Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding-top: 1rem; border-top: 2px solid var(--border); font-size: 1.25rem; color: ${purchase.pendingBalanceUsd > 0 ? 'var(--danger)' : 'var(--success)'};">
                         <span>Saldo Pendiente:</span>
-                        <strong>$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</strong>
+                        <strong>$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
                     </div>
                 </div>
             </div>
@@ -1436,6 +1742,63 @@ export function renderPurchases(container) {
 
         container.innerHTML = html;
         container.querySelector('#backToDeckBtn').addEventListener('click', renderDeck);
+
+        container.querySelectorAll('.delete-pay-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('¿Está seguro de eliminar este pago? El saldo de la factura y la deuda del proveedor se actualizarán.')) return;
+                
+                const payId = btn.dataset.id;
+                const amount = parseFloat(btn.dataset.amount);
+                const businessId = localStorage.getItem('businessId');
+
+                try {
+                    // 1. Eliminar de la sub-colección (si no es virtual/legacy)
+                    if (payId !== 'legacy') {
+                        const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js");
+                        await deleteDoc(doc(db, "businesses", businessId, "purchases", purchase.id, "payments", payId));
+                    }
+
+                    // 2. Revertir montos en la compra
+                    const newPending = purchase.pendingBalanceUsd + amount;
+                    const updatedPurchase = {
+                        receivedUsd: Math.max(0, (purchase.receivedUsd || 0) - amount),
+                        receivedBs: Math.max(0, (purchase.receivedBs || 0) - (amount * (purchase.bcvRate || 1))),
+                        pendingBalanceUsd: newPending,
+                        status: newPending >= (purchase.totalUsd - 0.01) ? 'CREDITO' : 'ABONO'
+                    };
+                    
+                    // Si eliminamos el último pago y era legacy, limpiamos los campos del doc principal
+                    if (payId === 'legacy') {
+                        updatedPurchase.paymentDate = null;
+                        updatedPurchase.paymentMethod = null;
+                        updatedPurchase.reference = null;
+                        updatedPurchase.equivalentUsd = 0;
+                        updatedPurchase.receivedUsd = 0;
+                        updatedPurchase.receivedBs = 0;
+                        updatedPurchase.pendingBalanceUsd = purchase.totalUsd;
+                    }
+
+                    await updateDoc(doc(db, "businesses", businessId, "purchases", purchase.id), updatedPurchase);
+
+                    // 3. Revertir deuda en el proveedor
+                    const supRef = doc(db, "businesses", businessId, "suppliers", purchase.supplierId);
+                    const supSnap = await getDoc(supRef);
+                    if (supSnap.exists()) {
+                        const currentDebt = supSnap.data().debt || 0;
+                        await updateDoc(supRef, { debt: currentDebt + amount });
+                    }
+
+                    showToast("Pago eliminado y saldos revertidos", "success");
+                    await loadData();
+                    const freshPurchase = purchases.find(p => p.id === purchase.id);
+                    if (freshPurchase) renderDetail(freshPurchase);
+                    else renderDeck();
+                } catch (err) {
+                    console.error("Error eliminando pago:", err);
+                    showToast("Error al revertir pago", "error");
+                }
+            });
+        });
     }
 
     loadData();
