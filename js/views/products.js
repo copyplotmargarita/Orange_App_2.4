@@ -739,10 +739,10 @@ export function renderProducts(container) {
             input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '1'; });
         }
 
-        const parseNum = (val) => {
+        function parseNum(val) {
             if (!val) return 0;
             return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
-        };
+        }
 
         [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield].forEach(applyNumericMask);
         [prodPurchaseToStockQty, prodUnitContentQty].forEach(applyIntegerMask);
