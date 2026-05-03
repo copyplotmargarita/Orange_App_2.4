@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orange App - Dev</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Intl Tel Input CSS & JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
+    <script>
+        // Aplicar tema oscuro por defecto de forma inmediata
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+
+        // Rastreador de errores visual para depuración
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style = "position:fixed; bottom:0; left:0; right:0; background:#ef4444; color:white; padding:10px; z-index:10000; font-family:monospace; font-size:12px; border-top:2px solid black;";
+            errorDiv.innerHTML = `<strong>Error Detectado:</strong> ${msg} <br> <small>${url}:${lineNo}</small>`;
+            document.body.appendChild(errorDiv);
+            return false;
+        };
+    </script>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
