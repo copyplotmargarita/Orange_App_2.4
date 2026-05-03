@@ -209,14 +209,21 @@ export function renderProducts(container) {
                                     <input type="hidden" id="prodIsSaleable" value="${editProduct?.isSaleable ? 'true' : 'false'}">
                                 </div>
 
-                                <div class="form-group" id="supplierGroup" style="display: none;">
-                                    <label>🏭 PROVEEDOR</label>
-                                    <select id="prodSupplier" class="form-control">
-                                        <option value="">Seleccione...</option>
-                                        ${[...suppliers].sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${s.id}" ${(editProduct?.supplierId === s.id || (isFromPurchase && purchaseSupplierId === s.id)) ? 'selected' : ''}>${s.name}</option>`).join('')}
-                                    </select>
                                 </div>
-                            </div>
+
+                                <div class="form-group" id="supplierGroup" style="display: none; margin-top: 1rem;">
+                                    <label>🏭 PROVEEDORES ASOCIADOS</label>
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                        <select id="prodSupplierSelect" class="form-control" style="flex: 1;">
+                                            <option value="">Agregar proveedor...</option>
+                                            ${[...suppliers].sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                        </select>
+                                        <button type="button" id="btnAddSupplier" class="btn btn-primary" style="width: auto; padding: 0 1rem; height: 40px;">+</button>
+                                    </div>
+                                    <div id="selectedSuppliersTags" style="display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
+                                        <!-- Tags will be rendered here -->
+                                    </div>
+                                </div>
 
                             <div class="form-group">
                                 <label>🖼️ IMAGEN DEL PRODUCTO</label>
@@ -516,7 +523,46 @@ export function renderProducts(container) {
         const supplierGroup = container.querySelector('#supplierGroup');
         const subCategoryGroup = container.querySelector('#subCategoryGroup');
         const prodSubCategory = container.querySelector('#prodSubCategory');
-        const prodSupplier = container.querySelector('#prodSupplier');
+        const prodSupplierSelect = container.querySelector('#prodSupplierSelect');
+        const btnAddSupplier = container.querySelector('#btnAddSupplier');
+        const selectedSuppliersTags = container.querySelector('#selectedSuppliersTags');
+        let selectedSupplierIds = editProduct?.supplierIds || (editProduct?.supplierId ? [editProduct.supplierId] : []);
+        
+        // Si venimos de una compra, asegurar que ese proveedor esté en la lista
+        if (isFromPurchase && purchaseSupplierId && !selectedSupplierIds.includes(purchaseSupplierId)) {
+            selectedSupplierIds.push(purchaseSupplierId);
+        }
+
+        function renderSupplierTags() {
+            selectedSuppliersTags.innerHTML = selectedSupplierIds.map(id => {
+                const sup = suppliers.find(s => s.id === id);
+                if (!sup) return '';
+                return `
+                    <div style="background: var(--surface); color: var(--text-main); padding: 0.5rem 0.75rem; border-radius: 10px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; border: 1px solid var(--border); width: 100%; box-sizing: border-box; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 600;">${sup.name}</span>
+                        <span class="remove-supplier" data-id="${id}" style="cursor: pointer; font-size: 1.25rem; line-height: 1; color: var(--danger); font-weight: bold; padding: 0 0.25rem;">×</span>
+                    </div>
+                `;
+            }).join('');
+
+            selectedSuppliersTags.querySelectorAll('.remove-supplier').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedSupplierIds = selectedSupplierIds.filter(sid => sid !== btn.dataset.id);
+                    renderSupplierTags();
+                });
+            });
+        }
+
+        btnAddSupplier.addEventListener('click', () => {
+            const id = prodSupplierSelect.value;
+            if (id && !selectedSupplierIds.includes(id)) {
+                selectedSupplierIds.push(id);
+                renderSupplierTags();
+                prodSupplierSelect.value = '';
+            }
+        });
+
+        renderSupplierTags();
         const saleableGroup = container.querySelector('#saleableGroup');
         const prodIsSaleable = container.querySelector('#prodIsSaleable');
         const btnSaleableYes = container.querySelector('#btnSaleableYes');
@@ -569,7 +615,7 @@ export function renderProducts(container) {
             saleableGroup.style.display = 'none';
 
             // Defaults
-            prodSupplier.required = false;
+            prodSupplierSelect.required = false;
             prodYield.required = false;
             prodCost.readOnly = false;
             prodPriceDetal.readOnly = false;
@@ -611,14 +657,12 @@ export function renderProducts(container) {
 
             } else if (cat === 'INSUMO') {
                 supplierGroup.style.display = 'block';
-                prodSupplier.required = true;
                 unitSection.style.display = 'block';
                 costPerUnitGroup.style.display = 'block';
                 saleableGroup.style.display = 'block';
             } else if (cat !== '') {
                 // Categorías personalizadas
                 supplierGroup.style.display = 'block';
-                prodSupplier.required = true;
                 unitSection.style.display = 'block';
                 costPerUnitGroup.style.display = 'none';
                 unitSummaryCard.style.display = 'none';
@@ -1060,8 +1104,17 @@ export function renderProducts(container) {
 
             const category = catSelect.value;
             const subCategory = prodSubCategory.value || null;
+
             if (!category) {
                 showNotification('Por favor seleccione una categoría');
+                btn.disabled = false;
+                btn.textContent = editProduct ? 'Guardar Cambios' : 'Crear Producto';
+                return;
+            }
+
+            // Validar que tenga al menos un proveedor si no es receta/servicio
+            if (category !== 'RECETA' && category !== 'SERVICIOS' && selectedSupplierIds.length === 0) {
+                showNotification('Por favor asocie al menos un proveedor');
                 btn.disabled = false;
                 btn.textContent = editProduct ? 'Guardar Cambios' : 'Crear Producto';
                 return;
@@ -1077,7 +1130,8 @@ export function renderProducts(container) {
             const barcode = container.querySelector('#prodBarcode').value.trim() || null;
             const name = toTitleCase(container.querySelector('#prodName').value.trim());
             const isSaleable = prodIsSaleable.value === 'true';
-            const supplierId = prodSupplier.value || null;
+            const supplierIds = selectedSupplierIds;
+            const supplierId = selectedSupplierIds.length > 0 ? selectedSupplierIds[0] : null;
             const purchaseUnit = prodPurchaseUnit ? prodPurchaseUnit.value.trim() : '';
             const purchaseToStockQty = parseNum(prodPurchaseToStockQty?.value) || 1;
             const stockUnit = prodStockUnit ? prodStockUnit.value : 'Unidad';
@@ -1116,6 +1170,7 @@ export function renderProducts(container) {
                     category,
                     subCategory,
                     isSaleable,
+                    supplierIds,
                     supplierId,
                     // Sistema universal de 3 niveles
                     purchaseUnit,
@@ -1130,14 +1185,11 @@ export function renderProducts(container) {
                     cost,
                     costPerStockUnit,
                     costPerRecipeUnit,
-                    // Precios (siempre por stockUnit)
                     priceDetal,
                     priceMayor,
                     priceSpecial,
-                    // Receta
                     yield: pYield,
                     recipeIngredients: category === 'RECETA' ? recipeIngredients : [],
-                    // Imagen
                     image: imageBase64,
                     businessId,
                     createdAt: editProduct?.createdAt || new Date().toISOString()

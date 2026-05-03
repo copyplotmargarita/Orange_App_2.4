@@ -1313,7 +1313,7 @@ export function renderPurchases(container) {
             const filtered = products
                 .filter(p => {
                     const matchesName = p.name.toLowerCase().includes(filter.toLowerCase());
-                    const matchesSupplier = p.supplierId === targetSupplierId;
+                    const matchesSupplier = p.supplierId === targetSupplierId || (p.supplierIds && p.supplierIds.includes(targetSupplierId));
                     return matchesName && matchesSupplier;
                 })
                 .sort((a, b) => a.name.localeCompare(b.name));
