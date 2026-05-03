@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Backups y zips
+*.zip
+
+# Editor
+.vscode/
+.idea/
+
+# Local env
+.env
+.env.local
