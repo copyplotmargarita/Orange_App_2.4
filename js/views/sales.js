@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase, showNotification } from '../utils.js';
-import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, getDoc, updateDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { renderClients } from './clients.js';
 
 export function renderSales(container, preSelectedClient = null) {
@@ -28,9 +28,27 @@ export function renderSales(container, preSelectedClient = null) {
         target: 'detal',
         priceType: 'precioDetal'
     };
+
+    const resetSettings = () => {
+        settings = {
+            type: 'venta',
+            target: 'detal',
+            priceType: 'precioDetal'
+        };
+        // Update header dropdowns if they exist
+        const typeSelect = container.querySelector('#saleType');
+        const targetSelect = container.querySelector('#saleTarget');
+        const priceSelect = container.querySelector('#priceType');
+        if (typeSelect) typeSelect.value = 'venta';
+        if (targetSelect) targetSelect.value = 'detal';
+        if (priceSelect) priceSelect.value = 'precioDetal';
+    };
+    let convertingBudgetId = null;
+    let historyFilter = 'todos'; // 'todos', 'ventas', 'presupuestos'
     let selectedClient = preSelectedClient;
     let clientDebt = 0;
     let searchProductTerm = '';
+    let activePayCurrency = 'BS';
     let dailySales = [];
     let stores = [];
     const businessId = localStorage.getItem('businessId');
@@ -235,39 +253,51 @@ export function renderSales(container, preSelectedClient = null) {
         const totalUSD = cart.reduce((sum, item) => sum + item.total, 0);
         const grandTotalUSD = includeOldDebt ? totalUSD + clientDebt : totalUSD;
         const totalBs = grandTotalUSD * bcvRate;
-        const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+        const totalItems = cart.length;
 
         container.innerHTML = `
             <div style="width: 100%; height: calc(100vh - 4.5rem); display: flex; flex-direction: column; gap: 1rem; overflow: hidden; padding-bottom: 1.5rem;">
                 <!-- Header / Settings -->
-                <div class="card" style="width: 100%; padding: 0.5rem 1.5rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: nowrap; flex: none;">
-                    <div style="display: flex; gap: 1rem; align-items: center; flex: 1;">
-                        <h2 style="margin: 0; font-size: 1.1rem; white-space: nowrap;">🛒 Ventas</h2>
-                        
-                        <!-- Search Bar Integrated in Header -->
-                        <div style="flex: 1; max-width: 500px; margin: 0 1rem;">
-                            <input type="text" id="productSearch" class="form-control" placeholder="🔍 Buscar producto..." value="${searchProductTerm}" style="padding: 0.45rem 0.75rem; font-size: 0.9rem; width: 100%;">
+                <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: none;">
+                    <!-- Left Header: Product Controls -->
+                    <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; min-width: 0;">
+                            <h2 style="margin: 0; font-size: 1rem; white-space: nowrap; flex: none;">🛒 Ventas</h2>
+                            
+                            <!-- Search Bar -->
+                            <div style="flex: 1; min-width: 120px;">
+                                <input type="text" id="productSearch" class="form-control" placeholder="🔍 Buscar..." value="${searchProductTerm}" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; width: 100%; height: 36px;">
+                            </div>
                         </div>
 
-                        <div style="display: flex; gap: 0.5rem;" class="hide-mobile">
-                            <select id="saleType" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                        <div style="display: flex; gap: 0.35rem; flex: none;" class="hide-mobile">
+                            <select id="saleType" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
                                 <option value="venta" ${settings.type === 'venta' ? 'selected' : ''}>Venta</option>
                                 <option value="presupuesto" ${settings.type === 'presupuesto' ? 'selected' : ''}>Presupuesto</option>
                             </select>
-                            <select id="saleTarget" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                            <select id="saleTarget" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
                                 <option value="detal" ${settings.target === 'detal' ? 'selected' : ''}>Detal</option>
                                 <option value="mayor" ${settings.target === 'mayor' ? 'selected' : ''}>Mayor</option>
                             </select>
-                            <select id="priceType" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                            <select id="priceType" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
                                 <option value="precioDetal" ${settings.priceType === 'precioDetal' ? 'selected' : ''}>P. Detal</option>
                                 <option value="precioMayor" ${settings.priceType === 'precioMayor' ? 'selected' : ''}>P. Mayor</option>
                                 <option value="precioSpecial" ${settings.priceType === 'precioSpecial' ? 'selected' : ''}>P. Especial</option>
                             </select>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 0.75rem; align-items: center; flex: none;">
-                        <button id="viewHistoryBtn" class="btn btn-outline" style="width: auto; padding: 0.45rem 1rem; font-size: 0.85rem;">📅 Ventas del Día</button>
-                        <div class="text-muted hide-mobile" style="font-weight: 500; font-size: 0.85rem;">🏪 ${storeName}</div>
+
+                    <!-- Right Header: Actions & Info -->
+                    <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end;">
+                        <button id="viewHistoryBtn" class="btn btn-outline" style="width: auto; padding: 0 0.75rem; font-size: 0.8rem; height: 36px;">📅 Ventas del Día</button>
+                        
+                        <button id="continueBtn" class="btn btn-primary" style="width: auto; padding: 0 1rem; font-size: 0.85rem; font-weight: 800; height: 36px; white-space: nowrap; box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2);" ${cart.length === 0 ? 'disabled' : ''}>
+                            CONTINUAR →
+                        </button>
+
+                        <div class="text-muted hide-mobile" style="font-weight: 600; font-size: 0.8rem; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; margin-left: 0.5rem;">
+                            <span>🏪</span> ${storeName}
+                        </div>
                     </div>
                 </div>
 
@@ -282,18 +312,8 @@ export function renderSales(container, preSelectedClient = null) {
 
                     <!-- Right Column: Cart (Stationary) -->
                     <div style="width: 100%; height: 100%; overflow: hidden;">
-                        <div class="card" style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 0.8rem 1.25rem; overflow: hidden;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.35rem; gap: 0.5rem; flex: none;">
-                                <h3 style="margin: 0; font-size: 1rem; white-space: nowrap;">Carrito de Ventas</h3>
-                                <div style="display: flex; gap: 0.4rem;">
-                                    <button id="cancelCartBtn" class="btn btn-outline" style="width: auto; padding: 0.3rem 0.7rem; font-size: 0.75rem; color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.05);" ${cart.length === 0 ? 'disabled' : ''}>
-                                        ✕ CANCELAR
-                                    </button>
-                                    <button id="continueBtn" class="btn btn-primary" style="width: auto; padding: 0.35rem 0.9rem; font-size: 0.8rem; font-weight: bold; white-space: nowrap;" ${cart.length === 0 ? 'disabled' : ''}>
-                                        CONTINUAR →
-                                    </button>
-                                </div>
-                            </div>
+                        <div class="card" style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 1rem 1.25rem; overflow: hidden;">
+                            <!-- Items list in Cart -->
                             
                             <!-- Items list in Cart -->
                             <div style="flex: 1; overflow-y: auto; margin-bottom: 1rem;">
@@ -315,7 +335,6 @@ export function renderSales(container, preSelectedClient = null) {
                                                 <tr style="border-bottom: 1px solid var(--border);">
                                                     <td style="padding: 0.75rem 0;">
                                                         <div style="font-weight: 600;">${item.name}</div>
-                                                        <div style="font-size: 0.7rem; color: var(--text-muted);">${item.id}</div>
                                                     </td>
                                                     <td style="padding: 0.75rem 0; text-align: center;">
                                                         <span class="edit-qty" data-index="${index}" style="cursor: pointer; background: var(--background); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: bold; border: 1px solid var(--border);">
@@ -408,11 +427,14 @@ export function renderSales(container, preSelectedClient = null) {
             btn.addEventListener('click', () => {
                 const index = parseInt(btn.dataset.index);
                 const item = cart[index];
+                const prod = products.find(p => p.id === item.id);
+                const stock = prod ? (prod.stockGeneral ?? prod.stock ?? 0) : 999999;
+
                 showQuantityModal(item.name, (newQty) => {
                     item.qty = parseFloat(newQty);
                     item.total = item.qty * item.price;
                     render();
-                }, item.qty);
+                }, item.qty, stock);
             });
         });
 
@@ -446,10 +468,13 @@ export function renderSales(container, preSelectedClient = null) {
             const isMatch = p.name.toLowerCase().includes(searchProductTerm) || 
                             (p.barcode && p.barcode.includes(searchProductTerm));
             
-            // Si es admin, ve todo. Si es empleado, solo lo vendible (isSaleable !== false)
-            const canSee = (role === 'admin') || (p.isSaleable !== false);
+            // Regla Estricta para Ventas:
+            // 1. Debe estar marcado como disponible para venta
+            const canSell = p.isSaleable !== false;
+            // 2. No debe ser de la categoría INSUMO
+            const isNotInsumo = p.category !== 'INSUMO' && p.category !== 'insumo';
             
-            return isMatch && canSee;
+            return isMatch && canSell && isNotInsumo;
         });
 
         if (filtered.length === 0) return '<p class="text-muted" style="grid-column: 1/-1; text-align: center; padding: 2rem;">No se encontraron productos.</p>';
@@ -462,10 +487,13 @@ export function renderSales(container, preSelectedClient = null) {
             let stockBadge = '';
             if (prod.category !== 'SERVICIOS') {
                 const sUnit = prod.stockUnit || 'ud';
-                if (stock <= 0) {
-                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: var(--danger); color: white; padding: 0.1rem 0.25rem; border-radius: 3px; font-size: 0.5rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">SIN STOCK</span>`;
+                if (stock < 0) {
+                    const absStock = Math.abs(stock);
+                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: #ef4444; color: white; padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.55rem; font-weight: 900; box-shadow: 0 1px 4px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); animation: pulse 2s infinite;">⚠️ FALTAN: ${absStock}</span>`;
+                } else if (stock === 0) {
+                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: #4b5563; color: white; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.5rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">SIN STOCK</span>`;
                 } else {
-                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: var(--success); color: white; padding: 0.1rem 0.25rem; border-radius: 3px; font-size: 0.5rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">STOCK: ${stock}</span>`;
+                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: var(--success); color: white; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.5rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">STOCK: ${stock}</span>`;
                 }
             }
 
@@ -507,6 +535,7 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function promptAddToCart(prod) {
+        const stock = prod.stockGeneral ?? prod.stock ?? 0;
         showQuantityModal(prod.name, (qty) => {
             const existing = cart.find(item => item.id === prod.id);
             const price = getPrice(prod);
@@ -524,19 +553,25 @@ export function renderSales(container, preSelectedClient = null) {
                 });
             }
             render();
-        });
+        }, "", stock);
     }
 
-    function showQuantityModal(title, onConfirm, defaultValue = "") {
+    function showQuantityModal(title, onConfirm, defaultValue = "", stock = null) {
         const modal = document.createElement('div');
         modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
         modal.innerHTML = `
             <div class="card" style="width: 100%; max-width: 350px; border-top: 4px solid var(--primary); animation: fadeInScale 0.2s ease-out;">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Cantidad para:</h3>
-                <p style="font-weight: bold; color: var(--primary); margin-bottom: 1.5rem;">${title}</p>
+                <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Cantidad para:</h3>
+                <p style="font-weight: bold; color: var(--primary); margin-bottom: 1rem;">${title}</p>
                 
-                <div class="form-group mb-4">
-                    <input type="number" id="modalQtyInput" class="form-control" step="any" placeholder="0.00" style="font-size: 1.5rem; text-align: center; font-weight: bold;" value="">
+                <div class="form-group mb-3">
+                    <input type="number" id="modalQtyInput" class="form-control" step="any" placeholder="0.00" style="font-size: 1.5rem; text-align: center; font-weight: bold;" value="${defaultValue}">
+                </div>
+
+                <div id="stockWarning" style="display: none; background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; padding: 0.5rem; border-radius: 8px; margin-bottom: 1rem; animation: shake 0.3s ease;">
+                    <p style="color: #f59e0b; font-size: 0.75rem; font-weight: bold; margin: 0; text-align: center;">
+                        ⚠️ Solo hay ${stock} unidades en stock
+                    </p>
                 </div>
                 
                 <div style="display: flex; gap: 1rem;">
@@ -549,7 +584,11 @@ export function renderSales(container, preSelectedClient = null) {
                         from { opacity: 0; transform: scale(0.95); }
                         to { opacity: 1; transform: scale(1); }
                     }
-                    /* Remove arrows from number input */
+                    @keyframes shake {
+                        0%, 100% { transform: translateX(0); }
+                        25% { transform: translateX(-5px); }
+                        75% { transform: translateX(5px); }
+                    }
                     #modalQtyInput::-webkit-outer-spin-button,
                     #modalQtyInput::-webkit-inner-spin-button {
                         -webkit-appearance: none;
@@ -561,7 +600,21 @@ export function renderSales(container, preSelectedClient = null) {
         document.body.appendChild(modal);
         
         const input = modal.querySelector('#modalQtyInput');
+        const warning = modal.querySelector('#stockWarning');
         input.focus();
+        if (defaultValue) input.select();
+
+        const checkStock = () => {
+            const val = parseFloat(input.value);
+            if (stock !== null && val > stock) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        };
+
+        input.oninput = checkStock;
+        checkStock(); // Check initial value
 
         const confirm = () => {
             const val = parseFloat(input.value);
@@ -586,7 +639,7 @@ export function renderSales(container, preSelectedClient = null) {
         const productsUSD = cart.reduce((sum, item) => sum + item.total, 0);
         const totalUSD = includeOldDebt ? (productsUSD + clientDebt) : productsUSD;
         const totalBs = totalUSD * bcvRate;
-        const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+        const totalItems = cart.length;
 
         let paidUSD = 0;
         payments.forEach(p => {
@@ -606,7 +659,7 @@ export function renderSales(container, preSelectedClient = null) {
                         <h3 style="margin: 0; font-size: 1rem; color: var(--text-muted); font-weight: 500;">Checkout</h3>
                     </div>
                     <button id="finishBtn" class="btn btn-primary" style="width: auto; padding: 0.45rem 1.5rem; font-size: 0.9rem; font-weight: bold; background: var(--success); border-color: var(--success); box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);">
-                        ✅ FINALIZAR VENTA
+                        ${settings.type === 'presupuesto' ? '✅ GENERAR PRESUPUESTO' : '✅ FINALIZAR VENTA'}
                     </button>
                 </div>
 
@@ -647,8 +700,9 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
 
                     <!-- Block 2: Payment Methods -->
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; min-width: 0;">
-                        <div class="card" style="padding: 1.25rem; flex: 1; display: flex; flex-direction: column;">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; min-width: 0; ${settings.type === 'presupuesto' ? 'opacity: 0.5; pointer-events: none; filter: grayscale(0.8);' : ''}">
+                        <div class="card" style="padding: 1.25rem; flex: 1; display: flex; flex-direction: column; position: relative;">
+                            ${settings.type === 'presupuesto' ? '<div style="position: absolute; inset: 0; z-index: 10; cursor: not-allowed;" title="No disponible en modo presupuesto"></div>' : ''}
                             <h3 style="margin-bottom: 1rem; color: var(--primary); font-size: 1.1rem;">
                                 2. Métodos de Pago
                             </h3>
@@ -656,10 +710,11 @@ export function renderSales(container, preSelectedClient = null) {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
                                 <div class="form-group">
                                     <label style="font-size: 0.8rem; opacity: 0.8;">Moneda</label>
-                                    <select id="payCurrency" class="form-control" style="margin-top: 0.2rem; padding: 0.4rem; height: 35px; font-size: 0.85rem;">
-                                        <option value="BS">Bolívares (Bs)</option>
-                                        <option value="USD">Dólares ($)</option>
-                                    </select>
+                                    <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem; height: 35px;">
+                                        <button type="button" class="currency-opt ${activePayCurrency === 'BS' ? 'btn-primary' : 'btn-outline'}" data-value="BS" style="flex: 1; padding: 0; font-size: 0.72rem; font-weight: 800; border-radius: 8px; white-space: nowrap;">BOLÍVARES (BS)</button>
+                                        <button type="button" class="currency-opt ${activePayCurrency === 'USD' ? 'btn-primary' : 'btn-outline'}" data-value="USD" style="flex: 1; padding: 0; font-size: 0.72rem; font-weight: 800; border-radius: 8px; white-space: nowrap;">DÓLARES ($)</button>
+                                    </div>
+                                    <input type="hidden" id="payCurrency" value="${activePayCurrency}">
                                 </div>
                                 <div class="form-group">
                                     <label style="font-size: 0.8rem; opacity: 0.8;">Método</label>
@@ -682,19 +737,32 @@ export function renderSales(container, preSelectedClient = null) {
                             <div style="margin-top: 1rem; flex: 1;">
                                 <h4 style="font-size: 0.85rem; margin-bottom: 0.75rem; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.4rem;">Pagos Recibidos</h4>
                                 ${payments.length === 0 
-                                    ? '<p style="text-align: center; padding: 1rem 0; font-size: 0.8rem; opacity: 0.6;">Sin pagos.</p>'
+                                    ? '<p style="text-align: center; padding: 1rem 0; font-size: 0.8rem; opacity: 0.6;">Sin pagos registrados.</p>'
                                     : `
-                                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                                         ${payments.map((p, i) => `
-                                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--background); padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                                                <div style="line-height: 1.2;">
-                                                    <div style="font-weight: bold; font-size: 0.85rem;">${p.method}</div>
-                                                    <div style="color: var(--primary); font-weight: 700; font-size: 0.8rem;">${p.currency} ${fmt(p.amount)}</div>
+                                            <div class="payment-card" style="background: rgba(var(--primary-rgb), 0.03); padding: 0.5rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); transition: all 0.2s; animation: slideIn 0.2s ease-out;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                                                    <div style="font-weight: 900; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; flex: none; color: #fff;">${p.method.replace('_', ' ')}</div>
+                                                    
+                                                    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 1.25rem; min-width: 0; font-weight: 900; font-size: 0.7rem; text-transform: uppercase; color: #fff;">
+                                                        ${p.ref ? `<div style="opacity: 0.7; letter-spacing: 0.02em;">REF: ${p.ref}</div>` : ''}
+                                                        <div style="letter-spacing: 0.02em; white-space: nowrap;">
+                                                            ${p.currency} ${fmt(p.amount)}
+                                                        </div>
+                                                    </div>
+
+                                                    <button class="remove-payment" data-index="${i}" style="background: rgba(239, 68, 68, 0.1); border: none; color: #ef4444; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex: none;">
+                                                        <span style="font-size: 0.7rem; font-weight: bold;">✕</span>
+                                                    </button>
                                                 </div>
-                                                <button class="remove-payment" data-index="${i}" style="background: rgba(239, 68, 68, 0.1); border: none; color: var(--danger); width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem;">✕</button>
                                             </div>
                                         `).join('')}
                                     </div>
+                                    <style>
+                                        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+                                        .payment-card:hover { border-color: var(--primary) !important; background: rgba(var(--primary-rgb), 0.05) !important; }
+                                    </style>
                                     `
                                 }
                             </div>
@@ -702,18 +770,22 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
 
                     <!-- Block 3: Invoice Summary -->
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; min-width: 0;">
-                        <div class="card" style="padding: 1.25rem; flex: 1; display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; min-width: 0; ${settings.type === 'presupuesto' ? 'opacity: 0.8; filter: grayscale(0.5);' : ''}">
+                        <div class="card" style="padding: 1.25rem; flex: 1; display: flex; flex-direction: column; gap: 1rem; position: relative;">
                             <h3 style="margin-bottom: 0.2rem; color: var(--primary); font-size: 1.1rem;">
                                 3. Resumen de Factura
                             </h3>
 
-                            <div class="form-group">
+                            <div class="form-group" style="${settings.type === 'presupuesto' ? 'pointer-events: none; opacity: 0.6;' : ''}">
                                 <label style="font-weight: 600; font-size: 0.85rem;">Estado de Venta <span class="text-danger">*</span></label>
                                 <select id="saleStatus" class="form-control" style="font-weight: bold; margin-top: 0.4rem; border-color: var(--primary); height: 42px; padding: 0 0.75rem; font-size: 0.9rem; line-height: 42px;">
-                                    <option value="abono" ${saleStatus === 'abono' ? 'selected' : ''}>ABONO / PARCIAL</option>
-                                    <option value="credito" ${saleStatus === 'credito' ? 'selected' : ''}>A CRÉDITO</option>
-                                    <option value="contado" ${saleStatus === 'contado' ? 'selected' : ''}>CONTADO</option>
+                                    ${settings.type === 'presupuesto' 
+                                        ? '<option value="presupuesto" selected>PRESUPUESTO</option>' 
+                                        : `
+                                        <option value="abono" ${saleStatus === 'abono' ? 'selected' : ''}>ABONO / PARCIAL</option>
+                                        <option value="credito" ${saleStatus === 'credito' ? 'selected' : ''}>A CRÉDITO</option>
+                                        <option value="contado" ${saleStatus === 'contado' ? 'selected' : ''}>CONTADO</option>
+                                    `}
                                 </select>
                             </div>
                             
@@ -873,7 +945,10 @@ export function renderSales(container, preSelectedClient = null) {
                 `;
             }
             payMethod.innerHTML = options;
-            refGroup.style.display = 'none'; // Reset ref display
+            
+            // Check if the first option is electronic to show reference
+            const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(payMethod.value);
+            refGroup.style.display = isElectronic ? 'block' : 'none';
 
             // Pre-fill amount based on currency
             const payAmountInput = container.querySelector('#payAmount');
@@ -902,7 +977,22 @@ export function renderSales(container, preSelectedClient = null) {
         const payAmountInput = container.querySelector('#payAmount');
         if (payAmountInput) applyNumericMask(payAmountInput);
 
-        payCurrency.addEventListener('change', updatePayMethods);
+        // Currency Toggle Logic
+        container.querySelectorAll('.currency-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                activePayCurrency = btn.dataset.value;
+                payCurrency.value = activePayCurrency;
+                
+                // Update button visual states
+                container.querySelectorAll('.currency-opt').forEach(b => {
+                    b.classList.remove('btn-primary', 'btn-outline');
+                    b.classList.add(b.dataset.value === activePayCurrency ? 'btn-primary' : 'btn-outline');
+                });
+
+                updatePayMethods();
+            });
+        });
+
         updatePayMethods(); // Initial load
 
         payMethod.addEventListener('change', (e) => {
@@ -1072,14 +1162,23 @@ export function renderSales(container, preSelectedClient = null) {
             return;
         }
 
-        const confirmMsg = status === 'contado' ? "¿Está seguro de finalizar esta venta?" :
-                          status === 'abono' ? "¿Está seguro que desea finalizar esta venta con abono?" :
-                          "¿Está seguro que desea finalizar esta venta a crédito?";
+        const isPresupuesto = settings.type === 'presupuesto';
+        let confirmMsg = '';
+        let confirmTitle = "Confirmar Venta";
 
-        showConfirmModal("Confirmar Venta", confirmMsg, async () => {
+        if (isPresupuesto) {
+            confirmTitle = "Confirmar Presupuesto";
+            confirmMsg = "¿Está seguro que desea generar este presupuesto? (No afectará el inventario)";
+        } else {
+            confirmMsg = status === 'contado' ? "¿Está seguro de finalizar esta venta?" :
+                         status === 'abono' ? "¿Está seguro que desea finalizar esta venta con abono?" :
+                         "¿Está seguro que desea finalizar esta venta a crédito?";
+        }
+
+        showConfirmModal(confirmTitle, confirmMsg, async () => {
             const finishBtn = container.querySelector('#finishBtn');
             finishBtn.disabled = true;
-            finishBtn.textContent = 'Procesando...';
+            finishBtn.textContent = isPresupuesto ? 'Generando...' : 'Procesando...';
 
             try {
                 const totalUSD_original = cart.reduce((sum, item) => sum + item.total, 0);
@@ -1117,33 +1216,58 @@ export function renderSales(container, preSelectedClient = null) {
                 }
 
                 await runTransaction(db, async (transaction) => {
-                    // 1. Descontar Inventario
-                    for (const item of cart) {
-                        const prodRef = doc(db, "businesses", businessId, "products", item.id);
-                        const prodSnap = await transaction.get(prodRef);
-                        if (prodSnap.exists()) {
-                            const p = prodSnap.data();
+                    // 1. PRIMERO: Realizar todas las LECTURAS (Solo si NO es presupuesto)
+                    const prodSnaps = [];
+                    const storeSnaps = [];
+
+                    if (!isPresupuesto) {
+                        for (const item of cart) {
+                            const prodRef = doc(db, "businesses", businessId, "products", item.id);
+                            prodSnaps.push({
+                                item,
+                                ref: prodRef,
+                                snap: await transaction.get(prodRef)
+                            });
+
                             if (storeId) {
                                 const storeInvRef = doc(db, "businesses", businessId, "stores", storeId, "inventory", item.id);
-                                const siSnap = await transaction.get(storeInvRef);
-                                const currentStoreStock = siSnap.exists() ? (siSnap.data().stock || 0) : 0;
-                                transaction.set(storeInvRef, { stock: currentStoreStock - item.qty }, { merge: true });
-                            } else {
-                                const currentStock = p.stockGeneral ?? p.stock ?? 0;
-                                transaction.update(prodRef, { stockGeneral: currentStock - item.qty });
+                                storeSnaps.push({
+                                    itemId: item.id,
+                                    ref: storeInvRef,
+                                    snap: await transaction.get(storeInvRef)
+                                });
                             }
                         }
                     }
 
-                    // 2. Registrar Venta Actual
+                    // 2. SEGUNDO: Realizar todas las ESCRITURAS
+                    
+                    // Actualizar Inventario (Solo si NO es presupuesto)
+                    if (!isPresupuesto) {
+                        for (const ps of prodSnaps) {
+                            if (ps.snap.exists()) {
+                                const pData = ps.snap.data();
+                                if (storeId) {
+                                    const ss = storeSnaps.find(s => s.itemId === ps.item.id);
+                                    const currentStoreStock = (ss && ss.snap.exists()) ? (ss.snap.data().stock || 0) : 0;
+                                    transaction.set(ss.ref, { stock: currentStoreStock - ps.item.qty }, { merge: true });
+                                } else {
+                                    const currentStock = pData.stockGeneral ?? pData.stock ?? 0;
+                                    transaction.update(ps.ref, { stockGeneral: currentStock - ps.item.qty });
+                                }
+                            }
+                        }
+                    }
+
+                    // Registrar Venta / Presupuesto Actual
                     const saleRef = doc(collection(db, "businesses", businessId, "sales"));
                     transaction.set(saleRef, {
                         items: cart,
                         totalUSD: totalUSD_original,
                         totalBs: totalUSD_original * bcvRate,
-                        paidUSD: paidToCurrentSale,
-                        remainingUSD: currentRemaining,
-                        status: currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito'),
+                        paidUSD: isPresupuesto ? 0 : paidToCurrentSale,
+                        remainingUSD: isPresupuesto ? totalUSD_original : currentRemaining,
+                        status: isPresupuesto ? 'presupuesto' : (currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito')),
                         clientId: selectedClient.id,
                         clientName: selectedClient.fullName,
                         employeeEmail: auth.currentUser?.email,
@@ -1156,60 +1280,70 @@ export function renderSales(container, preSelectedClient = null) {
                         date: new Date().toLocaleDateString('sv-SE')
                     });
 
-                    // 3. Distribuir excedente a ventas antiguas
+                    // Distribuir excedente a ventas antiguas (Solo si NO es presupuesto)
                     let remainingSurplus = surplus;
-                    for (const oldSale of pendingSales) {
-                        if (remainingSurplus <= 0.01) break;
-                        
-                        const amountToApply = Math.min(oldSale.remainingUSD, remainingSurplus);
-                        const newRemainingUSD = oldSale.remainingUSD - amountToApply;
-                        const newPaidUSD = (oldSale.paidUSD || 0) + amountToApply;
-                        
-                        const oldSaleRef = doc(db, "businesses", businessId, "sales", oldSale.id);
-                        transaction.update(oldSaleRef, {
-                            paidUSD: newPaidUSD,
-                            remainingUSD: newRemainingUSD,
-                            status: newRemainingUSD < 0.01 ? 'contado' : 'abono'
-                        });
-
-                        remainingSurplus -= amountToApply;
+                    if (!isPresupuesto) {
+                        for (const oldSale of pendingSales) {
+                            if (remainingSurplus <= 0.01) break;
+                            const amountToApply = Math.min(oldSale.remainingUSD, remainingSurplus);
+                            const newRemainingUSD = oldSale.remainingUSD - amountToApply;
+                            const newPaidUSD = (oldSale.paidUSD || 0) + amountToApply;
+                            
+                            const oldSaleRef = doc(db, "businesses", businessId, "sales", oldSale.id);
+                            transaction.update(oldSaleRef, {
+                                paidUSD: newPaidUSD,
+                                remainingUSD: newRemainingUSD,
+                                status: newRemainingUSD < 0.01 ? 'contado' : 'abono'
+                            });
+                            remainingSurplus -= amountToApply;
+                        }
                     }
 
-                    // 4. Crear Registros de Pago (vinculados a la venta actual pero con nota si hubo excedente)
+                    // Crear Registros de Pago (Solo si NO es presupuesto)
                     const todayStr = new Date().toLocaleDateString('sv-SE');
-                    for (const p of payments) {
-                        const payRef = doc(collection(db, "businesses", businessId, "payments"));
-                        transaction.set(payRef, {
-                            ...p,
-                            saleId: saleRef.id,
-                            clientId: selectedClient.id,
-                            clientName: selectedClient.fullName,
-                            businessId,
-                            storeId: storeId || 'general',
-                            storeName: storeName,
-                            employeeEmail: auth.currentUser?.email,
-                            employeeName: localStorage.getItem('employeeName') || 'Admin',
-                            date: todayStr,
-                            createdAt: serverTimestamp(),
-                            isCombinedPayment: surplus > 0.01,
-                            surplusAppliedToDebt: surplus > 0.01 ? surplus : 0
-                        });
+                    if (!isPresupuesto) {
+                        for (const p of payments) {
+                            const payRef = doc(collection(db, "businesses", businessId, "payments"));
+                            transaction.set(payRef, {
+                                ...p,
+                                saleId: saleRef.id,
+                                clientId: selectedClient.id,
+                                clientName: selectedClient.fullName,
+                                businessId,
+                                storeId: storeId || 'general',
+                                storeName: storeName,
+                                employeeEmail: auth.currentUser?.email,
+                                employeeName: localStorage.getItem('employeeName') || 'Admin',
+                                date: todayStr,
+                                createdAt: serverTimestamp(),
+                                isCombinedPayment: surplus > 0.01,
+                                surplusAppliedToDebt: surplus > 0.01 ? surplus : 0
+                            });
+                        }
                     }
                 });
 
-                showNotification("✅ Venta procesada y deuda actualizada.");
+                showNotification(isPresupuesto ? "✅ Presupuesto generado correctamente." : "✅ Venta procesada y deuda actualizada.");
                 includeOldDebt = false;
                 cart = [];
                 payments = [];
                 selectedClient = null;
                 currentView = 'cart';
-                render();
+                // Update original budget status if applicable
+                if (convertingBudgetId && !isPresupuesto) {
+                    const budgetRef = doc(db, "businesses", businessId, "sales", convertingBudgetId);
+                    await updateDoc(budgetRef, { status: 'facturado' });
+                }
+
+                resetSettings();
+                convertingBudgetId = null;
+                loadData(); // Re-load everything to refresh stocks
                 
             } catch (err) {
                 console.error("Sale error:", err);
                 showNotification("Error al procesar la venta: " + err.message);
                 finishBtn.disabled = false;
-                finishBtn.textContent = '✅ FINALIZAR VENTA';
+                finishBtn.textContent = isPresupuesto ? '✅ GENERAR PRESUPUESTO' : '✅ FINALIZAR VENTA';
             }
         });
     }
@@ -1246,6 +1380,11 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
                     
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select id="historyFilterSelect" class="btn btn-outline" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; height: auto;">
+                            <option value="todos" ${historyFilter === 'todos' ? 'selected' : ''}>📁 Todos</option>
+                            <option value="ventas" ${historyFilter === 'ventas' ? 'selected' : ''}>💰 Solo Ventas</option>
+                            <option value="presupuestos" ${historyFilter === 'presupuestos' ? 'selected' : ''}>📝 Solo Presupuestos</option>
+                        </select>
                         <button id="refreshHistoryBtn" class="btn btn-outline" style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.8rem;">🔄 Actualizar</button>
                     </div>
                 </div>
@@ -1268,7 +1407,13 @@ export function renderSales(container, preSelectedClient = null) {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${dailySales.map((sale, i) => {
+                                ${dailySales
+                                    .filter(sale => {
+                                        if (historyFilter === 'ventas') return sale.status !== 'presupuesto' && sale.status !== 'facturado';
+                                        if (historyFilter === 'presupuestos') return sale.status === 'presupuesto' || sale.status === 'facturado';
+                                        return true;
+                                    })
+                                    .map((sale, i) => {
                                     const time = sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--';
                                     const statusColor = sale.status === 'contado' ? 'var(--success)' : sale.status === 'abono' ? 'var(--warning)' : 'var(--danger)';
                                     return `
@@ -1284,12 +1429,22 @@ export function renderSales(container, preSelectedClient = null) {
                                         </td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: 800;">$${fmt(sale.totalUSD)}</td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: center;">
-                                            <span style="padding: 0.15rem 0.4rem; border-radius: 4px; background: ${statusColor}1A; color: ${statusColor}; font-weight: bold; font-size: 0.65rem; text-transform: uppercase;">
+                                            <span style="padding: 0.15rem 0.4rem; border-radius: 4px; background: ${sale.status === 'presupuesto' ? 'rgba(59, 130, 246, 0.1)' : sale.status === 'facturado' ? 'rgba(16, 185, 129, 0.1)' : statusColor + '1A'}; color: ${sale.status === 'presupuesto' ? 'var(--primary)' : sale.status === 'facturado' ? '#10b981' : statusColor}; font-weight: bold; font-size: 0.65rem; text-transform: uppercase;">
                                                 ${sale.status}
                                             </span>
                                         </td>
-                                        <td style="padding: 0.45rem 0.75rem; text-align: right;">
-                                            <button class="btn btn-outline view-sale-detail" data-index="${i}" style="width: auto; padding: 0.2rem 0.4rem; font-size: 0.7rem;">Ver Detalle</button>
+                                        <td style="padding: 0.45rem 0.75rem; text-align: right; white-space: nowrap;">
+                                            <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                                                ${sale.status === 'presupuesto' || sale.status === 'facturado' ? `
+                                                    ${sale.status === 'presupuesto' ? `
+                                                        <button class="btn btn-primary convert-to-sale" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; background: var(--primary); border-color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">🛒 Facturar</button>
+                                                    ` : ''}
+                                                    <button class="btn btn-outline print-presupuesto" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; border-color: var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">📄 Presupuesto</button>
+                                                ` : `
+                                                    <button class="btn btn-outline print-presupuesto" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; border-color: var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">📄 Ver Factura</button>
+                                                `}
+                                                <button class="btn btn-outline view-sale-detail" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px;">Ver Detalle</button>
+                                            </div>
                                         </td>
                                     </tr>
                                     `;
@@ -1323,11 +1478,38 @@ export function renderSales(container, preSelectedClient = null) {
             render();
         });
 
+        container.querySelector('#historyFilterSelect').addEventListener('change', (e) => {
+            historyFilter = e.target.value;
+            render();
+        });
+
 
         container.querySelectorAll('.view-sale-detail').forEach(btn => {
             btn.addEventListener('click', () => {
                 const sale = dailySales[parseInt(btn.dataset.index)];
                 showSaleDetail(sale);
+            });
+        });
+
+        container.querySelectorAll('.print-presupuesto').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const sale = dailySales[parseInt(btn.dataset.index)];
+                
+                let salePayments = [];
+                if (sale.status !== 'presupuesto') {
+                    const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
+                    const paySnap = await getDocs(q);
+                    salePayments = paySnap.docs.map(doc => doc.data());
+                }
+                
+                generateDocumentView(sale, salePayments);
+            });
+        });
+
+        container.querySelectorAll('.convert-to-sale').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sale = dailySales[parseInt(btn.dataset.index)];
+                convertToSale(sale);
             });
         });
 
@@ -1428,17 +1610,25 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     async function showSaleDetail(sale) {
+        const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
         const modal = container.querySelector('#saleDetailModal');
         const content = container.querySelector('#modalContent');
 
-        const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
-        const paySnap = await getDocs(q);
-        const salePayments = paySnap.docs.map(doc => doc.data());
+        let salePayments = [];
+        if (!isBudget) {
+            const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
+            const paySnap = await getDocs(q);
+            salePayments = paySnap.docs.map(doc => doc.data());
+        }
 
         content.innerHTML = `
             <div style="text-align: center; margin-bottom: 2rem;">
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;">Resumen de Venta</div>
-                <h2 style="margin: 0.5rem 0;">Factura: ${sale.id.slice(-6).toUpperCase()}</h2>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;">
+                    ${isBudget ? 'Resumen de Presupuesto' : 'Resumen de Venta'}
+                </div>
+                <h2 style="margin: 0.5rem 0;">
+                    ${isBudget ? 'Presupuesto:' : 'Factura:'} ${sale.id.slice(-6).toUpperCase()}
+                </h2>
                 <div style="font-size: 0.85rem; color: var(--text-muted);">${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleString() : sale.date}</div>
             </div>
 
@@ -1450,7 +1640,7 @@ export function renderSales(container, preSelectedClient = null) {
                 </div>
                 <div style="text-align: right;">
                     <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Estado</h4>
-                    <span style="padding: 0.2rem 0.6rem; border-radius: 4px; background: var(--primary)1A; color: var(--primary); font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
+                    <span style="padding: 0.2rem 0.6rem; border-radius: 4px; background: ${sale.status === 'facturado' ? 'rgba(16, 185, 129, 0.1)' : 'var(--primary)1A'}; color: ${sale.status === 'facturado' ? '#10b981' : 'var(--primary)'}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
                         ${sale.status}
                     </span>
                 </div>
@@ -1471,6 +1661,7 @@ export function renderSales(container, preSelectedClient = null) {
                 <div style="text-align: right; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">Bs. ${fmt(sale.totalBs)}</div>
             </div>
 
+            ${isBudget ? '' : `
             <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Pagos Recibidos</h4>
             <div style="margin-bottom: 1rem;">
                 ${salePayments.length === 0 ? '<p class="text-sm text-muted">No se registraron pagos.</p>' : 
@@ -1493,6 +1684,7 @@ export function renderSales(container, preSelectedClient = null) {
                     Tienda: ${sale.storeName}
                 </div>
             </div>
+            `}
 
             <div style="margin-top: 2rem;">
                 <button id="modalCloseBtn" class="btn btn-primary">Cerrar Detalle</button>
@@ -1504,6 +1696,165 @@ export function renderSales(container, preSelectedClient = null) {
         };
 
         modal.style.display = 'flex';
+    }
+
+    function convertToSale(budget) {
+        showConfirmModal("Facturar Presupuesto", "¿Desea cargar los datos de este presupuesto al carrito para generar una venta?", () => {
+            convertingBudgetId = budget.id;
+            // 1. Cargar Carrito
+            cart = budget.items.map(item => ({...item}));
+            
+            // 2. Seleccionar Cliente
+            selectedClient = clients.find(c => c.id === budget.clientId) || {
+                id: budget.clientId,
+                fullName: budget.clientName
+            };
+            
+            // 3. Resetear configuración a Venta
+            settings.type = 'venta';
+            settings.target = budget.target || 'detal';
+            settings.priceType = budget.priceType || 'precioDetal';
+            
+            // 4. Navegar al Checkout
+            currentView = 'payment';
+            render();
+            showNotification("🛒 Presupuesto cargado. Proceda a registrar los pagos.");
+        }, "Sí, Facturar", "Cancelar");
+    }
+
+    function generateDocumentView(sale, salePayments = []) {
+        const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
+        const printWindow = window.open('', '_blank');
+        const bName = localStorage.getItem('businessName') || 'ORANGE APP';
+        const sName = sale.storeName || 'Sucursal';
+        
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>${isBudget ? 'Presupuesto' : 'Factura'} - ${sale.id.slice(-6).toUpperCase()}</title>
+                <style>
+                    body { font-family: 'Arial', sans-serif; padding: 30px; color: #1a202c; line-height: 1.5; background: #f8fafc; margin: 0; }
+                    .page { background: white; width: 210mm; min-height: 297mm; padding: 20mm; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; position: relative; box-sizing: border-box; }
+                    .no-print-toolbar { position: sticky; top: 0; background: #2d3748; padding: 10px; display: flex; justify-content: center; gap: 20px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+                    .btn-print { background: #48bb78; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+                    .btn-pdf { background: #4299e1; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+                    .header { display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #edf2f7; padding-bottom: 20px; }
+                    .company h1 { margin: 0; color: #2b6cb0; font-size: 22px; text-transform: uppercase; }
+                    .company p { margin: 2px 0; font-size: 12px; color: #718096; }
+                    .budget-id { text-align: right; }
+                    .budget-id h2 { margin: 0; color: #2d3748; font-size: 18px; }
+                    .budget-id p { margin: 4px 0; font-weight: bold; color: #4a5568; font-size: 14px; }
+                    .client-box { background: #f7fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+                    .client-box h3 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: #718096; letter-spacing: 0.05em; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                    th { text-align: left; padding: 10px; background: #edf2f7; color: #4a5568; font-size: 12px; text-transform: uppercase; }
+                    td { padding: 10px; border-bottom: 1px solid #edf2f7; font-size: 13px; }
+                    .totals { margin-left: auto; width: 250px; }
+                    .total-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+                    .total-row.main { font-weight: bold; font-size: 18px; color: #2b6cb0; border-top: 2px solid #2b6cb0; margin-top: 10px; padding-top: 12px; }
+                    .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #a0aec0; border-top: 1px solid #edf2f7; padding-top: 20px; }
+                    @media print { 
+                        body { background: white; padding: 0; } 
+                        .no-print-toolbar { display: none !important; } 
+                        .page { margin: 0; box-shadow: none; width: 100%; padding: 10mm; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="no-print-toolbar">
+                    <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
+                    <button class="btn-pdf" onclick="window.print()">💾 GUARDAR PDF</button>
+                </div>
+                
+                <div class="page">
+                    <div class="header">
+                        <div class="company">
+                            <h1>${bName}</h1>
+                            <p>${sName}</p>
+                            <p>Vendedor: ${sale.employeeName}</p>
+                        </div>
+                        <div class="budget-id">
+                            <h2>${isBudget ? 'PRESUPUESTO' : 'FACTURA'}</h2>
+                            <p>${isBudget ? 'ID:' : 'Factura:'} ${sale.id.slice(-6).toUpperCase()}</p>
+                            <div style="font-size: 12px; color: #718096;">${sale.date}</div>
+                            ${sale.status === 'facturado' ? '<div style="color: #48bb78; font-weight: bold; font-size: 12px; margin-top: 5px;">ESTADO: FACTURADO</div>' : ''}
+                        </div>
+                    </div>
+
+                    <div class="client-box">
+                        <h3>Cliente</h3>
+                        <div style="font-weight: bold; font-size: 15px;">${sale.clientName}</div>
+                        <div style="font-size: 13px; color: #4a5568;">ID: ${sale.clientId}</div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cant.</th>
+                                <th>Descripción</th>
+                                <th style="text-align: right;">P. Unit ($)</th>
+                                <th style="text-align: right;">Total ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sale.items.map(item => `
+                                <tr>
+                                    <td style="width: 50px;">${item.qty}</td>
+                                    <td>${item.name}</td>
+                                    <td style="text-align: right; width: 100px;">$ ${fmt(item.price)}</td>
+                                    <td style="text-align: right; width: 100px;">$ ${fmt(item.total)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    <div class="totals">
+                        <div class="total-row">
+                            <span>SUBTOTAL USD:</span>
+                            <span>$ ${fmt(sale.totalUSD)}</span>
+                        </div>
+                        <div class="total-row main">
+                            <span>TOTAL USD:</span>
+                            <span>$ ${fmt(sale.totalUSD)}</span>
+                        </div>
+                        <div style="text-align: right; margin-top: 8px; font-weight: bold; color: #4a5568; font-size: 15px;">
+                            TOTAL BS: ${fmt(sale.totalBs)}
+                        </div>
+                        <div style="text-align: right; font-size: 11px; color: #718096; margin-top: 4px;">
+                            Tasa BCV: Bs. ${fmt(sale.totalBs / sale.totalUSD)}
+                        </div>
+                    </div>
+
+                    ${!isBudget && salePayments.length > 0 ? `
+                    <div style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 20px;">
+                        <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px;">Pagos Registrados</h3>
+                        <div style="font-size: 12px;">
+                            ${salePayments.map(p => `
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span>${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
+                                    <span style="font-weight: bold;">${p.currency} ${fmt(p.amount)}</span>
+                                </div>
+                            `).join('')}
+                            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-weight: bold; color: #e53e3e; border-top: 1px dashed #edf2f7; padding-top: 8px;">
+                                <span>PENDIENTE POR COBRAR:</span>
+                                <span>$ ${fmt(sale.remainingUSD || 0)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="footer">
+                        <p>${isBudget ? 'Este presupuesto es informativo y tiene una validez de 24 horas.' : 'Gracias por su compra. Este documento es su comprobante de pago.'}</p>
+                        <p>Los precios expresados en Bolívares están sujetos a la tasa BCV del día.</p>
+                        <p>¡Gracias por elegirnos!</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
     }
 
     loadData();

@@ -69,5 +69,27 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
     *   Se eliminaron archivos de respaldo pesados (`.zip`) del historial activo de Git para reducir el tamaño del repositorio.
     *   Se sincronizó la rama `main` con estas mejoras estructurales.
 
+### 5.2 Módulo de Ventas y Presupuestos (Mayo 2026)
+*   **Ciclo de Vida de Presupuestos:** Implementación del flujo `PRESUPUESTO -> FACTURADO`. Los presupuestos ahora se pueden convertir en ventas reales con un clic, marcando el documento original como procesado para evitar duplicidad.
+*   **Gestión de Documentos (PDF/Web):** Creación de un visualizador de documentos profesional. Genera tanto **Facturas de Venta** como **Presupuestos**, con diseño optimizado para compartir vía WhatsApp o imprimir.
+*   **Integridad de Datos:**
+    *   Sincronización automática de inventario post-venta (reload reactivo).
+    *   Corrección de errores de duplicidad de registros.
+    *   Validación de stock negativo con alertas visuales dinámicas.
+*   **Refinamiento UI/UX:**
+    *   Simetría y estandarización de botones de acción en el historial.
+    *   Filtros inteligentes en "Ventas del Día" (Todos / Solo Ventas / Solo Presupuestos).
+    *   Reinicio automático de configuración (Venta/Detal) tras cada operación.
+    *   Bloqueo visual de secciones de pago en modo presupuesto.
+*   **Estabilidad Técnica:**
+    *   Importación de servicios faltantes (`updateDoc`) y optimización de transacciones Firestore.
+    *   Limpieza de logs de error en consola y manejo de excepciones en el flujo de caja.
+
+---
+
+## 6. Próximos Pasos (Sugeridos para Dasaev)
+1.  **Migración CSS**: Los estilos inyectados en el visualizador de documentos podrían moverse a un archivo `css/printing.css`.
+2.  **Reportes Mensuales**: Evaluar la integración de los nuevos estados de presupuesto en el panel de estadísticas general.
+
 ---
 *Última actualización: 04-Mayo-2026*
