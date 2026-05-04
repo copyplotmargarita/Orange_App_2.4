@@ -30,12 +30,12 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
 ## 3. Fases de Ejecución
 
 ### Fase 1: Limpieza de Infraestructura
-- [ ] **Eliminar duplicidad:** Mover el contenido de la carpeta interna a la raíz y eliminar la carpeta vacía.
-- [ ] **Saneamiento de Git:** Untrack de archivos `.zip` y carpetas de assets, moviéndolos a `.gitignore`.
-- [ ] **Reorganización de Directorios:**
+- [x] **Eliminar duplicidad:** Mover el contenido de la carpeta interna a la raíz y eliminar la carpeta vacía. (Completado en rama `reconexion`)
+- [x] **Saneamiento de Git:** Untrack de archivos `.zip` y carpetas de assets, moviéndolos a `.gitignore`.
+- [x] **Reorganización de Directorios:**
     *   `/docs`: Para manuales y guías.
-    *   `/tools`: Para scripts de limpieza y reseteo.
-    *   `/assets`: Para imágenes y logos.
+    *   `/tools`: Para scripts de limpieza, reseteo y ejecución local.
+    *   `/assets`: Para imágenes y logos. (Pendiente crear carpeta de assets de UI)
 
 ### Fase 2: Refactorización de Estilos (CSS Externo)
 - [ ] **Creación de `css/components.css`**: Extraer estilos comunes de botones, tarjetas y formularios.
@@ -47,9 +47,29 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
 
 ---
 
-## 5. Registro de Mejoras Recientes (04/05/2026)
+## 4. Verificación
+*   Cada fase se completará en una rama específica.
+*   Se realizará una prueba de humo (Smoke Test) de todo el flujo (Login -> Compra -> Pago -> Inventario) después de cada fase.
 
-### 5.1 Módulo de Ventas y Presupuestos
+---
+
+## 5. Log de Cambios y Progreso
+
+### 5.1 Rama: `reconexion` (Mayo 2026)
+**Objetivo:** Restaurar el acceso a GitHub Pages y limpiar la estructura base.
+
+*   **[COMPLETADO] Aplanamiento del Repositorio:**
+    *   Se eliminó la carpeta redundante `Orange_App_2.4/`.
+    *   Todo el código fuente (`index.html`, `js/`, `css/`) reside ahora exclusivamente en la raíz.
+    *   Se movió `CONTEXT.md` a la raíz para mejor visibilidad.
+*   **[COMPLETADO] Automatización de Despliegue (CI/CD):**
+    *   Se implementó un flujo de trabajo de GitHub Actions (`.github/workflows/static.yml`) para despliegue automático de HTML estático.
+    *   Este método sustituye al constructor interno de GitHub Pages, proporcionando mayor control y logs de errores.
+*   **[COMPLETADO] Saneamiento Inicial:**
+    *   Se eliminaron archivos de respaldo pesados (`.zip`) del historial activo de Git para reducir el tamaño del repositorio.
+    *   Se sincronizó la rama `main` con estas mejoras estructurales.
+
+### 5.2 Módulo de Ventas y Presupuestos (Mayo 2026)
 *   **Ciclo de Vida de Presupuestos:** Implementación del flujo `PRESUPUESTO -> FACTURADO`. Los presupuestos ahora se pueden convertir en ventas reales con un clic, marcando el documento original como procesado para evitar duplicidad.
 *   **Gestión de Documentos (PDF/Web):** Creación de un visualizador de documentos profesional. Genera tanto **Facturas de Venta** como **Presupuestos**, con diseño optimizado para compartir vía WhatsApp o imprimir.
 *   **Integridad de Datos:**
@@ -61,13 +81,15 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
     *   Filtros inteligentes en "Ventas del Día" (Todos / Solo Ventas / Solo Presupuestos).
     *   Reinicio automático de configuración (Venta/Detal) tras cada operación.
     *   Bloqueo visual de secciones de pago en modo presupuesto.
-
-### 5.2 Estabilidad Técnica
-*   Importación de servicios faltantes (`updateDoc`) y optimización de transacciones Firestore.
-*   Limpieza de logs de error en consola y manejo de excepciones en el flujo de caja.
+*   **Estabilidad Técnica:**
+    *   Importación de servicios faltantes (`updateDoc`) y optimización de transacciones Firestore.
+    *   Limpieza de logs de error en consola y manejo de excepciones en el flujo de caja.
 
 ---
 
 ## 6. Próximos Pasos (Sugeridos para Dasaev)
-1.  **Migración CSS**: Los estilos inyectados hoy en el visualizador de documentos podrían moverse a un archivo `css/printing.css`.
+1.  **Migración CSS**: Los estilos inyectados en el visualizador de documentos podrían moverse a un archivo `css/printing.css`.
 2.  **Reportes Mensuales**: Evaluar la integración de los nuevos estados de presupuesto en el panel de estadísticas general.
+
+---
+*Última actualización: 04-Mayo-2026*
