@@ -1,5 +1,10 @@
 # Orange App — Dev
 
+> Para contexto completo del proyecto, arquitectura, convenciones y flujo Git, leer:
+> **`Orange_App_2.4/CONTEXT.md`** — fuente de verdad compartida entre todos los devs e IAs.
+
+---
+
 ## Project Overview
 
 **Orange App** is a web-based business management SPA (Single Page Application) built for Venezuelan small businesses. It manages sales, inventory, purchases, clients, suppliers, employees, and stores, with dual-currency support (USD / Bolívares via BCV exchange rate).
