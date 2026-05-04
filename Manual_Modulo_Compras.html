@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - Módulo de Compras | Orange App</title>
+    <style>
+        :root {
+            --primary: #f97316;
+            --primary-dark: #ea580c;
+            --secondary: #0f172a;
+            --text-main: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --bg-light: #f8fafc;
+            --white: #ffffff;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-main);
+            background-color: #f1f5f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            background: var(--white);
+            padding: 3rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 3px solid var(--primary);
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+        }
+
+        h1 { color: var(--secondary); margin-bottom: 0.5rem; font-size: 2.5rem; }
+        h2 { color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-top: 2.5rem; }
+        h3 { color: var(--secondary); margin-top: 1.5rem; }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+        }
+        .badge-orange { background-color: var(--primary); }
+        .badge-blue { background-color: #3b82f6; }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            gap: 1rem;
+        }
+        .step-number {
+            background: var(--primary);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 5px solid #3b82f6;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fff7ed;
+            border-left: 5px solid var(--warning);
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .screenshot {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin: 1.5rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        footer {
+            margin-top: 4rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+        th { background-color: var(--bg-light); }
+
+        @media print {
+            body { background: white; }
+            .container { box-shadow: none; margin: 0; padding: 0; max-width: 100%; }
+            h2 { page-break-before: always; }
+            .screenshot { max-height: 400px; object-fit: contain; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Orange App</h1>
+        <p class="badge badge-orange">Manual de Usuario v2.4</p>
+        <h2>Módulo de Gestión de Compras</h2>
+    </header>
+
+    <p>Este manual detalla el funcionamiento del módulo de <strong>Compras (Cuentas por Pagar)</strong>. Este módulo permite registrar la recepción de mercancía, gestionar deudas con proveedores, realizar abonos granulares y mantener un historial auditivo de cada transacción financiera.</p>
+
+    <h2>1. Dashboard de Cuentas por Pagar</h2>
+    <p>Al ingresar al módulo, verá una vista general diseñada para el control rápido de deudas.</p>
+    
+    <img src="manual_assets/dashboard.png" alt="Dashboard de Compras" class="screenshot">
+
+    <h3>Tarjetas de Resumen</h3>
+    <ul>
+        <li><strong>Visibilidad Inteligente:</strong> Solo se muestran tarjetas de proveedores con deudas activas (Estado: CRÉDITO o ABONO).</li>
+        <li><strong>Métricas:</strong> Cada tarjeta muestra el nombre del proveedor, el monto total adeudado en dólares ($) y la cantidad de facturas pendientes.</li>
+    </ul>
+
+    <h3>Sistema de Filtros</h3>
+    <p>Para manejar grandes volúmenes de datos, utilice los filtros ubicados en la parte superior derecha (Proveedor y Estado).</p>
+
+    <h2>2. Registro de una Nueva Compra</h2>
+    <p>Para cargar una factura o nota de entrega de un proveedor, haga clic en el botón <span class="badge badge-orange">+ Cargar Compra</span>.</p>
+
+    <img src="manual_assets/form_compra.png" alt="Formulario de Carga de Compra" class="screenshot">
+
+    <div class="step">
+        <div class="step-number">1</div>
+        <div>
+            <strong>Datos del Documento:</strong> Seleccione el proveedor, las fechas de emisión/recepción y, muy importante, la <strong>Tasa BCV</strong> del día de la factura. El sistema usará esta tasa para todos los cálculos de conversión.
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-number">2</div>
+        <div>
+            <strong>Selección de Productos:</strong> Haga clic en "Seleccionar Productos". El sistema le mostrará solo los productos asociados a ese proveedor. 
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-number">3</div>
+        <div>
+            <strong>Estado y Pago Inicial:</strong> Registre si la compra es a crédito, de contado o si incluye un abono inicial.
+        </div>
+    </div>
+
+    <div class="warning-box">
+        <strong>IMPORTANTE:</strong> Para pagos electrónicos, el sistema exige obligatoriamente un <strong>Número de Referencia</strong> para garantizar la trazabilidad contable.
+    </div>
+
+    <h2>3. Gestión de Pagos y Abonos</h2>
+    <p>Orange App permite realizar múltiples pagos a una misma factura hasta saldar la deuda.</p>
+
+    <img src="manual_assets/historial_pagos.png" alt="Detalle de Pago e Historial" class="screenshot">
+
+    <h3>Historial Detallado</h3>
+    <p>Dentro del detalle de cada compra, encontrará una tabla con el historial de pagos:</p>
+    <ul>
+        <li><strong>Abono Bs. / Abono $:</strong> Monto pagado en la moneda original.</li>
+        <li><strong>Equivalente $:</strong> El valor del pago convertido a dólares según la tasa de la factura.</li>
+    </ul>
+
+    <h3>Reversión de Pagos</h3>
+    <p>Si cometió un error, puede eliminar un pago haciendo clic en la <strong>"×" roja</strong>. El sistema restaurará automáticamente el saldo pendiente y la deuda del proveedor.</p>
+
+    <h2>4. Configuración Multi-Proveedor</h2>
+    <p>Ahora puede asociar un mismo producto a varios proveedores distintos desde la ficha del producto.</p>
+
+    <img src="manual_assets/multi_proveedor.png" alt="Configuración Multi-Proveedor" class="screenshot">
+
+    <ol>
+        <li>Vaya al módulo de <strong>Productos</strong> y seleccione un producto.</li>
+        <li>En la sección "PROVEEDORES ASOCIADOS", seleccione los proveedores y agréguelos.</li>
+        <li>Guarde los cambios para que el producto esté disponible en las compras de todos esos proveedores.</li>
+    </ol>
+
+    <div class="info-box">
+        <strong>CONSEJO:</strong> Mantener los proveedores actualizados en cada producto le permitirá realizar cargas de compra mucho más rápidas y sin errores de catálogo.
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Orange App - Sistema de Gestión Empresarial Inteligente</p>
+        <p><em>Este documento es una guía operativa. Para soporte técnico contacte al administrador.</em></p>
+    </footer>
+</div>
+
+</body>
+</html>
