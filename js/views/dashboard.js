@@ -1264,29 +1264,41 @@ export function renderDashboard() {
         if (existingMsg) existingMsg.remove();
         bcvForm.appendChild(bcvStatusMsg);
 
-        const isHoliday = isVenezuelaHoliday(new Date());
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const isHoliday = isVenezuelaHoliday(now);
+        
         if (isHoliday) {
-            bcvStatusMsg.innerHTML = "ℹ️ Hoy es feriado o fin de semana. Buscando tasa actualizada...";
+            bcvStatusMsg.innerHTML = "ℹ️ Periodo bancario (fin de semana o feriado). Usando tasa oficial vigente...";
         }
 
         const sources = [
             {
                 name: 'DolarApi Oficial',
                 url: 'https://ve.dolarapi.com/v1/dolares/oficial',
-                parse: (data) => data.promedio || data.price || data.venta
+                parse: (data) => ({
+                    rate: data.promedio || data.price,
+                    date: data.fechaActualizacion ? data.fechaActualizacion.split('T')[0] : null
+                })
             },
             {
-                name: 'PyDolar Vercel',
-                url: 'https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv',
+                name: 'PyDolarVE',
+                url: 'https://pydolarve.com/api/v1/dollar?page=bcv',
                 parse: (data) => {
-                    if (data.monitors && data.monitors.bcv) return data.monitors.bcv.price;
-                    return data.price || data.promedio || (data.monitors && data.monitors.usd && data.monitors.usd.price);
+                    const monitor = data.monitors?.bcv || data.monitors?.usd;
+                    return {
+                        rate: monitor?.price || data.price,
+                        date: monitor?.last_update ? new Date(monitor.last_update).toISOString().split('T')[0] : null
+                    };
                 }
             },
             {
                 name: 'ExchangeRate Global',
                 url: 'https://api.exchangerate-api.com/v4/latest/USD',
-                parse: (data) => data.rates ? data.rates.VES : null
+                parse: (data) => ({
+                    rate: data.rates?.VES,
+                    date: data.date
+                })
             }
         ];
 
@@ -1295,24 +1307,37 @@ export function renderDashboard() {
 
         for (const source of sources) {
             try {
-                bcvStatusMsg.textContent = `🔍 Probando ${source.name}...`;
+                bcvStatusMsg.textContent = `🔍 Consultando ${source.name}...`;
                 const response = await fetch(source.url);
                 if (!response.ok) continue;
                 
                 const data = await response.json();
-                let rate = source.parse(data);
+                const result = source.parse(data);
+                let rate = result.rate;
+                const apiDate = result.date;
                 
                 if (typeof rate === 'string') rate = parseFloat(rate.replace(',', '.'));
                 
                 if (rate && !isNaN(rate) && rate > 10) {
                     const currentRate = parseFloat(rate);
-                    // Si estamos en feriado/fin de semana, priorizamos una tasa que sea distinta a la anterior
-                    if (isHoliday && currentRate !== lastRate) {
+                    
+                    // REGLA DE NEGOCIO (BCV):
+                    // 1. Si es feriado/fin de semana, aceptamos la tasa que venga (es la última vigente)
+                    if (isHoliday) {
                         bestRate = currentRate;
-                        console.log(`Tasa nueva detectada en ${source.name}: ${currentRate}`);
-                        break; // Encontramos una actualización, paramos aquí
+                        break;
                     }
-                    if (!bestRate) bestRate = currentRate;
+                    
+                    // 2. Si es día hábil:
+                    //    - Si la fecha de la API es FUTURA (mañana), la ignoramos (regla de las 5 PM)
+                    //    - Si la fecha es HOY o PASADA, es la tasa válida para operar hoy
+                    if (apiDate && apiDate > todayStr) {
+                        console.log(`BCV: Ignorando tasa futura (${apiDate}) en día hábil para mantener vigencia de hoy.`);
+                        continue; 
+                    }
+
+                    bestRate = currentRate;
+                    break; 
                 }
             } catch (error) {
                 console.warn(`Error en ${source.name}:`, error.message);
@@ -1322,13 +1347,13 @@ export function renderDashboard() {
         if (bestRate) {
             const cleanRate = bestRate.toFixed(2);
             bcvInput.value = cleanRate;
-            bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${cleanRate}</strong> obtenida correctamente.`;
+            bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${parseFloat(cleanRate).toLocaleString('es-VE')}</strong> obtenida correctamente.`;
             bcvStatusMsg.style.color = "var(--success)";
             if (autoSave) {
                 setTimeout(() => saveBcvRate(cleanRate, true), 800);
             }
         } else {
-            bcvStatusMsg.innerHTML = "❌ No se pudo obtener una tasa actualizada.<br>Por favor, ingrésela manualmente.";
+            bcvStatusMsg.innerHTML = "❌ No se pudo obtener una tasa actualizada para hoy.<br>Por favor, verifíquela manualmente.";
             bcvStatusMsg.style.color = "var(--danger)";
         }
     }
