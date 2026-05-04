@@ -140,18 +140,17 @@ Orange_App_2.4/
 ### Ramas
 ```
 main                        ← producción, código estable
-└── dev                     ← integración
-    ├── feature/dasaev-*    ← ramas de Dasaev
-    └── feature/dax-*       ← ramas de Dax
+├── feature/dasaev-*        ← ramas de Dasaev
+└── feature/dax-*           ← ramas de Dax
 ```
 
 ### Flujo diario
 ```bash
 # Antes de empezar
-git checkout dev
-git pull origin dev
+git checkout main
+git pull origin main
 git checkout feature/mi-rama
-git merge dev
+git merge main
 
 # Mientras trabajas
 git add -A
@@ -159,9 +158,9 @@ git commit -m "módulo: descripción breve"
 git push
 
 # Al terminar una funcionalidad
-git checkout dev
+git checkout main
 git merge feature/mi-rama
-git push origin dev
+git push origin main
 ```
 
 ### Formato de commits
