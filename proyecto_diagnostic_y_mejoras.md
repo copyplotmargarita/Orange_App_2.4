@@ -47,6 +47,27 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
 
 ---
 
-## 4. Verificación
-*   Cada fase se completará en una rama específica.
-*   Se realizará una prueba de humo (Smoke Test) de todo el flujo (Login -> Compra -> Pago -> Inventario) después de cada fase.
+## 5. Registro de Mejoras Recientes (04/05/2026)
+
+### 5.1 Módulo de Ventas y Presupuestos
+*   **Ciclo de Vida de Presupuestos:** Implementación del flujo `PRESUPUESTO -> FACTURADO`. Los presupuestos ahora se pueden convertir en ventas reales con un clic, marcando el documento original como procesado para evitar duplicidad.
+*   **Gestión de Documentos (PDF/Web):** Creación de un visualizador de documentos profesional. Genera tanto **Facturas de Venta** como **Presupuestos**, con diseño optimizado para compartir vía WhatsApp o imprimir.
+*   **Integridad de Datos:**
+    *   Sincronización automática de inventario post-venta (reload reactivo).
+    *   Corrección de errores de duplicidad de registros.
+    *   Validación de stock negativo con alertas visuales dinámicas.
+*   **Refinamiento UI/UX:**
+    *   Simetría y estandarización de botones de acción en el historial.
+    *   Filtros inteligentes en "Ventas del Día" (Todos / Solo Ventas / Solo Presupuestos).
+    *   Reinicio automático de configuración (Venta/Detal) tras cada operación.
+    *   Bloqueo visual de secciones de pago en modo presupuesto.
+
+### 5.2 Estabilidad Técnica
+*   Importación de servicios faltantes (`updateDoc`) y optimización de transacciones Firestore.
+*   Limpieza de logs de error en consola y manejo de excepciones en el flujo de caja.
+
+---
+
+## 6. Próximos Pasos (Sugeridos para Dasaev)
+1.  **Migración CSS**: Los estilos inyectados hoy en el visualizador de documentos podrían moverse a un archivo `css/printing.css`.
+2.  **Reportes Mensuales**: Evaluar la integración de los nuevos estados de presupuesto en el panel de estadísticas general.
