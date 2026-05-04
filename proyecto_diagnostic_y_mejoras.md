@@ -30,12 +30,12 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
 ## 3. Fases de Ejecución
 
 ### Fase 1: Limpieza de Infraestructura
-- [ ] **Eliminar duplicidad:** Mover el contenido de la carpeta interna a la raíz y eliminar la carpeta vacía.
-- [ ] **Saneamiento de Git:** Untrack de archivos `.zip` y carpetas de assets, moviéndolos a `.gitignore`.
-- [ ] **Reorganización de Directorios:**
+- [x] **Eliminar duplicidad:** Mover el contenido de la carpeta interna a la raíz y eliminar la carpeta vacía. (Completado en rama `reconexion`)
+- [x] **Saneamiento de Git:** Untrack de archivos `.zip` y carpetas de assets, moviéndolos a `.gitignore`.
+- [x] **Reorganización de Directorios:**
     *   `/docs`: Para manuales y guías.
-    *   `/tools`: Para scripts de limpieza y reseteo.
-    *   `/assets`: Para imágenes y logos.
+    *   `/tools`: Para scripts de limpieza, reseteo y ejecución local.
+    *   `/assets`: Para imágenes y logos. (Pendiente crear carpeta de assets de UI)
 
 ### Fase 2: Refactorización de Estilos (CSS Externo)
 - [ ] **Creación de `css/components.css`**: Extraer estilos comunes de botones, tarjetas y formularios.
@@ -50,3 +50,24 @@ Para mantener la esencia y calidad del proyecto, se deben seguir estos principio
 ## 4. Verificación
 *   Cada fase se completará en una rama específica.
 *   Se realizará una prueba de humo (Smoke Test) de todo el flujo (Login -> Compra -> Pago -> Inventario) después de cada fase.
+
+---
+
+## 5. Log de Cambios y Progreso
+
+### 5.1 Rama: `reconexion` (Mayo 2026)
+**Objetivo:** Restaurar el acceso a GitHub Pages y limpiar la estructura base.
+
+*   **[COMPLETADO] Aplanamiento del Repositorio:**
+    *   Se eliminó la carpeta redundante `Orange_App_2.4/`.
+    *   Todo el código fuente (`index.html`, `js/`, `css/`) reside ahora exclusivamente en la raíz.
+    *   Se movió `CONTEXT.md` a la raíz para mejor visibilidad.
+*   **[COMPLETADO] Automatización de Despliegue (CI/CD):**
+    *   Se implementó un flujo de trabajo de GitHub Actions (`.github/workflows/static.yml`) para despliegue automático de HTML estático.
+    *   Este método sustituye al constructor interno de GitHub Pages, proporcionando mayor control y logs de errores.
+*   **[COMPLETADO] Saneamiento Inicial:**
+    *   Se eliminaron archivos de respaldo pesados (`.zip`) del historial activo de Git para reducir el tamaño del repositorio.
+    *   Se sincronizó la rama `main` con estas mejoras estructurales.
+
+---
+*Última actualización: 04-Mayo-2026*
