@@ -298,6 +298,9 @@ export function renderInventory(container) {
                 <td style="padding:0.6rem; text-align: center;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
                 <td style="padding:0.6rem; text-align: center; font-weight:bold; color:${isNeg?'var(--danger)':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
                 <td style="padding:0.6rem; text-align: center; color:var(--text-muted); font-size:0.85rem;">${unit}</td>
+                <td style="padding:0.6rem; text-align: right;">
+                    <button class="btn btn-outline adjust-stock-btn" data-id="${p.id}" data-is-production="true" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; width: auto;">✏️ Ajustar</button>
+                </td>
             </tr>`;
         }).join('');
 
@@ -312,10 +315,18 @@ export function renderInventory(container) {
                         <th style="padding:0.75rem; text-align: center;">Categoría</th>
                         <th style="padding:0.75rem; text-align: center;">Stock Producción</th>
                         <th style="padding:0.75rem; text-align: center;">Unidad</th>
+                        <th style="padding:0.75rem; text-align: right;">Acciones</th>
                     </tr></thead>
-                    <tbody>${rows || '<tr><td colspan="4" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin insumos registrados</td></tr>'}</tbody>
+                    <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin insumos registrados</td></tr>'}</tbody>
                 </table>
             </div>`;
+
+        el.querySelectorAll('.adjust-stock-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const prod = products.find(p => p.id === btn.dataset.id);
+                if (prod) openAdjustmentModal({ ...prod, isProduction: true });
+            });
+        });
     }
 
     // ─── TAB 3: CARGAR PRODUCCIÓN (múltiples recetas) ─────────────────────────
@@ -758,9 +769,12 @@ export function renderInventory(container) {
     function openAdjustmentModal(prod) {
         currentAdjProduct = prod;
         const modal = container.querySelector('#adjustmentModal');
-        container.querySelector('#adjProductName').textContent = (prod.isStore ? '🏪 ' : '') + prod.name;
+        container.querySelector('#adjProductName').textContent = (prod.isStore ? '🏪 ' : prod.isProduction ? '🏭 ' : '') + prod.name;
         
-        const currentStock = prod.isStore ? prod.currentStoreStock : (prod.stockGeneral ?? prod.stock ?? 0);
+        let currentStock = 0;
+        if (prod.isStore) currentStock = prod.currentStoreStock;
+        else if (prod.isProduction) currentStock = prod.stockProduccion ?? 0;
+        else currentStock = prod.stockGeneral ?? prod.stock ?? 0;
         
         container.querySelector('#adjCurrentStock').value = fmt(currentStock);
         container.querySelector('#adjNewStock').value = '';
@@ -790,6 +804,9 @@ export function renderInventory(container) {
                 const storeProdRef = doc(db, "businesses", businessId, "stores", currentAdjProduct.storeId, "inventory", currentAdjProduct.id);
                 await setDoc(storeProdRef, { qty: newStock }, { merge: true });
                 storeStocks[currentAdjProduct.id] = newStock;
+            } else if (currentAdjProduct.isProduction) {
+                const prodRef = doc(db, "businesses", businessId, "products", currentAdjProduct.id);
+                await updateDoc(prodRef, { stockProduccion: newStock });
             } else {
                 const prodRef = doc(db, "businesses", businessId, "products", currentAdjProduct.id);
                 await updateDoc(prodRef, { 
@@ -798,7 +815,9 @@ export function renderInventory(container) {
                 });
             }
 
-            const storeName = currentAdjProduct.isStore ? stores.find(s => s.id === currentAdjProduct.storeId)?.name : null;
+            const storeName = currentAdjProduct.isStore 
+                ? stores.find(s => s.id === currentAdjProduct.storeId)?.name 
+                : currentAdjProduct.isProduction ? 'Almacén Producción' : 'Almacén General';
             
             await addDoc(collection(db, "businesses", businessId, "inventoryMovements"), {
                 type: 'MANUAL_ADJUSTMENT',
@@ -809,8 +828,9 @@ export function renderInventory(container) {
                 unit: currentAdjProduct.stockUnit || 'ud',
                 reason,
                 isStore: !!currentAdjProduct.isStore,
+                isProduction: !!currentAdjProduct.isProduction,
                 storeId: currentAdjProduct.storeId || null,
-                storeName: storeName || 'Almacén General',
+                storeName: storeName,
                 createdBy: auth.currentUser?.email || 'admin',
                 businessId,
                 createdAt: serverTimestamp()
