@@ -10,6 +10,7 @@ export function renderSales(container, preSelectedClient = null) {
     let cart = [];
     let payments = [];
     let currentView = 'cart';
+    let activeMobileTab = 'products'; // 'products' or 'cart'
     let includeOldDebt = false;
     
     // Attempt to restore state if returning from client creation
@@ -258,7 +259,7 @@ export function renderSales(container, preSelectedClient = null) {
         container.innerHTML = `
             <div style="width: 100%; height: calc(100vh - 4.5rem); display: flex; flex-direction: column; gap: 1rem; overflow: hidden; padding-bottom: 1.5rem;">
                 <!-- Header / Settings -->
-                <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: none;">
+                <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: none;" class="sales-header-grid">
                     <!-- Left Header: Product Controls -->
                     <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;">
                         <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; min-width: 0;">
@@ -270,7 +271,7 @@ export function renderSales(container, preSelectedClient = null) {
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 0.35rem; flex: none;" class="hide-mobile">
+                        <div style="display: flex; gap: 0.35rem; flex: none;" class="hide-mobile mobile-visible">
                             <select id="saleType" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
                                 <option value="venta" ${settings.type === 'venta' ? 'selected' : ''}>Venta</option>
                                 <option value="presupuesto" ${settings.type === 'presupuesto' ? 'selected' : ''}>Presupuesto</option>
@@ -301,17 +302,28 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
                 </div>
 
+                <!-- Mobile Tabs Navigation -->
+                <div class="show-mobile" style="display:none; gap:0.5rem; margin-bottom:1rem; flex:none;">
+                    <button id="tabProductsBtn" class="btn ${activeMobileTab==='products'?'btn-primary':'btn-outline'}" style="flex:1; font-size:0.85rem; height:42px;">
+                        📦 Catálogo
+                    </button>
+                    <button id="tabCartBtn" class="btn ${activeMobileTab==='cart'?'btn-primary':'btn-outline'}" style="flex:1; font-size:0.85rem; height:42px; position:relative;">
+                        🛒 Carrito
+                        ${totalItems > 0 ? `<span style="position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold; border:2px solid var(--surface);">${totalItems}</span>` : ''}
+                    </button>
+                </div>
+
                 <!-- Main Content Grid -->
-                <div style="width: 100%; flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 0; overflow: hidden;" class="grid-1-mobile">
+                <div style="width: 100%; flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 0; overflow: hidden;" class="sales-main-grid">
                     <!-- Left Column: Products (Scrollable) -->
-                    <div style="width: 100%; height: 100%; overflow-y: auto; padding-right: 0.5rem;">
+                    <div id="colProducts" style="width: 100%; height: 100%; overflow-y: auto; padding-right: 0.5rem;">
                         <div id="productList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; width: 100%;">
                             ${renderProductList()}
                         </div>
                     </div>
 
                     <!-- Right Column: Cart (Stationary) -->
-                    <div style="width: 100%; height: 100%; overflow: hidden;">
+                    <div id="colCart" style="width: 100%; height: 100%; overflow: hidden;">
                         <div class="card" style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 1rem 1.25rem; overflow: hidden;">
                             <!-- Items list in Cart -->
                             
@@ -376,6 +388,29 @@ export function renderSales(container, preSelectedClient = null) {
                         </div>
                     </div>
                 </div>
+
+                <style>
+                    @media (max-width: 768px) {
+                        .sales-header-grid { grid-template-columns: 1fr !important; gap: 0.5rem !important; }
+                        .sales-main-grid { grid-template-columns: 1fr !important; }
+                        
+                        #colProducts { display: ${activeMobileTab === 'products' ? 'block' : 'none'} !important; }
+                        #colCart { display: ${activeMobileTab === 'cart' ? 'block' : 'none'} !important; }
+                        
+                        .show-mobile { display: flex !important; }
+                        
+                        /* Re-enable dropdowns on mobile but wrap them */
+                        .hide-mobile.mobile-visible { 
+                            display: flex !important; 
+                            flex-wrap: wrap;
+                            gap: 0.25rem;
+                            width: 100%;
+                            justify-content: center;
+                        }
+                        
+                        .mobile-full-width { width: 100% !important; }
+                    }
+                </style>
             </div>
         `;
 
@@ -388,6 +423,16 @@ export function renderSales(container, preSelectedClient = null) {
 
         container.querySelector('#viewHistoryBtn').addEventListener('click', () => {
             currentView = 'history';
+            render();
+        });
+
+        container.querySelector('#tabProductsBtn')?.addEventListener('click', () => {
+            activeMobileTab = 'products';
+            render();
+        });
+
+        container.querySelector('#tabCartBtn')?.addEventListener('click', () => {
+            activeMobileTab = 'cart';
             render();
         });
 

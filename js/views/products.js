@@ -15,9 +15,10 @@ export function renderProducts(container) {
         
         try {
             // Load products
-            const qProd = query(collection(db, "businesses", businessId, "products"), orderBy("name", "asc"));
+            const qProd = query(collection(db, "businesses", businessId, "products"));
             const snapProd = await getDocs(qProd);
             products = snapProd.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            products.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
             // If employee, load store inventory and merge
             if (role === 'employee') {
@@ -39,9 +40,10 @@ export function renderProducts(container) {
             }
 
             // Load suppliers for dropdowns
-            const qSup = query(collection(db, "businesses", businessId, "suppliers"), orderBy("name", "asc"));
+            const qSup = query(collection(db, "businesses", businessId, "suppliers"));
             const snapSup = await getDocs(qSup);
             suppliers = snapSup.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            suppliers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
             renderList();
 
@@ -68,16 +70,19 @@ export function renderProducts(container) {
             html += `<p class="text-muted" style="grid-column: 1 / -1;">No hay productos registrados aún.</p>`;
         } else {
             products.forEach(prod => {
+                let stockBadge = '';
                 const stock = prod.stockGeneral ?? prod.stock ?? 0;
                 const bcvRateLocal = parseFloat(localStorage.getItem('bcvRate')) || 1;
                 const priceBsNum = prod.priceDetal * bcvRateLocal;
                 const formatCurrency = (num) => parseFloat(num).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-                let stockBadge = '';
                 if (prod.category !== 'SERVICIOS') {
                     const sUnit = prod.stockUnit || 'ud';
+                    const minStock = prod.minStock || 0;
                     if (stock <= 0) {
                         stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: var(--danger); color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">SIN STOCK</span>`;
+                    } else if (stock <= minStock) {
+                        stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: #f59e0b; color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">STOCK BAJO: ${stock}</span>`;
                     } else {
                         stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: var(--success); color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">STOCK: ${stock} ${sUnit}</span>`;
                     }
@@ -209,6 +214,11 @@ export function renderProducts(container) {
                                     <input type="hidden" id="prodIsSaleable" value="${editProduct?.isSaleable ? 'true' : 'false'}">
                                 </div>
 
+                                </div>
+
+                                <div class="form-group" style="margin-top: 1rem;">
+                                    <label>📉 STOCK MÍNIMO (ALERTA)</label>
+                                    <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5" value="${editProduct?.minStock || '0'}" style="border-color: #f59e0b; font-weight: bold;">
                                 </div>
 
                                 <div class="form-group" id="supplierGroup" style="display: none; margin-top: 1rem;">
@@ -810,7 +820,7 @@ export function renderProducts(container) {
         }
 
         [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield].forEach(applyNumericMask);
-        [prodPurchaseToStockQty, prodUnitContentQty].forEach(applyIntegerMask);
+        [prodPurchaseToStockQty, prodUnitContentQty, prodMinStock].forEach(applyIntegerMask);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {
@@ -1129,6 +1139,7 @@ export function renderProducts(container) {
 
             const barcode = container.querySelector('#prodBarcode').value.trim() || null;
             const name = toTitleCase(container.querySelector('#prodName').value.trim());
+            const minStock = parseNum(container.querySelector('#prodMinStock').value) || 0;
             const isSaleable = prodIsSaleable.value === 'true';
             const supplierIds = selectedSupplierIds;
             const supplierId = selectedSupplierIds.length > 0 ? selectedSupplierIds[0] : null;
@@ -1169,6 +1180,7 @@ export function renderProducts(container) {
                     name,
                     category,
                     subCategory,
+                    minStock,
                     isSaleable,
                     supplierIds,
                     supplierId,

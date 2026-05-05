@@ -8,36 +8,49 @@ export function renderInventory(container) {
     let stores = [];
     let storeTransfers = [];
     let activeTab = 'general';
+    let currentAdjProduct = null;
+    let selectedStoreId = '';
+    let storeStocks = {}; // productId -> qty
     const businessId = localStorage.getItem('businessId');
+    const userRole = localStorage.getItem('userRole'); // 'admin' or 'employee'
     const fmt = (n) => parseFloat(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     async function loadData() {
+        if (!businessId) {
+            container.innerHTML = '<div style="padding:2rem;text-align:center;">Error: No se encontró ID de negocio.</div>';
+            return;
+        }
         container.innerHTML = '<div style="padding:2rem;text-align:center;">Cargando inventario...</div>';
         try {
-            const qProd = query(collection(db, "businesses", businessId, "products"), orderBy("name", "asc"));
+            const qProd = query(collection(db, "businesses", businessId, "products"));
             const snap = await getDocs(qProd);
             products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            products.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-            const qMov = query(collection(db, "businesses", businessId, "inventoryMovements"), orderBy("createdAt", "desc"));
+            const qMov = query(collection(db, "businesses", businessId, "inventoryMovements"));
             const snapMov = await getDocs(qMov);
             movements = snapMov.docs.map(d => ({ id: d.id, ...d.data() }));
+            movements.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
-            const qBat = query(collection(db, "businesses", businessId, "productionBatches"), orderBy("createdAt", "desc"));
+            const qBat = query(collection(db, "businesses", businessId, "productionBatches"));
             const snapBat = await getDocs(qBat);
             batches = snapBat.docs.map(d => ({ id: d.id, ...d.data() }));
+            batches.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
-            const qSt = query(collection(db, "businesses", businessId, "storeTransfers"), orderBy("createdAt", "desc"));
+            const qSt = query(collection(db, "businesses", businessId, "storeTransfers"));
             const snapSt = await getDocs(qSt);
             storeTransfers = snapSt.docs.map(d => ({ id: d.id, ...d.data() }));
+            storeTransfers.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
-            const qStores = query(collection(db, "businesses", businessId, "stores"), orderBy("name", "asc"));
+            const qStores = query(collection(db, "businesses", businessId, "stores"));
             const snapStores = await getDocs(qStores);
             stores = snapStores.docs.map(d => ({ id: d.id, ...d.data() }));
+            stores.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
             renderShell();
         } catch (err) {
             console.error(err);
-            container.innerHTML = '<div class="text-danger" style="padding:2rem;">Error al cargar el inventario.</div>';
+            container.innerHTML = '<div class="text-danger" style="padding:2rem;">Error al cargar el inventario. Revisa la consola.</div>';
         }
     }
 
@@ -51,6 +64,14 @@ export function renderInventory(container) {
                 <button class="tab-btn btn ${activeTab==='produccion'?'btn-primary':'btn-outline'}" data-tab="produccion" style="width:auto;">Almacén Producción</button>
                 <button class="tab-btn btn ${activeTab==='cargar'?'btn-primary':'btn-outline'}" data-tab="cargar" style="width:auto;">⚙️ Cargar Producción</button>
                 <button class="tab-btn btn ${activeTab==='tiendas'?'btn-primary':'btn-outline'}" data-tab="tiendas" style="width:auto;">🚚 Mover a Tiendas</button>
+                
+                ${userRole === 'admin' ? `
+                    <select id="storeSelector" class="btn btn-outline" style="width:auto; cursor:pointer; color:${activeTab==='store'?'var(--primary)':'var(--text-main)'}; border-color:${activeTab==='store'?'var(--primary)':'var(--border)'};">
+                        <option value="">🏪 Seleccionar Tienda...</option>
+                        ${stores.map(s => `<option value="${s.id}" ${selectedStoreId===s.id?'selected':''}>Tienda: ${s.name}</option>`).join('')}
+                    </select>
+                ` : ''}
+
                 <button class="tab-btn btn ${activeTab==='historial'?'btn-primary':'btn-outline'}" data-tab="historial" style="width:auto;">Historial</button>
             </div>
             <div id="tabContent"></div>
@@ -75,7 +96,55 @@ export function renderInventory(container) {
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Ajuste Manual -->
+            <div id="adjustmentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;padding:1rem;">
+                <div class="card" style="width:100%;max-width:450px;border-top:4px solid #f59e0b;padding:1.5rem;">
+                    <h3 style="margin-bottom:1rem;">✏️ Ajustar Inventario Manual</h3>
+                    <p id="adjProductName" style="font-weight:bold;color:var(--primary);margin-bottom:1rem;"></p>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
+                        <div class="form-group">
+                            <label>STOCK ACTUAL</label>
+                            <input type="text" id="adjCurrentStock" class="form-control" readonly style="background:var(--background);">
+                        </div>
+                        <div class="form-group">
+                            <label>NUEVO STOCK</label>
+                            <input type="number" step="0.01" id="adjNewStock" class="form-control" placeholder="0.00" style="border-color:#f59e0b;font-weight:bold;">
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label>MOTIVO DEL AJUSTE</label>
+                        <select id="adjReason" class="form-control">
+                            <option value="Inventario Físico">📝 Inventario Físico (Conteo)</option>
+                            <option value="Merma / Dañado">🗑️ Merma / Producto Dañado</option>
+                            <option value="Donación">🎁 Donación / Muestra</option>
+                            <option value="Error de Carga">❌ Error de Carga Previo</option>
+                            <option value="Otro">❓ Otro</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex;gap:1rem;justify-content:flex-end;">
+                        <button class="btn btn-outline" id="adjCancelBtn" style="width:auto;">Cancelar</button>
+                        <button class="btn btn-primary" id="adjConfirmBtn" style="width:auto;background:#f59e0b;border-color:#f59e0b;">Guardar Ajuste</button>
+                    </div>
+                </div>
+            </div>
         `;
+
+        container.querySelector('#storeSelector')?.addEventListener('change', async (e) => {
+            const storeId = e.target.value;
+            if (storeId) {
+                selectedStoreId = storeId;
+                activeTab = 'store';
+                await loadStoreData(storeId);
+                renderShell();
+            } else {
+                activeTab = 'general';
+                renderShell();
+            }
+        });
 
         container.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -89,13 +158,83 @@ export function renderInventory(container) {
             container.querySelector('#transferModal').style.display = 'none';
         });
         container.querySelector('#transferConfirmBtn').addEventListener('click', confirmTransfer);
+        
+        container.querySelector('#adjCancelBtn').addEventListener('click', () => {
+            container.querySelector('#adjustmentModal').style.display = 'none';
+        });
+        container.querySelector('#adjConfirmBtn').addEventListener('click', confirmAdjustment);
 
         const tabContent = container.querySelector('#tabContent');
         if (activeTab === 'general') renderGeneral(tabContent);
         else if (activeTab === 'produccion') renderProduccion(tabContent);
         else if (activeTab === 'cargar') renderCargar(tabContent);
         else if (activeTab === 'tiendas') renderMovimientoTiendas(tabContent);
+        else if (activeTab === 'store') renderStoreInventory(tabContent, selectedStoreId);
         else renderHistorial(tabContent);
+    }
+
+    async function loadStoreData(storeId) {
+        try {
+            const q = query(collection(db, "businesses", businessId, "stores", storeId, "inventory"));
+            const snap = await getDocs(q);
+            storeStocks = {};
+            snap.forEach(doc => { storeStocks[doc.id] = doc.data().qty || 0; });
+        } catch (err) {
+            console.error("Error loading store data:", err);
+            showToast("Error al cargar inventario de la tienda.", "error");
+        }
+    }
+
+    // ─── TAB TIENDA ESPECÍFICA (Admin Only) ───────────────────────────
+    function renderStoreInventory(el, storeId) {
+        const store = stores.find(s => s.id === storeId);
+        const physicals = products.filter(p => p.category !== 'SERVICIOS');
+        let rows = physicals.map(p => {
+            const stock = storeStocks[p.id] || 0;
+            const minStock = p.minStock || 0;
+            const unit = p.stockUnit || 'ud';
+            const isNeg = stock < 0;
+            const isLow = stock <= minStock && stock > 0;
+            const rowBg = isLow ? 'rgba(245, 158, 11, 0.05)' : '';
+
+            return `<tr style="background:${rowBg}; border-bottom: 1px solid var(--border);">
+                <td style="padding:0.6rem;">${p.name} ${isLow ? '⚠️' : ''}</td>
+                <td style="padding:0.6rem;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
+                <td style="padding:0.6rem;font-weight:bold;color:${isNeg?'var(--danger)':isLow?'#f59e0b':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
+                <td style="padding:0.6rem;color:var(--text-muted);font-size:0.85rem;">${unit}</td>
+                <td style="padding:0.6rem; text-align: right;">
+                    <button class="btn btn-outline adjust-stock-btn" data-id="${p.id}" data-is-store="true" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; width: auto;">✏️ Ajustar</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        el.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <h4 style="margin:0;color:var(--primary);">🏪 Inventario: ${store?.name || 'Tienda'}</h4>
+                <p class="text-muted" style="margin:0;">${physicals.length} productos</p>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+                    <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
+                        <th style="padding:0.75rem;">Producto</th>
+                        <th style="padding:0.75rem;">Categoría</th>
+                        <th style="padding:0.75rem;">Stock Tienda</th>
+                        <th style="padding:0.75rem;">Unidad</th>
+                        <th style="padding:0.75rem; text-align: right;">Acciones</th>
+                    </tr></thead>
+                    <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
+                </table>
+            </div>`;
+
+        el.querySelectorAll('.adjust-stock-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const prod = products.find(p => p.id === btn.dataset.id);
+                if (prod) {
+                    const storeStock = storeStocks[prod.id] || 0;
+                    openAdjustmentModal({ ...prod, isStore: true, currentStoreStock: storeStock, storeId });
+                }
+            });
+        });
     }
 
     // ─── TAB 1: ALMACÉN GENERAL ────────────────────────────────────────
@@ -103,13 +242,20 @@ export function renderInventory(container) {
         const physicals = products.filter(p => p.category !== 'SERVICIOS');
         let rows = physicals.map(p => {
             const stock = p.stockGeneral ?? p.stock ?? 0;
+            const minStock = p.minStock || 0;
             const unit = p.stockUnit || 'ud';
             const isNeg = stock < 0;
-            return `<tr>
-                <td style="padding:0.6rem;">${p.name}</td>
+            const isLow = stock <= minStock && stock > 0;
+            const rowBg = isLow ? 'rgba(245, 158, 11, 0.05)' : '';
+
+            return `<tr style="background:${rowBg}; border-bottom: 1px solid var(--border);">
+                <td style="padding:0.6rem;">${p.name} ${isLow ? '⚠️' : ''}</td>
                 <td style="padding:0.6rem;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
-                <td style="padding:0.6rem;font-weight:bold;color:${isNeg?'var(--danger)':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
+                <td style="padding:0.6rem;font-weight:bold;color:${isNeg?'var(--danger)':isLow?'#f59e0b':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
                 <td style="padding:0.6rem;color:var(--text-muted);font-size:0.85rem;">${unit}</td>
+                <td style="padding:0.6rem; text-align: right;">
+                    <button class="btn btn-outline adjust-stock-btn" data-id="${p.id}" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; width: auto;">✏️ Ajustar</button>
+                </td>
             </tr>`;
         }).join('');
 
@@ -125,12 +271,19 @@ export function renderInventory(container) {
                         <th style="padding:0.75rem;">Categoría</th>
                         <th style="padding:0.75rem;">Stock General</th>
                         <th style="padding:0.75rem;">Unidad</th>
+                        <th style="padding:0.75rem; text-align: right;">Acciones</th>
                     </tr></thead>
-                    <tbody>${rows || '<tr><td colspan="4" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
+                    <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
                 </table>
             </div>`;
 
         el.querySelector('#openTransferBtn').addEventListener('click', openTransferModal);
+        el.querySelectorAll('.adjust-stock-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const prod = products.find(p => p.id === btn.dataset.id);
+                if (prod) openAdjustmentModal(prod);
+            });
+        });
     }
 
     // ─── TAB 2: ALMACÉN PRODUCCIÓN ─────────────────────────────────────
@@ -509,24 +662,32 @@ export function renderInventory(container) {
         }
     }
 
-    // ─── TAB 5: HISTORIAL ──────────────────────────────────────────────
     function renderHistorial(el) {
-        const all = [
-            ...movements.map(m => ({ ...m, _type: 'TRANSFER' })),
-            ...batches.map(b => ({ ...b, _type: 'PRODUCTION' })),
-            ...storeTransfers.map(t => ({ ...t, _type: 'STORE' }))
-        ].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        // Filtrar duplicados y consolidar movimientos
+        const uniqueAll = [];
+        const ids = new Set();
+        [...movements, ...batches, ...storeTransfers].forEach(m => {
+            if (!ids.has(m.id)) {
+                let type = 'TRANSFER';
+                if (m.type === 'PRODUCTION_LOAD') type = 'PRODUCTION';
+                if (m.type === 'STORE_TRANSFER') type = 'STORE';
+                if (m.type === 'MANUAL_ADJUSTMENT') type = 'ADJUST';
+                uniqueAll.push({ ...m, _type: type });
+                ids.add(m.id);
+            }
+        });
+        uniqueAll.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
-        if (all.length === 0) {
+        if (uniqueAll.length === 0) {
             el.innerHTML = `<div class="card" style="padding:2rem;text-align:center;"><p class="text-muted">No hay movimientos registrados aún.</p></div>`;
             return;
         }
 
-        const colorMap = { TRANSFER: 'var(--primary)', PRODUCTION: '#f97316', STORE: 'var(--success)' };
-        const iconMap  = { TRANSFER: '→', PRODUCTION: '⚙️', STORE: '🚚' };
+        const colorMap = { TRANSFER: 'var(--primary)', PRODUCTION: '#f97316', STORE: 'var(--success)', ADJUST: '#f59e0b' };
+        const iconMap  = { TRANSFER: '→', PRODUCTION: '⚙️', STORE: '🚚', ADJUST: '✏️' };
 
         el.innerHTML = `<div style="display:flex;flex-direction:column;gap:0.75rem;">
-            ${all.map(m => {
+            ${uniqueAll.map(m => {
                 const color = colorMap[m._type];
                 const icon  = iconMap[m._type];
                 let title, detail;
@@ -536,6 +697,10 @@ export function renderInventory(container) {
                 } else if (m._type === 'PRODUCTION') {
                     title  = `Producción: ${m.recipeName}`;
                     detail = `${m.qtyProduced} ud. producidas${m.hadStockWarning ? ' ⚠️' : ''}`;
+                } else if (m._type === 'ADJUST') {
+                    const loc = m.storeName ? ` (${m.storeName})` : '';
+                    title  = `Ajuste Manual: ${m.productName}${loc}`;
+                    detail = `Cambio: ${m.adjustment > 0 ? '+' : ''}${fmt(m.adjustment)} ${m.unit}. Motivo: ${m.reason}`;
                 } else {
                     const st = m.status === 'RECIBIDO' ? '✅ RECIBIDO' : '⏳ PENDIENTE';
                     title  = `Envío → ${m.storeName} (${st})`;
@@ -588,6 +753,82 @@ export function renderInventory(container) {
             </table>`;
 
         modal.style.display = 'flex';
+    }
+
+    function openAdjustmentModal(prod) {
+        currentAdjProduct = prod;
+        const modal = container.querySelector('#adjustmentModal');
+        container.querySelector('#adjProductName').textContent = (prod.isStore ? '🏪 ' : '') + prod.name;
+        
+        const currentStock = prod.isStore ? prod.currentStoreStock : (prod.stockGeneral ?? prod.stock ?? 0);
+        
+        container.querySelector('#adjCurrentStock').value = fmt(currentStock);
+        container.querySelector('#adjNewStock').value = '';
+        container.querySelector('#adjReason').value = 'Inventario Físico';
+        modal.style.display = 'flex';
+    }
+
+    async function confirmAdjustment() {
+        if (!currentAdjProduct) return;
+        const newStock = parseFloat(container.querySelector('#adjNewStock').value);
+        const reason = container.querySelector('#adjReason').value;
+
+        if (isNaN(newStock)) { showToast('Ingresa un stock válido.', 'error'); return; }
+
+        const btn = container.querySelector('#adjConfirmBtn');
+        btn.disabled = true; btn.textContent = 'Guardando...';
+
+        try {
+            const currentStock = currentAdjProduct.isStore 
+                ? currentAdjProduct.currentStoreStock 
+                : (currentAdjProduct.stockGeneral ?? currentAdjProduct.stock ?? 0);
+                
+            const adjustment = newStock - currentStock;
+            const today = new Date().toISOString().split('T')[0];
+
+            if (currentAdjProduct.isStore) {
+                const storeProdRef = doc(db, "businesses", businessId, "stores", currentAdjProduct.storeId, "inventory", currentAdjProduct.id);
+                await setDoc(storeProdRef, { qty: newStock }, { merge: true });
+                storeStocks[currentAdjProduct.id] = newStock;
+            } else {
+                const prodRef = doc(db, "businesses", businessId, "products", currentAdjProduct.id);
+                await updateDoc(prodRef, { 
+                    stockGeneral: newStock,
+                    stock: newStock 
+                });
+            }
+
+            const storeName = currentAdjProduct.isStore ? stores.find(s => s.id === currentAdjProduct.storeId)?.name : null;
+            
+            await addDoc(collection(db, "businesses", businessId, "inventoryMovements"), {
+                type: 'MANUAL_ADJUSTMENT',
+                date: today,
+                productId: currentAdjProduct.id,
+                productName: currentAdjProduct.name,
+                adjustment,
+                unit: currentAdjProduct.stockUnit || 'ud',
+                reason,
+                isStore: !!currentAdjProduct.isStore,
+                storeId: currentAdjProduct.storeId || null,
+                storeName: storeName || 'Almacén General',
+                createdBy: auth.currentUser?.email || 'admin',
+                businessId,
+                createdAt: serverTimestamp()
+            });
+
+            showToast('Inventario ajustado correctamente.', 'success');
+            container.querySelector('#adjustmentModal').style.display = 'none';
+            if (currentAdjProduct.isStore) {
+                renderShell(); 
+            } else {
+                await loadData();
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error al ajustar inventario.', 'error');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Guardar Ajuste';
+        }
     }
 
     async function confirmTransfer() {

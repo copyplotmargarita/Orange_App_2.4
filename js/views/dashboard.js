@@ -495,6 +495,7 @@ export function renderDashboard() {
 
     function renderHome() {
         mainContentArea.innerHTML = `
+            <div id="lowStockAlertContainer"></div>
             <h2 class="mb-4">Resumen del Día</h2>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                 <div class="card" style="border-left: 4px solid var(--primary);">
@@ -534,6 +535,63 @@ export function renderDashboard() {
             </div>
         `;
         loadDashboardMetrics();
+        loadLowStockAlerts();
+    }
+
+    async function loadLowStockAlerts() {
+        if (isEmployee) return;
+        const container = mainContentArea.querySelector('#lowStockAlertContainer');
+        if (!container) return;
+
+        try {
+            const businessId = localStorage.getItem('businessId');
+            const q = query(collection(db, "businesses", businessId, "products"));
+            const snap = await getDocs(q);
+            
+            const lowStockProducts = snap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(p => {
+                    if (p.category === 'SERVICIOS') return false;
+                    const stock = p.stockGeneral ?? p.stock ?? 0;
+                    const min = p.minStock || 0;
+                    return stock <= min;
+                })
+                .sort((a, b) => {
+                    const stockA = a.stockGeneral ?? a.stock ?? 0;
+                    const stockB = b.stockGeneral ?? b.stock ?? 0;
+                    return stockA - stockB;
+                })
+                .slice(0, 8);
+
+            if (lowStockProducts.length > 0) {
+                container.innerHTML = `
+                    <div class="card" style="border-left: 6px solid #f59e0b; background: rgba(245, 158, 11, 0.05); margin-bottom: 2rem; padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; color: #d97706; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                ⚠️ Atención: Stock Crítico
+                            </h3>
+                            <button class="btn btn-outline" id="viewAllLowStock" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; width: auto;">Ver Inventario</button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                            ${lowStockProducts.map(p => {
+                                const stock = p.stockGeneral ?? p.stock ?? 0;
+                                return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+                                        <span style="font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; color: var(--text-main);" title="${p.name}">${p.name}</span>
+                                        <span style="font-weight: 800; color: ${stock <= 0 ? 'var(--danger)' : '#d97706'}; font-size: 0.95rem;">${parseFloat(stock).toLocaleString('de-DE')}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                container.querySelector('#viewAllLowStock').addEventListener('click', () => {
+                    document.getElementById('navInventarios').click();
+                });
+            }
+        } catch (err) {
+            console.error("Error cargando alertas de stock:", err);
+        }
     }
 
     async function loadDashboardMetrics() {
