@@ -199,9 +199,9 @@ export function renderInventory(container) {
 
             return `<tr style="background:${rowBg}; border-bottom: 1px solid var(--border);">
                 <td style="padding:0.6rem;">${p.name} ${isLow ? '⚠️' : ''}</td>
-                <td style="padding:0.6rem;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
-                <td style="padding:0.6rem;font-weight:bold;color:${isNeg?'var(--danger)':isLow?'#f59e0b':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
-                <td style="padding:0.6rem;color:var(--text-muted);font-size:0.85rem;">${unit}</td>
+                <td style="padding:0.6rem; text-align: center;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
+                <td style="padding:0.6rem; text-align: center; font-weight:bold; color:${isNeg?'var(--danger)':isLow?'#f59e0b':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
+                <td style="padding:0.6rem; text-align: center; color:var(--text-muted); font-size:0.85rem;">${unit}</td>
                 <td style="padding:0.6rem; text-align: right;">
                     <button class="btn btn-outline adjust-stock-btn" data-id="${p.id}" data-is-store="true" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; width: auto;">✏️ Ajustar</button>
                 </td>
@@ -217,9 +217,9 @@ export function renderInventory(container) {
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
                     <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
                         <th style="padding:0.75rem;">Producto</th>
-                        <th style="padding:0.75rem;">Categoría</th>
-                        <th style="padding:0.75rem;">Stock Tienda</th>
-                        <th style="padding:0.75rem;">Unidad</th>
+                        <th style="padding:0.75rem; text-align: center;">Categoría</th>
+                        <th style="padding:0.75rem; text-align: center;">Stock Tienda</th>
+                        <th style="padding:0.75rem; text-align: center;">Unidad</th>
                         <th style="padding:0.75rem; text-align: right;">Acciones</th>
                     </tr></thead>
                     <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
@@ -250,9 +250,9 @@ export function renderInventory(container) {
 
             return `<tr style="background:${rowBg}; border-bottom: 1px solid var(--border);">
                 <td style="padding:0.6rem;">${p.name} ${isLow ? '⚠️' : ''}</td>
-                <td style="padding:0.6rem;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
-                <td style="padding:0.6rem;font-weight:bold;color:${isNeg?'var(--danger)':isLow?'#f59e0b':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
-                <td style="padding:0.6rem;color:var(--text-muted);font-size:0.85rem;">${unit}</td>
+                <td style="padding:0.6rem; text-align: center;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
+                <td style="padding:0.6rem; text-align: center; font-weight:bold; color:${isNeg?'var(--danger)':isLow?'#f59e0b':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
+                <td style="padding:0.6rem; text-align: center; color:var(--text-muted); font-size:0.85rem;">${unit}</td>
                 <td style="padding:0.6rem; text-align: right;">
                     <button class="btn btn-outline adjust-stock-btn" data-id="${p.id}" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; width: auto;">✏️ Ajustar</button>
                 </td>
@@ -268,9 +268,9 @@ export function renderInventory(container) {
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
                     <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
                         <th style="padding:0.75rem;">Producto</th>
-                        <th style="padding:0.75rem;">Categoría</th>
-                        <th style="padding:0.75rem;">Stock General</th>
-                        <th style="padding:0.75rem;">Unidad</th>
+                        <th style="padding:0.75rem; text-align: center;">Categoría</th>
+                        <th style="padding:0.75rem; text-align: center;">Stock General</th>
+                        <th style="padding:0.75rem; text-align: center;">Unidad</th>
                         <th style="padding:0.75rem; text-align: right;">Acciones</th>
                     </tr></thead>
                     <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
@@ -295,9 +295,9 @@ export function renderInventory(container) {
             const isNeg = stock < 0;
             return `<tr>
                 <td style="padding:0.6rem;">${p.name}</td>
-                <td style="padding:0.6rem;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
-                <td style="padding:0.6rem;font-weight:bold;color:${isNeg?'var(--danger)':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
-                <td style="padding:0.6rem;color:var(--text-muted);font-size:0.85rem;">${unit}</td>
+                <td style="padding:0.6rem; text-align: center;"><span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:12px;background:var(--border);color:var(--text-muted);">${p.category}</span></td>
+                <td style="padding:0.6rem; text-align: center; font-weight:bold; color:${isNeg?'var(--danger)':stock===0?'var(--text-muted)':'var(--success)'};">${fmt(stock)}</td>
+                <td style="padding:0.6rem; text-align: center; color:var(--text-muted); font-size:0.85rem;">${unit}</td>
             </tr>`;
         }).join('');
 
@@ -309,9 +309,9 @@ export function renderInventory(container) {
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
                     <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
                         <th style="padding:0.75rem;">Producto</th>
-                        <th style="padding:0.75rem;">Categoría</th>
-                        <th style="padding:0.75rem;">Stock Producción</th>
-                        <th style="padding:0.75rem;">Unidad</th>
+                        <th style="padding:0.75rem; text-align: center;">Categoría</th>
+                        <th style="padding:0.75rem; text-align: center;">Stock Producción</th>
+                        <th style="padding:0.75rem; text-align: center;">Unidad</th>
                     </tr></thead>
                     <tbody>${rows || '<tr><td colspan="4" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin insumos registrados</td></tr>'}</tbody>
                 </table>
