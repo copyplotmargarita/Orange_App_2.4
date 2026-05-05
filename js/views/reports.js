@@ -1,4 +1,5 @@
 import { auth, db } from '../services/firebase.js';
+import { showConfirmModal, showNotification } from '../utils.js';
 import { 
     collection, 
     query, 
@@ -391,27 +392,35 @@ export function renderReports(container) {
                         const id = btn.dataset.id;
                         const ref = btn.dataset.ref;
                         
-                        if (!confirm(`¿Está seguro de marcar el pago REF: ${ref} como VERIFICADO?\nEsta acción lo ocultará de esta lista.`)) return;
-
-                        btn.disabled = true;
-                        btn.textContent = '...';
-                        try {
-                            await updateDoc(doc(db, "businesses", businessId, "payments", id), {
-                                verified: true,
-                                verifiedAt: new Date().toISOString(),
-                                verifiedBy: auth.currentUser.email
-                            });
-                            document.getElementById(`pay-row-${id}`).style.opacity = '0.3';
-                            document.getElementById(`pay-row-${id}`).style.pointerEvents = 'none';
-                            showNotification("Pago marcado como verificado");
-                        } catch (err) {
-                            showNotification("Error: " + err.message);
-                            btn.disabled = false;
-                            btn.textContent = '✅ Pago Verificado';
-                        }
+                        showConfirmModal(
+                            "Verificar Pago", 
+                            `¿Está seguro de marcar el pago REF: ${ref} como VERIFICADO?\nEsta acción lo ocultará de esta lista.`, 
+                            async () => {
+                                btn.disabled = true;
+                                btn.textContent = '...';
+                                try {
+                                    await updateDoc(doc(db, "businesses", businessId, "payments", id), {
+                                        verified: true,
+                                        verifiedAt: new Date().toISOString(),
+                                        verifiedBy: auth.currentUser.email
+                                    });
+                                    const row = document.getElementById(`pay-row-${id}`);
+                                    if (row) {
+                                        row.style.opacity = '0.3';
+                                        row.style.pointerEvents = 'none';
+                                    }
+                                    showNotification("Pago marcado como verificado", "success");
+                                } catch (err) {
+                                    showNotification("Error: " + err.message);
+                                    btn.disabled = false;
+                                    btn.textContent = '✅ VERIFICADO';
+                                }
+                            },
+                            "Sí, Verificar",
+                            "Cancelar"
+                        );
                     };
                 });
-
             } catch (err) {
                 results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
             }
