@@ -495,7 +495,6 @@ export function renderDashboard() {
 
     function renderHome() {
         mainContentArea.innerHTML = `
-            <div id="lowStockAlertContainer"></div>
             <h2 class="mb-4">Resumen del Día</h2>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                 <div class="card" style="border-left: 4px solid var(--primary);">
@@ -533,6 +532,7 @@ export function renderDashboard() {
                     <p class="text-muted" id="metricTopClientSales" style="font-size: 0.75rem; margin-top: 0.5rem;">0 ventas</p>
                 </div>
             </div>
+            <div id="lowStockAlertContainer" style="margin-top: 2rem;"></div>
         `;
         loadDashboardMetrics();
         loadLowStockAlerts();
