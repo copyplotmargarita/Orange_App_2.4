@@ -10,6 +10,7 @@ import { renderStoreReceive } from './storeReceive.js';
 import { renderSales } from './sales.js';
 import { renderReports } from './reports.js';
 import { renderMaintenance } from './maintenance.js';
+import { renderSettings } from './settings.js';
 
 import { auth, db } from '../services/firebase.js';
 import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
@@ -109,7 +110,14 @@ export function renderDashboard() {
                 </div>
                 
                 <div class="header-right">
-                    <button id="themeToggle" class="btn btn-outline theme-btn">☀️ <span class="hide-mobile">Modo Claro</span></button>
+                    <button id="themeToggle" class="btn btn-ghost theme-btn" title="Cambiar Modo">
+                        ☀️ <span class="hide-mobile">Modo</span>
+                    </button>
+                    
+                    <button id="settingsBtn" class="btn btn-ghost settings-btn" title="Configuración del Negocio">
+                        ⚙️ <span class="hide-mobile">Ajustes</span>
+                    </button>
+
                     ${isEmployee ? `
                     <button id="bellBtn" style="position:relative;background:none;border:none;cursor:pointer;font-size:1.4rem;padding:0.3rem;" title="Notificaciones">
                         🔔
@@ -301,7 +309,7 @@ export function renderDashboard() {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 0 1.25rem;
+                padding: 0 3.5rem 0 2.5rem; /* Aumentado padding-right para evitar solapamiento con flecha del chat */
             }
             
             .header-left {
@@ -314,6 +322,8 @@ export function renderDashboard() {
                 display: flex;
                 align-items: center;
                 font-weight: 500;
+                gap: 1rem; /* Aumentado espacio para mayor claridad */
+                white-space: nowrap; /* Evitar saltos de línea */
             }
             
             .bcv-box {
@@ -1017,16 +1027,38 @@ export function renderDashboard() {
     setInterval(updateTime, 1000);
     updateTime();
 
-    // Dark Mode Toggle
+    // Theme & Settings
     const themeToggle = container.querySelector('#themeToggle');
-    // Theme Toggle Logic
-    const theme = localStorage.getItem('theme') || 'dark';
-    if (theme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        themeToggle.textContent = '☀️ Modo Claro';
-    } else {
+    const settingsBtn = container.querySelector('#settingsBtn');
+    
+    // Aplicar Atmósfera guardada al inicio
+    const savedAccent = localStorage.getItem('accentTheme');
+    if (savedAccent) {
+        const themes = {
+            orange: { p: '#f97316', h: '#ea580c', r: '249, 115, 22', bg: '#0f172a', surf: '#1e293b', bord: '#334155' },
+            blue: { p: '#3b82f6', h: '#2563eb', r: '59, 130, 246', bg: '#020617', surf: '#0f172a', bord: '#1e293b' },
+            emerald: { p: '#10b981', h: '#059669', r: '16, 185, 129', bg: '#061a14', surf: '#0a2e24', bord: '#134e4a' },
+            slate: { p: '#94a3b8', h: '#64748b', r: '148, 163, 184', bg: '#18181b', surf: '#27272a', bord: '#3f3f46' }
+        };
+        const t = themes[savedAccent];
+        if (t) {
+            const root = document.documentElement;
+            root.style.setProperty('--primary', t.p);
+            root.style.setProperty('--primary-hover', t.h);
+            root.style.setProperty('--primary-rgb', t.r);
+            root.style.setProperty('--background', t.bg);
+            root.style.setProperty('--surface', t.surf);
+            root.style.setProperty('--border', t.bord);
+        }
+    }
+
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    if (currentTheme === 'light') {
         document.documentElement.removeAttribute('data-theme');
-        themeToggle.textContent = '🌙 Modo Oscuro';
+        themeToggle.innerHTML = '🌙 <span class="hide-mobile">Modo</span>';
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeToggle.innerHTML = '☀️ <span class="hide-mobile">Modo</span>';
     }
 
     themeToggle.addEventListener('click', () => {
@@ -1034,12 +1066,18 @@ export function renderDashboard() {
         if (isDark) {
             document.documentElement.removeAttribute('data-theme');
             localStorage.setItem('theme', 'light');
-            themeToggle.textContent = '🌙 Modo Oscuro';
+            themeToggle.innerHTML = '🌙 <span class="hide-mobile">Modo</span>';
         } else {
             document.documentElement.setAttribute('data-theme', 'dark');
             localStorage.setItem('theme', 'dark');
-            themeToggle.textContent = '☀️ Modo Claro';
+            themeToggle.innerHTML = '☀️ <span class="hide-mobile">Modo</span>';
         }
+    });
+
+    settingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        renderSettings(mainContentArea);
+        if (sidebarOpen) toggleSidebar();
     });
 
     // Cerrar Sesión (Protección de sesión sin cerrar turno)
