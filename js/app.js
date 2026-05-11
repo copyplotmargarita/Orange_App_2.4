@@ -20,26 +20,54 @@ const routes = {
     '#inventory': renderInventory,
     '#clients': renderClients,
     '#suppliers': renderSuppliers,
-    '#sales': renderSales
+    '#sales': renderSales,
+    '#sales/history': renderSales
 };
 
 function router() {
     try {
         const app = document.getElementById('app');
         if (!app) return;
-        app.innerHTML = ''; // Clear current view
         
         let hash = window.location.hash || '#login';
         
-        // Render the view
-        const renderFunc = routes[hash] || renderLogin;
-        const view = renderFunc(app);
+        // Protección de rutas (Route Guards)
+        const businessId = localStorage.getItem('businessId');
         
-        // If the view returned an element, append it (if it didn't already modify app)
-        if (view && view !== app) {
-            app.appendChild(view);
-        } else if (!view && app.innerHTML === '') {
-            console.error("View returned undefined and didn't modify container for hash:", hash);
+        if (businessId) {
+            // Si está logueado, no permitir ir a login o vacío
+            if (hash === '#login' || hash === '') {
+                window.location.hash = '#dashboard';
+                return;
+            }
+        } else {
+            // Si NO está logueado, solo permitir login y register
+            if (hash !== '#login' && hash !== '#register') {
+                window.location.hash = '#login';
+                return;
+            }
+        }
+        
+        const mainContent = document.getElementById('mainContentArea');
+        
+        if (mainContent && hash !== '#login' && hash !== '#register' && hash !== '#dashboard') {
+            const renderFunc = routes[hash];
+            if (renderFunc) {
+                const view = renderFunc(mainContent);
+                if (view && view !== mainContent) {
+                    mainContent.innerHTML = '';
+                    mainContent.appendChild(view);
+                }
+            }
+        } else {
+            app.innerHTML = ''; // Clear current view
+            const renderFunc = routes[hash] || renderLogin;
+            const view = renderFunc(app);
+            if (view && view !== app) {
+                app.appendChild(view);
+            } else if (!view && app.innerHTML === '') {
+                console.error("View returned undefined and didn't modify container for hash:", hash);
+            }
         }
     } catch (err) {
         console.error("Router error:", err);

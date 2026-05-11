@@ -41,22 +41,16 @@ export async function renderSettings(mainContentArea) {
                     </div>
                     <div class="form-group mb-2">
                         <label>País</label>
-                        <select id="editCountry" class="form-control sm" required>
-                            <option value="">Seleccione país</option>
-                        </select>
+                        <input type="text" id="editCountry" class="form-control sm" readonly>
                     </div>
                     <div class="grid-2 mb-2">
-                        <div class="form-group" id="stateContainer">
+                        <div class="form-group">
                             <label>Estado</label>
-                            <select id="stateSelect" class="form-control sm" required>
-                                <option value="">Seleccione país</option>
-                            </select>
+                            <input type="text" id="stateSelect" class="form-control sm" readonly>
                         </div>
-                        <div class="form-group" id="municipalityContainer">
+                        <div class="form-group">
                             <label>Ciudad / Municipio</label>
-                            <select id="municipalitySelect" class="form-control sm" required>
-                                <option value="">Seleccione estado</option>
-                            </select>
+                            <input type="text" id="municipalitySelect" class="form-control sm" readonly>
                         </div>
                     </div>
                     <div class="form-group mb-3">
@@ -68,7 +62,7 @@ export async function renderSettings(mainContentArea) {
                         <div style="flex:1">
                             <label class="text-sm">Logo de la Empresa</label>
                             <input type="file" id="newLogoInput" accept="image/*" style="display: none;">
-                            <button type="button" class="btn btn-outline btn-xs w-100" onclick="document.getElementById('newLogoInput').click()">Subir nuevo logo</button>
+                            <button type="button" class="btn btn-outline btn-xs" style="width: fit-content;" onclick="document.getElementById('newLogoInput').click()">Subir nuevo logo</button>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm w-100 mt-3" id="saveBusinessBtn">💾 Actualizar Perfil</button>
@@ -165,7 +159,10 @@ export async function renderSettings(mainContentArea) {
             .theme-grid-compact { display: flex; gap: 1rem; justify-content: center; }
             .theme-dot { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
             .theme-dot.active { border-color: var(--text-main); }
-            .logo-preview-sm img { width: 45px; height: 45px; object-fit: cover; border-radius: 8px; }
+            .logo-edit-box { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.25rem; }
+            .logo-preview-sm { width: 85px; height: 85px; background: var(--background); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+            .logo-preview-sm img { width: 100%; height: 100%; object-fit: cover; }
+            .logo-edit-box label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
             .suggestions-panel { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; box-shadow: var(--shadow-lg); }
             .suggestion-item { padding: 8px 12px; cursor: pointer; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
             .suggestion-item:hover { background: var(--background); color: var(--primary); }
@@ -173,58 +170,7 @@ export async function renderSettings(mainContentArea) {
         </style>
     `;
 
-    // --- GEOGRAFÍA ---
-    async function toggleField(containerId, fieldId, isSelect) {
-        const container = mainContentArea.querySelector(`#${containerId}`);
-        if (!container) return;
-        const label = fieldId === 'municipalitySelect' ? 'Ciudad / Municipio' : 'Estado';
-        if (isSelect) {
-            container.innerHTML = `<label>${label}</label><select id="${fieldId}" class="form-control sm" required><option value="">Seleccione...</option></select>`;
-            if (fieldId === 'stateSelect') container.querySelector('select').onchange = (e) => handleStateChange(e.target.value);
-        } else container.innerHTML = `<label>${label}</label><input type="text" id="${fieldId}" class="form-control sm" required>`;
-    }
 
-    async function loadStates(iso2, initialValue = null) {
-        await toggleField('stateContainer', 'stateSelect', true);
-        const sel = mainContentArea.querySelector('#stateSelect');
-        try {
-            const res = await fetch('https://countriesnow.space/api/v0.1/countries/states', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ iso2 })
-            });
-            const data = await res.json();
-            if (!data.error && data.data.states.length > 0) {
-                sel.innerHTML = '<option value="">Seleccione...</option>';
-                data.data.states.forEach(s => {
-                    const opt = document.createElement('option'); opt.value = s.name; opt.textContent = s.name;
-                    if (s.name === initialValue) opt.selected = true;
-                    sel.appendChild(opt);
-                });
-                if (initialValue) await handleStateChange(initialValue);
-            } else await toggleField('stateContainer', 'stateSelect', false);
-        } catch (e) { await toggleField('stateContainer', 'stateSelect', false); }
-    }
-
-    async function handleStateChange(stateName, initialCity = null) {
-        await toggleField('municipalityContainer', 'municipalitySelect', true);
-        const sel = mainContentArea.querySelector('#municipalitySelect');
-        const countrySelect = mainContentArea.querySelector('#editCountry');
-        const countryName = countrySelect.options[countrySelect.selectedIndex]?.text || businessData.country || '';
-        if (!countryName || !stateName || countryName.includes('Seleccione')) return;
-        try {
-            const res = await fetch('https://countriesnow.space/api/v0.1/countries/state/cities', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: countryName, state: stateName })
-            });
-            const data = await res.json();
-            if (!data.error && data.data.length > 0) {
-                sel.innerHTML = '<option value="">Seleccione...</option>';
-                data.data.forEach(c => {
-                    const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
-                    if (c === initialCity) opt.selected = true;
-                    sel.appendChild(opt);
-                });
-            } else await toggleField('municipalityContainer', 'municipalitySelect', false);
-        } catch (e) { await toggleField('municipalityContainer', 'municipalitySelect', false); }
-    }
 
     // --- CARGA ---
     async function loadAllData() {
@@ -247,28 +193,21 @@ export async function renderSettings(mainContentArea) {
                     mainContentArea.querySelector('#editOwnerDoc').value = p[1];
                 }
                 if (d.ownerPhone) window.intlTelInputGlobals.getInstance(mainContentArea.querySelector('#editOwnerPhone'))?.setNumber(d.ownerPhone);
-                if (d.logoUrl) mainContentArea.querySelector('#settingsLogoPreview').innerHTML = `<img src="${d.logoUrl}">`;
+                const pendingLogo = localStorage.getItem('pendingLogo');
+                if (pendingLogo) {
+                    mainContentArea.querySelector('#settingsLogoPreview').innerHTML = `<img src="${pendingLogo}">`;
+                } else if (d.logoUrl) {
+                    mainContentArea.querySelector('#settingsLogoPreview').innerHTML = `<img src="${d.logoUrl}">`;
+                }
                 
                 loadBanks();
 
-                const res = await fetch('https://countriesnow.space/api/v0.1/countries/iso');
-                const geo = await res.json();
-                if (geo.data) {
-                    const countrySelect = mainContentArea.querySelector('#editCountry');
-                    countrySelect.innerHTML = '<option value="">Seleccione país</option>' + geo.data.sort((a,b) => a.name.localeCompare(b.name)).map(c => `<option value="${c.Iso2}" ${c.Iso2 === d.countryCode ? 'selected' : ''}>${c.name}</option>`).join('');
-                    
-                    if (d.countryCode) {
-                        allBanks = await FinanceService.getBanksByCountry(d.countryCode);
-                        await loadStates(d.countryCode, d.state);
-                        if (d.state) await handleStateChange(d.state, d.municipality);
-                    }
-                    
-                    countrySelect.onchange = async (e) => {
-                        if (e.target.value) {
-                            await loadStates(e.target.value);
-                            allBanks = await FinanceService.getBanksByCountry(e.target.value);
-                        }
-                    };
+                mainContentArea.querySelector('#editCountry').value = d.country || '';
+                mainContentArea.querySelector('#stateSelect').value = d.state || '';
+                mainContentArea.querySelector('#municipalitySelect').value = d.municipality || '';
+                
+                if (d.countryCode) {
+                    allBanks = await FinanceService.getBanksByCountry(d.countryCode);
                 }
             }
         } catch (e) { console.error("Error cargando todo:", e); }
@@ -353,12 +292,7 @@ export async function renderSettings(mainContentArea) {
                 municipality: mainContentArea.querySelector('#municipalitySelect')?.value || ''
             };
 
-            const logoFile = mainContentArea.querySelector('#newLogoInput').files[0];
-            if (logoFile) {
-                const refS = ref(storage, `logos/${businessId}/logo`);
-                await uploadBytes(refS, logoFile);
-                updates.logoUrl = await getDownloadURL(refS);
-            }
+
 
             await updateDoc(doc(db, "businesses", businessId), updates);
             businessData = { ...businessData, ...updates };
@@ -406,6 +340,34 @@ export async function renderSettings(mainContentArea) {
     window.intlTelInput(mainContentArea.querySelector('#editOwnerPhone'), { initialCountry: "ve", preferredCountries: ["ve", "co"], utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
     window.intlTelInput(mainContentArea.querySelector('#pagoMovilPhone'), { initialCountry: "ve", preferredCountries: ["ve", "co"], utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
     window.intlTelInput(mainContentArea.querySelector('#modalPmPhone'), { initialCountry: "ve", preferredCountries: ["ve", "co"], utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
+    const logoInput = mainContentArea.querySelector('#newLogoInput');
+    if (logoInput) {
+        logoInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                    const dataUrl = ev.target.result;
+                    mainContentArea.querySelector('#settingsLogoPreview').innerHTML = `<img src="${dataUrl}">`;
+                    localStorage.setItem('pendingLogo', dataUrl);
+
+                    try {
+                        showNotification('Subiendo logo...', 'info');
+                        const refS = ref(storage, `logos/${businessId}/logo`);
+                        await uploadBytes(refS, file);
+                        const url = await getDownloadURL(refS);
+                        await updateDoc(doc(db, "businesses", businessId), { logoUrl: url });
+                        showNotification('Logo guardado correctamente', 'success');
+                        localStorage.removeItem('pendingLogo');
+                    } catch (err) {
+                        console.error("Error al subir logo:", err);
+                        showNotification('Error al guardar en la nube (se mantiene local)', 'error');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+    }
     setupLogic(mainContentArea, '');
     setupLogic(mainContentArea.querySelector('#bankEditModal'), 'modal');
     mainContentArea.querySelector('#closeBankModal').onclick = () => mainContentArea.querySelector('#bankEditModal').style.display = 'none';

@@ -20,7 +20,7 @@ try {
         $path = $request.Url.LocalPath.TrimStart('/').Replace('/', [IO.Path]::DirectorySeparatorChar)
         if ($path -eq "") { $path = "index.html" }
         
-        $fullPath = Join-Path $PSScriptRoot $path
+        $fullPath = Join-Path (Split-Path $PSScriptRoot) $path
         if (Test-Path $fullPath -PathType Container) {
             $fullPath = Join-Path $fullPath "index.html"
         }
