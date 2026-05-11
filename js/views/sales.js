@@ -9,18 +9,30 @@ export function renderSales(container, preSelectedClient = null) {
     let clients = [];
     let cart = [];
     let payments = [];
+    const hash = window.location.hash;
     let currentView = 'cart';
+    if (hash === '#sales/history') {
+        currentView = 'history';
+    }
     let activeMobileTab = 'products'; // 'products' or 'cart'
     let includeOldDebt = false;
     
-    // Attempt to restore state if returning from client creation
+    // Attempt to restore state if returning from client creation or history
     const savedState = sessionStorage.getItem('sales_temp_state');
     if (savedState) {
         const state = JSON.parse(savedState);
         cart = state.cart || [];
         payments = state.payments || [];
-        currentView = state.currentView || 'cart';
-        sessionStorage.removeItem('sales_temp_state');
+        
+        // Only overwrite currentView if not forced by hash
+        if (hash !== '#sales/history') {
+            currentView = state.currentView || 'cart';
+        }
+        
+        // Clear state only if we are returning to the main sales view
+        if (hash === '#sales') {
+            sessionStorage.removeItem('sales_temp_state');
+        }
     }
 
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
@@ -54,6 +66,9 @@ export function renderSales(container, preSelectedClient = null) {
     let stores = [];
     const businessId = localStorage.getItem('businessId');
     const role = localStorage.getItem('userRole');
+    const userEmail = localStorage.getItem('userEmail');
+    const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
+    const currentEmployeeName = cachedName || 'Admin';
     const storeId = role === 'admin' ? null : localStorage.getItem('storeId');
     const storeName = role === 'admin' ? 'Almacén General' : (localStorage.getItem('storeName') || 'Sucursal');
 
@@ -422,8 +437,13 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         container.querySelector('#viewHistoryBtn').addEventListener('click', () => {
-            currentView = 'history';
-            render();
+            const stateToSave = {
+                cart: cart,
+                payments: payments,
+                currentView: 'cart'
+            };
+            sessionStorage.setItem('sales_temp_state', JSON.stringify(stateToSave));
+            window.location.hash = '#sales/history';
         });
 
         container.querySelector('#tabProductsBtn')?.addEventListener('click', () => {
@@ -1316,7 +1336,7 @@ export function renderSales(container, preSelectedClient = null) {
                         clientId: selectedClient.id,
                         clientName: selectedClient.fullName,
                         employeeEmail: auth.currentUser?.email,
-                        employeeName: localStorage.getItem('employeeName') || 'Admin',
+                        employeeName: currentEmployeeName,
                         storeId: storeId || 'general',
                         storeName: storeName,
                         bcvRate,
@@ -1358,7 +1378,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 storeId: storeId || 'general',
                                 storeName: storeName,
                                 employeeEmail: auth.currentUser?.email,
-                                employeeName: localStorage.getItem('employeeName') || 'Admin',
+                                employeeName: currentEmployeeName,
                                 date: todayStr,
                                 createdAt: serverTimestamp(),
                                 isCombinedPayment: surplus > 0.01,

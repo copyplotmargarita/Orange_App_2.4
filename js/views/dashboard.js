@@ -110,19 +110,30 @@ export function renderDashboard() {
                 </div>
                 
                 <div class="header-right">
-                    <button id="themeToggle" class="btn btn-ghost theme-btn" title="Cambiar Modo">
-                        ☀️ <span class="hide-mobile">Modo</span>
+                    <button id="themeToggle" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0.4rem;color:var(--text-main);display:flex;align-items:center;gap:0.25rem;" title="Cambiar Modo">
+                        ☀️ <span class="hide-mobile" style="font-size:0.85rem;font-weight:500;">Modo</span>
                     </button>
                     
-                    <button id="settingsBtn" class="btn btn-ghost settings-btn" title="Configuración del Negocio">
-                        ⚙️ <span class="hide-mobile">Ajustes</span>
+                    ${!isEmployee ? `
+                    <button id="settingsBtn" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0.4rem;color:var(--text-main);display:flex;align-items:center;gap:0.25rem;" title="Configuración del Negocio">
+                        ⚙️ <span class="hide-mobile" style="font-size:0.85rem;font-weight:500;">Ajustes</span>
+                    </button>
+                    ` : ''}
+
+                    <button id="notifBtn" style="position:relative;background:none;border:none;cursor:pointer;font-size:1.4rem;padding:0.3rem;" title="Notificaciones">
+                        🔔
+                        <span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--danger);color:white;border-radius:50%;min-width:18px;height:18px;font-size:0.65rem;font-weight:bold;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface);">0</span>
                     </button>
 
-                    ${isEmployee ? `
-                    <button id="bellBtn" style="position:relative;background:none;border:none;cursor:pointer;font-size:1.4rem;padding:0.3rem;" title="Notificaciones">
-                        🔔
-                        <span id="bellBadge" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--danger);color:white;border-radius:50%;min-width:18px;height:18px;font-size:0.65rem;font-weight:bold;display:none;align-items:center;justify-content:center;border:2px solid var(--surface);">0</span>
-                    </button>` : ''}
+                    <div id="notifDropdown" style="display:none; position:absolute; top: 45px; right: 0; width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 1000; max-height: 400px; overflow-y: auto;">
+                        <div style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Notificaciones</span>
+                            <span id="clearNotifs" style="font-size: 0.8rem; color: var(--primary); cursor: pointer;">Marcar como leídas</span>
+                        </div>
+                        <div id="notifList" style="display: flex; flex-direction: column;">
+                            <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No hay notificaciones pendientes</div>
+                        </div>
+                    </div>
                 </div>
             </header>
             
@@ -902,12 +913,9 @@ export function renderDashboard() {
         const businessId = localStorage.getItem('businessId');
         const userEmail = localStorage.getItem('userEmail');
 
-        // 1. Intentar mostrar nombre desde Caché específica de este usuario
-        if (userEmail) {
-            const cachedName = localStorage.getItem(`userName_${userEmail}`);
-            if (cachedName) {
-                greetingEl.textContent = `Hola, ${cachedName}${isEmployee && storeName ? ' - ' + storeName : ''}`;
-            }
+        const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
+        if (cachedName) {
+            greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${cachedName}</span>${isEmployee && storeName ? `<br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${storeName}</span>` : ''}`;
         }
 
         // 2. Si es empleado, cargar datos específicos
@@ -932,10 +940,9 @@ export function renderDashboard() {
             }
             
             const empNameLocal = localStorage.getItem('employeeName');
-            const empName = empNameLocal ? empNameLocal : (auth.currentUser?.displayName || "Empleado");
+            const empName = empNameLocal || cachedName || (auth.currentUser?.displayName || "Empleado");
             
-            const display = storeName ? `Hola, ${empName} - ${storeName}` : `Hola, ${empName}`;
-            greetingEl.textContent = display;
+            greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${empName}</span>${storeName ? `<br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${storeName}</span>` : ''}`;
             
             // Guardar solo en caché vinculada al correo
             if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
@@ -977,28 +984,28 @@ export function renderDashboard() {
             return;
         }
 
-        // 3. Si es Administrador, cargar desde Firebase
+        // 3. Si es Administrador (Dueño o Empleado con privilegios)
         if (auth.currentUser || businessId) {
             try {
-                const uid = auth.currentUser?.uid || businessId;
-                const docRef = doc(db, "businesses", uid);
-                const docSnap = await getDoc(docRef);
+                const ownerDocRef = doc(db, "businesses", businessId);
+                const ownerDocSnap = await getDoc(ownerDocRef);
                 
-                let finalName = "";
-
-                if (docSnap.exists()) {
-                    // PRIORIDAD 1: Nombre de la Empresa en la base de datos
-                    finalName = docSnap.data().name;
-                } else if (auth.currentUser?.displayName) {
-                    // PRIORIDAD 2: Nombre de perfil solo si no hay empresa
-                    finalName = auth.currentUser.displayName;
+                const isOwner = auth.currentUser?.uid === businessId;
+                
+                if (isOwner) {
+                    const ownerName = ownerDocSnap.exists() ? (ownerDocSnap.data().ownerName || "Propietario") : "Propietario";
+                    const businessName = ownerDocSnap.exists() ? ownerDocSnap.data().name : "Mi Negocio";
+                    
+                    greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${ownerName}</span><br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${businessName}</span>`;
+                    
+                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, ownerName);
                 } else {
-                    finalName = "Administrador";
-                }
-
-                if (finalName) {
-                    greetingEl.textContent = "Hola, " + finalName;
-                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, finalName);
+                    const empName = cachedName || auth.currentUser?.displayName || "Administrador";
+                    const storeName = localStorage.getItem('storeName') || 'Sede Principal';
+                    
+                    greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${empName}</span><br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${storeName}</span>`;
+                    
+                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
                 }
 
                 // LIMPIEZA DE RASTROS
@@ -1008,7 +1015,7 @@ export function renderDashboard() {
 
             } catch (error) {
                 console.error("Error cargando nombre:", error);
-                greetingEl.textContent = "Hola, Administrador";
+                greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">Administrador</span>`;
             }
         }
     }
@@ -1074,17 +1081,20 @@ export function renderDashboard() {
         }
     });
 
-    settingsBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        renderSettings(mainContentArea);
-        if (sidebarOpen) toggleSidebar();
-    });
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            renderSettings(mainContentArea);
+            if (sidebarOpen) toggleSidebar();
+        });
+    }
 
     // Cerrar Sesión (Protección de sesión sin cerrar turno)
     const logoutBtn = container.querySelector('#logoutBtn');
     logoutBtn.addEventListener('click', async () => {
         try {
             await auth.signOut();
+            localStorage.removeItem('businessId');
             localStorage.removeItem('userRole');
             localStorage.removeItem('storeId');
             localStorage.removeItem('storeName');
@@ -1467,6 +1477,10 @@ export function renderDashboard() {
     const chatToggle = container.querySelector('#chatToggle');
     const chatToggleIcon = container.querySelector('#chatToggleIcon');
     const chatBadge = container.querySelector('#chatBadge');
+    const notifBtn = container.querySelector('#notifBtn');
+    const notifBadge = container.querySelector('#notifBadge');
+    const notifDropdown = container.querySelector('#notifDropdown');
+    const notifList = container.querySelector('#notifList');
     
     let chatInactiveTimer = null;
     let unreadCount = 0;
@@ -1482,6 +1496,35 @@ export function renderDashboard() {
         }
     };
 
+    if (notifBtn) {
+        notifBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = notifDropdown.style.display === 'block';
+            notifDropdown.style.display = isVisible ? 'none' : 'block';
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (notifDropdown && !notifDropdown.contains(e.target) && e.target !== notifBtn) {
+                notifDropdown.style.display = 'none';
+            }
+        });
+
+        const clearNotifs = container.querySelector('#clearNotifs');
+        if (clearNotifs) {
+            clearNotifs.addEventListener('click', () => {
+                unreadCount = 0;
+                chatBadge.style.display = 'none';
+                chatBadge.textContent = '0';
+                if (notifBadge) {
+                    notifBadge.style.display = 'none';
+                    notifBadge.textContent = '0';
+                }
+                notifList.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No hay notificaciones pendientes</div>';
+                notifDropdown.style.display = 'none';
+            });
+        }
+    }
+
     chatToggle.addEventListener('click', () => {
         const isCollapsed = chatSidebar.classList.toggle('collapsed');
         chatToggleIcon.textContent = isCollapsed ? '◀' : '▶';
@@ -1491,6 +1534,10 @@ export function renderDashboard() {
             unreadCount = 0;
             chatBadge.style.display = 'none';
             chatBadge.textContent = '0';
+            if (notifBadge) {
+                notifBadge.style.display = 'none';
+                notifBadge.textContent = '0';
+            }
             resetChatTimer();
         } else {
             if (chatInactiveTimer) clearTimeout(chatInactiveTimer);
@@ -1504,9 +1551,12 @@ export function renderDashboard() {
     // Iniciar Chat Global
     initChat();
 
+    let audioCtx = null;
     function playBeep() {
         try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
@@ -1522,7 +1572,7 @@ export function renderDashboard() {
             oscillator.start();
             oscillator.stop(audioCtx.currentTime + 0.2);
         } catch (e) {
-            console.log("Audio no permitido aún por el navegador");
+            console.log("Audio no permitido aún por el navegador", e);
         }
     }
 
@@ -1618,8 +1668,31 @@ export function renderDashboard() {
                         // Si el chat está cerrado, aumentar contador de no leídos
                         if (chatSidebar.classList.contains('collapsed')) {
                             unreadCount++;
-                            chatBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-                            chatBadge.style.display = 'flex';
+                            const countText = unreadCount > 99 ? '99+' : unreadCount;
+                            if (notifBadge) {
+                                notifBadge.textContent = countText;
+                                notifBadge.style.display = 'flex';
+                            }
+
+                            // Añadir a la lista de notificaciones
+                            if (notifList) {
+                                const emptyMsg = notifList.querySelector('div[style*="text-align: center"]');
+                                if (emptyMsg) emptyMsg.remove();
+                                
+                                const item = document.createElement('div');
+                                item.style = "padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; transition: background 0.2s;";
+                                item.innerHTML = `
+                                    <div style="font-weight: bold; margin-bottom: 2px; color: var(--primary);">💬 Chat Interno</div>
+                                    <div style="color: var(--text-muted); font-size: 0.8rem;">${msg.senderName || 'Usuario'}: ${msg.text}</div>
+                                `;
+                                item.onmouseover = () => item.style.background = 'rgba(249, 115, 22, 0.05)';
+                                item.onmouseout = () => item.style.background = 'transparent';
+                                item.onclick = () => {
+                                    chatToggle.click(); // Abrir chat
+                                    notifDropdown.style.display = 'none'; // Cerrar dropdown
+                                };
+                                notifList.insertBefore(item, notifList.firstChild);
+                            }
                         }
                     }
                 });
