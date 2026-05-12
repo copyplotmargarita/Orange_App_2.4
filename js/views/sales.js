@@ -437,13 +437,8 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         container.querySelector('#viewHistoryBtn').addEventListener('click', () => {
-            const stateToSave = {
-                cart: cart,
-                payments: payments,
-                currentView: 'cart'
-            };
-            sessionStorage.setItem('sales_temp_state', JSON.stringify(stateToSave));
-            window.location.hash = '#sales/history';
+            currentView = 'history';
+            render();
         });
 
         container.querySelector('#tabProductsBtn')?.addEventListener('click', () => {
@@ -1281,6 +1276,10 @@ export function renderSales(container, preSelectedClient = null) {
                 }
 
                 await runTransaction(db, async (transaction) => {
+                    // Obtener o inicializar correlativo (LECTURA)
+                    const counterRef = doc(db, "businesses", businessId, "config", "counters");
+                    const counterSnap = await transaction.get(counterRef);
+
                     // 1. PRIMERO: Realizar todas las LECTURAS (Solo si NO es presupuesto)
                     const prodSnaps = [];
                     const storeSnaps = [];
@@ -1324,9 +1323,24 @@ export function renderSales(container, preSelectedClient = null) {
                         }
                     }
 
+                    // Calcular correlativo (Ya leímos el snap arriba)
+                    let count = 1;
+                    if (isPresupuesto) {
+                        count = (counterSnap.exists() ? counterSnap.data().budgets || 0 : 0) + 1;
+                        transaction.set(counterRef, { budgets: count }, { merge: true });
+                    } else {
+                        count = (counterSnap.exists() ? counterSnap.data().sales || 0 : 0) + 1;
+                        transaction.set(counterRef, { sales: count }, { merge: true });
+                    }
+                    
+                    const correlative = isPresupuesto ? 
+                        `PRE-${String(count).padStart(8, '0')}` : 
+                        `FAC-${String(count).padStart(8, '0')}`;
+
                     // Registrar Venta / Presupuesto Actual
                     const saleRef = doc(collection(db, "businesses", businessId, "sales"));
                     transaction.set(saleRef, {
+                        correlative: correlative,
                         items: cart,
                         totalUSD: totalUSD_original,
                         totalBs: totalUSD_original * bcvRate,
@@ -1567,7 +1581,7 @@ export function renderSales(container, preSelectedClient = null) {
                     salePayments = paySnap.docs.map(doc => doc.data());
                 }
                 
-                generateDocumentView(sale, salePayments);
+                await generateDocumentView(sale, salePayments);
             });
         });
 
@@ -1787,11 +1801,42 @@ export function renderSales(container, preSelectedClient = null) {
         }, "Sí, Facturar", "Cancelar");
     }
 
-    function generateDocumentView(sale, salePayments = []) {
+    async function generateDocumentView(sale, salePayments = []) {
         const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
         const printWindow = window.open('', '_blank');
-        const bName = localStorage.getItem('businessName') || 'ORANGE APP';
+        const businessId = localStorage.getItem('businessId');
+        let businessData = {};
+        try {
+            const snap = await getDoc(doc(db, "businesses", businessId));
+            if (snap.exists()) businessData = snap.data();
+        } catch (e) {
+            console.error("Error fetching business data:", e);
+        }
+        
+        const bName = businessData.name || localStorage.getItem('businessName') || 'ORANGE APP';
+        const logoUrl = businessData.logoUrl || localStorage.getItem('businessLogo');
         const sName = sale.storeName || 'Sucursal';
+        
+        // Formatear fecha: martes, 12-05-2026
+        let formattedDate = sale.date;
+        try {
+            const [year, month, day] = sale.date.split('-');
+            const dateObj = new Date(year, month - 1, day);
+            const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+            const dayName = days[dateObj.getDay()];
+            formattedDate = `${dayName}, ${day}-${month}-${year}`;
+        } catch (e) {
+            console.error("Error formatting date:", e);
+        }
+        
+        let bankAccounts = [];
+        try {
+            const q = query(collection(db, "businesses", businessId, "bank_accounts"));
+            const snap = await getDocs(q);
+            bankAccounts = snap.docs.map(doc => doc.data());
+        } catch (e) {
+            console.error("Error fetching bank accounts for document:", e);
+        }
         
         const html = `
             <!DOCTYPE html>
@@ -1833,24 +1878,27 @@ export function renderSales(container, preSelectedClient = null) {
                 </div>
                 
                 <div class="page">
-                    <div class="header">
-                        <div class="company">
-                            <h1>${bName}</h1>
-                            <p>${sName}</p>
-                            <p>Vendedor: ${sale.employeeName}</p>
+                    <div class="header" style="align-items: flex-start;">
+                        <div class="company" style="display: flex; align-items: flex-start; gap: 15px;">
+                            ${logoUrl ? `<img src="${logoUrl}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 50%;">` : ''}
+                            <div>
+                                <h1 style="margin: 0; color: #2b6cb0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${bName}</h1>
+                                <p style="margin: 2px 0; font-size: 12px; color: #718096;">${localStorage.getItem('userRole') === 'admin' ? 'Sede Principal' : sName}</p>
+                                <p style="margin: 2px 0; font-size: 12px; color: #718096;">Vendedor: ${sale.employeeName}</p>
+                            </div>
                         </div>
                         <div class="budget-id">
-                            <h2>${isBudget ? 'PRESUPUESTO' : 'FACTURA'}</h2>
-                            <p>${isBudget ? 'ID:' : 'Factura:'} ${sale.id.slice(-6).toUpperCase()}</p>
-                            <div style="font-size: 12px; color: #718096;">${sale.date}</div>
-                            ${sale.status === 'facturado' ? '<div style="color: #48bb78; font-weight: bold; font-size: 12px; margin-top: 5px;">ESTADO: FACTURADO</div>' : ''}
+                            <h2 style="margin: 0; color: #2d3748; font-size: 16px; font-weight: bold; text-transform: uppercase;">${isBudget ? 'PRESUPUESTO' : 'FACTURA NO FISCAL'}</h2>
+                            <p>${isBudget ? 'N°:' : 'Factura N°:'} ${sale.correlative || sale.id.slice(-6).toUpperCase()}</p>
+                            <div style="font-size: 12px; color: #000;">${formattedDate} - Tasa BCV: Bs. ${fmt(sale.bcvRate || (sale.totalBs / sale.totalUSD))}</div>
+                            <div style="color: #2b6cb0; font-weight: bold; font-size: 12px; margin-top: 5px; text-transform: uppercase;">ESTADO: ${sale.status}</div>
                         </div>
                     </div>
 
                     <div class="client-box">
                         <h3>Cliente</h3>
                         <div style="font-weight: bold; font-size: 15px;">${sale.clientName}</div>
-                        <div style="font-size: 13px; color: #4a5568;">ID: ${sale.clientId}</div>
+                        <div style="font-size: 13px; color: #4a5568;">${sale.clientId}</div>
                     </div>
 
                     <table>
@@ -1886,9 +1934,7 @@ export function renderSales(container, preSelectedClient = null) {
                         <div style="text-align: right; margin-top: 8px; font-weight: bold; color: #4a5568; font-size: 15px;">
                             TOTAL BS: ${fmt(sale.totalBs)}
                         </div>
-                        <div style="text-align: right; font-size: 11px; color: #718096; margin-top: 4px;">
-                            Tasa BCV: Bs. ${fmt(sale.totalBs / sale.totalUSD)}
-                        </div>
+
                     </div>
 
                     ${!isBudget && salePayments.length > 0 ? `
@@ -1905,6 +1951,23 @@ export function renderSales(container, preSelectedClient = null) {
                                 <span>PENDIENTE POR COBRAR:</span>
                                 <span>$ ${fmt(sale.remainingUSD || 0)}</span>
                             </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Cuentas Bancarias -->
+                    ${bankAccounts.length > 0 ? `
+                    <div style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 20px;">
+                        <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px;">🏦 Datos de Pago</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; font-size: 11px;">
+                            ${bankAccounts.map(acc => `
+                                <div style="background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                    <div style="font-weight: bold; color: #2b6cb0;">${acc.bank}</div>
+                                    <div style="color: #718096; font-size: 10px; text-transform: uppercase;">${acc.type} (${acc.currency})</div>
+                                    <div style="font-family: monospace; font-size: 11px; margin-top: 4px;">${acc.number}</div>
+                                    ${acc.phone ? `<div style="font-size: 11px; margin-top: 2px;">📱 ${acc.phone}</div>` : ''}
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                     ` : ''}

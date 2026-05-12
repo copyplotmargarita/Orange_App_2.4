@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase, showNotification } from '../utils.js';
-import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc, where } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderClients(container, onFinish = null, initialName = '') {
     let clients = [];
@@ -405,12 +405,45 @@ export function renderClients(container, onFinish = null, initialName = '') {
         });
     }
 
-    function renderDetail(client) {
+    async function renderDetail(client) {
         const hasLocation = client.needsDelivery && client.location;
         let selectedLat = hasLocation ? client.location.lat : 10.992;
         let selectedLng = hasLocation ? client.location.lng : -63.805;
         let detailMap = null;
         let detailMarker = null;
+
+        // Fetch sales
+        const businessId = localStorage.getItem('businessId');
+        let sales = [];
+        try {
+            const q = query(collection(db, "businesses", businessId, "sales"), where("clientId", "==", client.id));
+            const snapshot = await getDocs(q);
+            sales = snapshot.docs.map(doc => doc.data());
+        } catch (e) {
+            console.error("Error fetching sales:", e);
+        }
+
+        const totalPurchases = sales.length;
+        const totalSpent = sales.reduce((sum, s) => sum + (s.totalUSD || s.total || 0), 0);
+        const avgPurchase = totalPurchases > 0 ? totalSpent / totalPurchases : 0;
+
+        // Calculate top products
+        const productCounts = {};
+        sales.forEach(sale => {
+            if (sale.items) {
+                sale.items.forEach(item => {
+                    const name = item.name || item.productName || 'Producto';
+                    const qty = item.qty || 1;
+                    if (!productCounts[name]) {
+                        productCounts[name] = { name, qty: 0 };
+                    }
+                    productCounts[name].qty += qty;
+                });
+            }
+        });
+        const topProducts = Object.values(productCounts)
+            .sort((a, b) => b.qty - a.qty)
+            .slice(0, 4);
 
         container.innerHTML = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
@@ -418,69 +451,135 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">Ficha de Cliente</h2>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.5rem; max-width: 950px; margin: 0 auto;" class="grid-1-mobile">
-                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
-                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);">
-                        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary), #60a5fa); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.25rem; font-weight: 900; box-shadow: var(--shadow-md); margin-bottom: 1.25rem;">
+            <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 500px; margin: 0 auto; width: 100%;">
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                        <div style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), #60a5fa); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; font-weight: 900; box-shadow: var(--shadow-md); margin-bottom: 0.75rem;">
                             ${client.fullName.charAt(0).toUpperCase()}
                         </div>
-                        <h3 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 0.3rem;">${client.fullName}</h3>
-                        <p style="font-family: monospace; font-size: 0.9rem; color: var(--primary); font-weight: 700;">ID: ${client.id}</p>
+                        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 0.2rem;">${client.fullName}</h3>
+                        <p style="font-family: monospace; font-size: 0.8rem; color: var(--primary); font-weight: 700;">ID: ${client.id}</p>
                     </div>
                     
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <a href="tel:${client.phone}" class="btn-action" style="background: var(--primary); border-color: var(--primary); color: white;">📞 Llamar</a>
-                        <a target="_blank" href="https://wa.me/${client.phone.replace('+','')}" class="btn-action" style="background: #25D366; border-color: #25D366; color: white;">💬 WhatsApp</a>
-                        ${client.email ? `<a href="mailto:${client.email}" class="btn-action" style="background: #475569; border-color: #475569; color: white;">📧 Correo</a>` : ''}
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <a href="tel:${client.phone}" class="btn-action" style="background: var(--primary); border-color: var(--primary); color: white; height: 36px; font-size: 0.85rem;">📞 Llamar</a>
+                        <a target="_blank" href="https://wa.me/${client.phone.replace('+','')}" class="btn-action" style="background: #25D366; border-color: #25D366; color: white; height: 36px; font-size: 0.85rem;">💬 WhatsApp</a>
+                        ${client.email ? `<a href="mailto:${client.email}" class="btn-action" style="background: #475569; border-color: #475569; color: white; height: 36px; font-size: 0.85rem;">📧 Correo</a>` : ''}
                         ${client.location ? `
-                            <a target="_blank" href="https://www.google.com/maps/search/?api=1&query=${client.location.lat},${client.location.lng}" class="btn-action" style="background: #4285F4; border-color: #4285F4; color: white;">📍 Ir a la Ubicación</a>
+                            <a target="_blank" href="https://www.google.com/maps/search/?api=1&query=${client.location.lat},${client.location.lng}" class="btn-action" style="background: #4285F4; border-color: #4285F4; color: white; height: 36px; font-size: 0.85rem;">📍 Ir a la Ubicación</a>
                         ` : ''}
                     </div>
                 </div>
 
-                <div class="card" style="padding: 2rem;">
-                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">📋 Datos de Facturación</h3>
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📋 Datos de Facturación</h3>
                     <form id="editClientForm">
-                        <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 0.75rem;">
                             <div class="form-group">
-                                <label>📱 Teléfono Principal</label>
-                                <input type="tel" id="editPhone" class="form-control" value="${client.phone}" required>
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📱 Teléfono Principal</label>
+                                <input type="tel" id="editPhone" class="form-control" value="${client.phone}" required style="height: 36px; font-size: 0.85rem;">
                             </div>
                             <div class="form-group">
-                                <label>📧 Correo de Contacto</label>
-                                <input type="email" id="editEmail" class="form-control" value="${client.email || ''}" placeholder="Sin correo registrado">
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📧 Correo de Contacto</label>
+                                <input type="email" id="editEmail" class="form-control" value="${client.email || ''}" placeholder="Sin correo registrado" style="height: 36px; font-size: 0.85rem;">
                             </div>
                             <div class="form-group">
-                                <label>🏠 Dirección de Entrega</label>
-                                <textarea id="editAddress" class="form-control" rows="2" required style="resize: none;">${client.address}</textarea>
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">🏠 Dirección de Entrega</label>
+                                <textarea id="editAddress" class="form-control" rows="2" required style="resize: none; font-size: 0.85rem;">${client.address}</textarea>
                                 ${client.needsDelivery ? `
-                                    <button type="button" id="showMapBtn" class="btn btn-outline" style="width: 100%; margin-top: 0.75rem; height: 35px; font-size: 0.75rem; border-style: dashed; font-weight: 700;">🗺️ EDITAR UBICACIÓN EN MAPA</button>
+                                    <button type="button" id="showMapBtn" class="btn btn-outline" style="width: 100%; margin-top: 0.5rem; height: 30px; font-size: 0.7rem; border-style: dashed; font-weight: 700;">🗺️ EDITAR UBICACIÓN EN MAPA</button>
                                 ` : ''}
                             </div>
 
-                            <div class="form-group" style="background: var(--background); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border); margin-top: 0.5rem;">
+                            <div class="form-group" style="background: var(--background); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border); margin-top: 0.25rem;">
                                 <label style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0;">
-                                    <span style="font-size: 0.75rem; font-weight: 800;">🚚 SERVICIO DE DELIVERY</span>
-                                    <select id="editDelivery" class="form-control" style="width: 90px; height: 32px; padding: 0 0.5rem; font-size: 0.75rem; font-weight: 700;">
+                                    <span style="font-size: 0.7rem; font-weight: 800;">🚚 SERVICIO DE DELIVERY</span>
+                                    <select id="editDelivery" class="form-control" style="width: 80px; height: 30px; padding: 0 0.5rem; font-size: 0.7rem; font-weight: 700;">
                                         <option value="NO" ${!client.needsDelivery ? 'selected' : ''}>NO</option>
                                         <option value="SI" ${client.needsDelivery ? 'selected' : ''}>SÍ</option>
                                     </select>
                                 </label>
                                 
-                                <div id="editMapContainer" style="display: none; margin-top: 1.25rem;">
-                                    <div id="detailMap" style="height: 200px; border-radius: 8px; border: 1px solid var(--border); z-index: 1;"></div>
-                                    <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">Mueve el mapa para ajustar la mira central</p>
+                                <div id="editMapContainer" style="display: none; margin-top: 1rem;">
+                                    <div id="detailMap" style="height: 180px; border-radius: 8px; border: 1px solid var(--border); z-index: 1;"></div>
+                                    <p style="font-size: 0.6rem; color: var(--text-muted); margin-top: 0.4rem; text-align: center;">Mueve el mapa para ajustar la mira central</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                            <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 40px;">Cancelar</button>
-                            <button type="submit" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 40px; font-weight: 700;">Guardar Cambios</button>
-                        </div>
                     </form>
                 </div>
+
+                <!-- Métricas de Compra -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📊 Métricas de Compra</h3>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
+                        <div>
+                            <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Compras</p>
+                            <p style="font-size: 1.2rem; font-weight: 800; color: var(--text-main);">${totalPurchases}</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Promedio</p>
+                            <p style="font-size: 1.2rem; font-weight: 800; color: var(--success);">$${avgPurchase.toFixed(2)}</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Total Gastado</p>
+                            <p style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">$${totalSpent.toFixed(2)}</p>
+                        </div>
+                    </div>
+
+                    <!-- Productos más comprados -->
+                    <div style="margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <p style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px;">🛒 Productos más comprados</p>
+                        <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                            ${topProducts.length === 0 ? `<p style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">No hay productos registrados.</p>` : ''}
+                            ${topProducts.map(p => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; background: var(--background); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);">
+                                    <span style="font-weight: 600; color: var(--text-main);">${p.name}</span>
+                                    <span style="color: var(--primary); font-weight: 800;">x${p.qty}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.25rem;">
+                        <button class="btn btn-outline" id="viewHistoryBtn" style="width: 100%; height: 36px; font-size: 0.85rem; font-weight: 700;">📜 Ver Historial de Compras</button>
+                    </div>
+
+                    <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem;">
+                        <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 36px; font-size: 0.85rem;">Cancelar</button>
+                        <button type="submit" form="editClientForm" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 36px; font-size: 0.85rem; font-weight: 700;">Guardar Cambios</button>
+                    </div>
+                </div>
             </div>
+
+            <!-- Modal Historial de Compras -->
+            <div id="historyModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+                <div class="card" style="width: 90%; max-width: 500px; padding: 1.5rem; max-height: 80vh; overflow-y: auto; background: var(--surface);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800;">📜 Historial de Compras</h3>
+                        <button id="closeHistoryBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+                    </div>
+                    <div id="historyList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        ${sales.length === 0 ? `<p class="text-muted" style="text-align: center;">No hay compras registradas.</p>` : ''}
+                        ${sales.map(s => `
+                            <div style="background: var(--background); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <p style="font-size: 0.8rem; font-weight: 700; margin: 0;">${s.createdAt?.toDate ? s.createdAt.toDate().toLocaleDateString() : 'Sin Fecha'}</p>
+                                        <p style="font-size: 0.65rem; color: var(--text-muted); margin: 0;">🏪 ${s.storeName || 'Sucursal'} | 🕒 ${s.createdAt?.toDate ? s.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <p style="font-size: 0.9rem; font-weight: 800; color: var(--success); margin: 0;">$${(s.totalUSD || s.total || 0).toFixed(2)}</p>
+                                        <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Bs. ${(s.totalBs || 0).toFixed(2)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
             <style>
                 .detail-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem; letter-spacing: 0.5px; }
                 .form-group label { margin-bottom: 0.4rem; color: var(--text-muted); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -491,6 +590,19 @@ export function renderClients(container, onFinish = null, initialName = '') {
 
         container.querySelector('#backDetailBtn').addEventListener('click', renderList);
         container.querySelector('#cancelEditBtn').addEventListener('click', renderList);
+
+        // Modal History Events
+        container.querySelector('#viewHistoryBtn').onclick = () => {
+            container.querySelector('#historyModal').style.display = 'flex';
+        };
+        container.querySelector('#closeHistoryBtn').onclick = () => {
+            container.querySelector('#historyModal').style.display = 'none';
+        };
+        container.querySelector('#historyModal').onclick = (e) => {
+            if (e.target === container.querySelector('#historyModal')) {
+                container.querySelector('#historyModal').style.display = 'none';
+            }
+        };
 
         // Inicializar Intl Tel Input para edición
         const editPhoneInput = container.querySelector('#editPhone');
@@ -583,13 +695,9 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 if (needsDelivery) {
                     updateData.location = { lat: selectedLat, lng: selectedLng };
                 } else {
-                    // Firebase doesn't delete fields via setDoc(..., {merge: true}) easily unless using deleteField(), 
-                    // but since we overwrite specific fields we can just set it to null or leave it. 
-                    // Let's set it to null if no delivery.
                     updateData.location = null;
                 }
 
-                // Usamos setDoc con merge: true para no sobreescribir fullName o createdAt
                 await setDoc(doc(db, "businesses", businessId, "clients", client.id), updateData, { merge: true });
                 await loadClients();
             } catch (error) {

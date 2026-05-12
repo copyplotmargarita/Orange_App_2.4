@@ -33,7 +33,7 @@ export function renderPurchases(container) {
     let purchases = [];
     let suppliers = [];
     let products = [];
-    let bcvRate = parseNum(localStorage.getItem('bcvRate')) || 0;
+    let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
     const role = localStorage.getItem('userRole');
 
     // Función para notificaciones profesionales
@@ -418,6 +418,11 @@ export function renderPurchases(container) {
                             </select>
                         </div>
 
+                        <div class="form-group" id="bcvRateGroup" style="display: none;">
+                            <label>Tasa BCV <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pBcvRate" class="form-control" placeholder="0,00">
+                        </div>
+
                         <div class="form-group" id="bsGroup" style="display: none;">
                             <label>Monto Bs <span class="text-danger">*</span></label>
                             <input type="text" inputmode="numeric" id="pReceivedBs" class="form-control" placeholder="0,00">
@@ -461,11 +466,15 @@ export function renderPurchases(container) {
         const pUsd = container.querySelector('#pReceivedUsd');
         const abonoDisplay = container.querySelector('#pTotalAbonoUsd');
         const newPendingDisplay = container.querySelector('#pNewPendingUsd');
+        const pBcvRateInput = container.querySelector('#pBcvRate');
+        const bcvRateGroup = container.querySelector('#bcvRateGroup');
+        const pPaymentDate = container.querySelector('#pPaymentDate');
 
         const updateCalc = () => {
             const bs = parseNum(pBs.value);
             const usd = parseNum(pUsd.value);
-            const abonoFromBs = docRate > 0 ? bs / docRate : 0;
+            const currentRate = parseNum(pBcvRateInput.value) || docRate;
+            const abonoFromBs = currentRate > 0 ? bs / currentRate : 0;
             const totalAbono = usd + abonoFromBs;
             const newPending = Math.max(0, purchase.pendingBalanceUsd - totalAbono);
 
@@ -474,7 +483,33 @@ export function renderPurchases(container) {
             return { totalAbono, newPending };
         };
 
-        pMethod.addEventListener('change', () => {
+        const loadBcvRateForDate = async (dateStr) => {
+            const businessId = localStorage.getItem('businessId');
+            if (!businessId) return;
+            
+            try {
+                const docSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", dateStr));
+                if (docSnap.exists()) {
+                    const rate = docSnap.data().rate;
+                    pBcvRateInput.value = fmtNum(rate);
+                    pBcvRateInput.readOnly = true;
+                    pBcvRateInput.style.background = 'var(--background)';
+                } else {
+                    pBcvRateInput.value = fmtNum(bcvRate);
+                    pBcvRateInput.readOnly = false;
+                    pBcvRateInput.style.background = 'var(--surface)';
+                }
+                updateCalc();
+            } catch (error) {
+                console.error("Error loading BCV rate for date:", error);
+                pBcvRateInput.value = fmtNum(bcvRate);
+                pBcvRateInput.readOnly = false;
+                pBcvRateInput.style.background = 'var(--surface)';
+                updateCalc();
+            }
+        };
+
+        pMethod.addEventListener('change', async () => {
             const val = pMethod.value;
             const bsMethods = ['BioPago', 'Bs. Efectivo', 'Pago Móvil', 'Tarjeta de Débito', 'Transferencia'];
             const usdMethods = ['Binance', 'Dólares en Efectivo', 'Paypal', 'Zelle'];
@@ -487,14 +522,22 @@ export function renderPurchases(container) {
             bsGroup.style.display = 'none';
             usdGroup.style.display = 'none';
             refGroup.style.display = 'none';
+            bcvRateGroup.style.display = 'none';
             pBs.required = false;
             pUsd.required = false;
             pRef.required = false;
+            pBcvRateInput.required = false;
 
             if (bsMethods.includes(val)) {
+                bcvRateGroup.style.display = 'block';
+                pBcvRateInput.required = true;
+                
+                await loadBcvRateForDate(pPaymentDate.value);
+                
                 bsGroup.style.display = 'block';
                 pBs.required = true;
-                pBs.value = fmtNum(purchase.pendingBalanceUsd * docRate);
+                const currentRate = parseNum(pBcvRateInput.value) || docRate;
+                pBs.value = fmtNum(purchase.pendingBalanceUsd * currentRate);
             } else if (usdMethods.includes(val)) {
                 usdGroup.style.display = 'block';
                 pUsd.required = true;
@@ -508,7 +551,24 @@ export function renderPurchases(container) {
             updateCalc();
         });
 
+        pPaymentDate.addEventListener('change', async () => {
+            const val = pMethod.value;
+            const bsMethods = ['BioPago', 'Bs. Efectivo', 'Pago Móvil', 'Tarjeta de Débito', 'Transferencia'];
+            if (bsMethods.includes(val)) {
+                await loadBcvRateForDate(pPaymentDate.value);
+                const currentRate = parseNum(pBcvRateInput.value) || docRate;
+                pBs.value = fmtNum(purchase.pendingBalanceUsd * currentRate);
+                updateCalc();
+            }
+        });
+
         [pBs, pUsd].forEach(inp => applyNumericMask(inp, updateCalc));
+        
+        applyNumericMask(pBcvRateInput, () => {
+            const currentRate = parseNum(pBcvRateInput.value) || docRate;
+            pBs.value = fmtNum(purchase.pendingBalanceUsd * currentRate);
+            updateCalc();
+        });
 
         container.querySelector('#cancelPaymentBtn').addEventListener('click', () => renderSupplierDetail(purchase.supplierId));
 

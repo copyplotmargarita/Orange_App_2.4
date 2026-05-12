@@ -1,9 +1,9 @@
 import { navigate } from '../utils.js';
-import { auth, db, storage } from '../services/firebase.js';
+import { auth, db } from '../services/firebase.js';
 import { toTitleCase } from '../utils.js';
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-storage.js";
+
 import { venezuelaData } from '../data/locations.js';
 
 export function renderRegister() {
@@ -336,6 +336,42 @@ export function renderRegister() {
         }
     });
 
+    function resizeImage(file, maxWidth, maxHeight) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         errorMsg.textContent = '';
@@ -371,13 +407,16 @@ export function renderRegister() {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // 2. Subir Logo si existe
+            // 2. Procesar Logo si existe
             const logoFile = logoInput.files[0];
             if (logoFile) {
-                loadingText.textContent = 'Subiendo Logo de la Empresa...';
-                const storageRef = ref(storage, `logos/${user.uid}/business_logo`);
-                await uploadBytes(storageRef, logoFile);
-                businessData.logoUrl = await getDownloadURL(storageRef);
+                loadingText.textContent = 'Procesando Logo...';
+                try {
+                    const base64 = await resizeImage(logoFile, 200, 200);
+                    businessData.logoUrl = base64;
+                } catch (e) {
+                    console.error("Error processing image:", e);
+                }
             }
 
             // 3. Guardar datos del negocio en Firestore

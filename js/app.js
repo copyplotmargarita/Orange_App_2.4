@@ -20,8 +20,7 @@ const routes = {
     '#inventory': renderInventory,
     '#clients': renderClients,
     '#suppliers': renderSuppliers,
-    '#sales': renderSales,
-    '#sales/history': renderSales
+    '#sales': renderSales
 };
 
 function router() {
