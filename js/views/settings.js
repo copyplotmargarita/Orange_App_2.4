@@ -1,6 +1,6 @@
-import { db, auth, storage } from '../services/firebase.js';
+import { db, auth } from '../services/firebase.js';
 import { doc, getDoc, updateDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-storage.js";
+
 import { showNotification, toTitleCase } from '../utils.js';
 import { FinanceService } from '../services/financeService.js';
 
@@ -112,10 +112,12 @@ export async function renderSettings(mainContentArea) {
             <div class="card compact-card mb-5">
                 <div class="card-header-custom">🎨 Tema de la App</div>
                 <div class="theme-grid-compact">
+                    <div class="theme-dot" data-theme="default" style="background: #e2e8f0; border: 2px solid #cbd5e1; color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Tema Original">∅</div>
                     <div class="theme-dot" data-theme="orange" style="background: #f97316;"></div>
                     <div class="theme-dot" data-theme="blue" style="background: #3b82f6;"></div>
                     <div class="theme-dot" data-theme="emerald" style="background: #10b981;"></div>
                     <div class="theme-dot" data-theme="slate" style="background: #94a3b8;"></div>
+                    <div class="theme-dot" data-theme="gratitud" style="background: #85825a;" title="Tema Gratitud"></div>
                 </div>
             </div>
         </div>
@@ -258,7 +260,11 @@ export async function renderSettings(mainContentArea) {
         if (typeEl) typeEl.onchange = (e) => {
             const isPM = e.target.value === 'Pago Móvil';
             if (pmGrid) pmGrid.style.display = isPM ? 'grid' : 'none';
-            if (normalAcc) normalAcc.style.display = isPM ? 'none' : 'block';
+            if (normalAcc) {
+                normalAcc.style.display = isPM ? 'none' : 'block';
+                const input = normalAcc.querySelector('input');
+                if (input) input.required = !isPM;
+            }
         };
 
         if (bankInput) bankInput.oninput = (e) => {
@@ -315,14 +321,31 @@ export async function renderSettings(mainContentArea) {
 
     mainContentArea.querySelector('#bankAccountForm').onsubmit = async (e) => {
         e.preventDefault();
-        const f = mainContentArea.querySelector('#bankAccountForm');
-        const type = f.querySelector('#accountType').value;
-        const num = (type === 'Pago Móvil') ? `${f.querySelector('#bankAccPrefix').value}${f.querySelector('#bankAccDoc').value}` : f.querySelector('#accountNumber').value;
-        const data = { bank: f.querySelector('#bankName').value, number: num, type: type, currency: f.querySelector('#accountCurrency').value, createdAt: new Date().toISOString() };
-        if (type === 'Pago Móvil') data.phone = window.intlTelInputGlobals.getInstance(f.querySelector('#pagoMovilPhone')).getNumber();
-        await addDoc(collection(db, "businesses", businessId, "bank_accounts"), data);
-        await FinanceService.registerBankIfNew(mainContentArea.querySelector('#editCountry').value, data.bank);
-        f.reset(); loadBanks(); showNotification('Añadida', 'success');
+        try {
+            const f = mainContentArea.querySelector('#bankAccountForm');
+            const type = f.querySelector('#accountType').value;
+            const num = (type === 'Pago Móvil') ? `${f.querySelector('#bankAccPrefix').value}${f.querySelector('#bankAccDoc').value}` : f.querySelector('#accountNumber').value;
+            const data = { bank: f.querySelector('#bankName').value, number: num, type: type, currency: f.querySelector('#accountCurrency').value, createdAt: new Date().toISOString() };
+            
+            if (type === 'Pago Móvil') {
+                const phoneInput = window.intlTelInputGlobals.getInstance(f.querySelector('#pagoMovilPhone'));
+                if (phoneInput) {
+                    data.phone = phoneInput.getNumber();
+                } else {
+                    console.warn("intlTelInput instance not found for #pagoMovilPhone");
+                    data.phone = f.querySelector('#pagoMovilPhone').value;
+                }
+            }
+            
+            await addDoc(collection(db, "businesses", businessId, "bank_accounts"), data);
+            await FinanceService.registerBankIfNew(mainContentArea.querySelector('#editCountry').value, data.bank);
+            f.reset(); 
+            loadBanks(); 
+            showNotification('Cuenta añadida con éxito', 'success');
+        } catch (err) {
+            console.error("Error al añadir cuenta bancaria:", err);
+            showNotification('Error al añadir cuenta: ' + err.message, 'error');
+        }
     };
 
     mainContentArea.querySelector('#editBankModalForm').onsubmit = async (e) => {
@@ -340,31 +363,63 @@ export async function renderSettings(mainContentArea) {
     window.intlTelInput(mainContentArea.querySelector('#editOwnerPhone'), { initialCountry: "ve", preferredCountries: ["ve", "co"], utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
     window.intlTelInput(mainContentArea.querySelector('#pagoMovilPhone'), { initialCountry: "ve", preferredCountries: ["ve", "co"], utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
     window.intlTelInput(mainContentArea.querySelector('#modalPmPhone'), { initialCountry: "ve", preferredCountries: ["ve", "co"], utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
+    function resizeImage(file, maxWidth, maxHeight) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
     const logoInput = mainContentArea.querySelector('#newLogoInput');
     if (logoInput) {
-        logoInput.onchange = (e) => {
+        logoInput.onchange = async (e) => {
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    const dataUrl = ev.target.result;
-                    mainContentArea.querySelector('#settingsLogoPreview').innerHTML = `<img src="${dataUrl}">`;
-                    localStorage.setItem('pendingLogo', dataUrl);
-
-                    try {
-                        showNotification('Subiendo logo...', 'info');
-                        const refS = ref(storage, `logos/${businessId}/logo`);
-                        await uploadBytes(refS, file);
-                        const url = await getDownloadURL(refS);
-                        await updateDoc(doc(db, "businesses", businessId), { logoUrl: url });
-                        showNotification('Logo guardado correctamente', 'success');
-                        localStorage.removeItem('pendingLogo');
-                    } catch (err) {
-                        console.error("Error al subir logo:", err);
-                        showNotification('Error al guardar en la nube (se mantiene local)', 'error');
-                    }
-                };
-                reader.readAsDataURL(file);
+                try {
+                    showNotification('⚙️ Procesando imagen...', 'info');
+                    const base64 = await resizeImage(file, 200, 200);
+                    mainContentArea.querySelector('#settingsLogoPreview').innerHTML = `<img src="${base64}">`;
+                    
+                    showNotification('💾 Guardando logo en la base de datos...', 'info');
+                    console.log('Iniciando actualización de documento en Firestore...');
+                    await updateDoc(doc(db, "businesses", businessId), { logoUrl: base64 });
+                    console.log('Documento actualizado con éxito.');
+                    
+                    showNotification('✅ Logo guardado correctamente!', 'success');
+                    localStorage.setItem('businessLogo', base64); // Actualizar cache local
+                } catch (err) {
+                    console.error("Error al procesar/guardar logo:", err);
+                    showNotification('❌ Error al guardar el logo', 'error');
+                }
             }
         };
     }
@@ -373,13 +428,32 @@ export async function renderSettings(mainContentArea) {
     mainContentArea.querySelector('#closeBankModal').onclick = () => mainContentArea.querySelector('#bankEditModal').style.display = 'none';
 
     // Temas
-    const themes = { orange: { p: '#f97316', h: '#ea580c', r: '249, 115, 22', bg: '#0f172a', surf: '#1e293b', bord: '#334155' }, blue: { p: '#3b82f6', h: '#2563eb', r: '59, 130, 246', bg: '#020617', surf: '#0f172a', bord: '#1e293b' }, emerald: { p: '#10b981', h: '#059669', r: '16, 185, 129', bg: '#061a14', surf: '#0a2e24', bord: '#134e4a' }, slate: { p: '#94a3b8', h: '#64748b', r: '148, 163, 184', bg: '#18181b', surf: '#27272a', bord: '#3f3f46' } };
+    const themes = { orange: { p: '#f97316', h: '#ea580c', r: '249, 115, 22', bg: '#0f172a', surf: '#1e293b', bord: '#334155' }, blue: { p: '#3b82f6', h: '#2563eb', r: '59, 130, 246', bg: '#020617', surf: '#0f172a', bord: '#1e293b' }, emerald: { p: '#10b981', h: '#059669', r: '16, 185, 129', bg: '#061a14', surf: '#0a2e24', bord: '#134e4a' }, slate: { p: '#94a3b8', h: '#64748b', r: '148, 163, 184', bg: '#18181b', surf: '#27272a', bord: '#3f3f46' }, gratitud: { p: '#85825a', h: '#6c6a49', r: '133, 130, 90', bg: '#1c1c1a', surf: '#272724', bord: '#3c3c36' } };
     mainContentArea.querySelectorAll('.theme-dot').forEach(dot => {
         dot.onclick = () => {
-            const k = dot.dataset.theme; const t = themes[k]; const root = document.documentElement;
-            root.style.setProperty('--primary', t.p); root.style.setProperty('--primary-hover', t.h); root.style.setProperty('--primary-rgb', t.r); root.style.setProperty('--background', t.bg); root.style.setProperty('--surface', t.surf); root.style.setProperty('--border', t.bord);
+            const k = dot.dataset.theme; 
+            const root = document.documentElement;
+            
+            if (k === 'default') {
+                localStorage.removeItem('accentTheme');
+                ['--primary', '--primary-hover', '--primary-rgb', '--background', '--surface', '--border'].forEach(p => root.style.removeProperty(p));
+                mainContentArea.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active')); 
+                dot.classList.add('active');
+                showNotification(`Tema original restaurado`, 'info');
+                return;
+            }
+            
+            const t = themes[k]; 
+            root.style.setProperty('--primary', t.p); 
+            root.style.setProperty('--primary-hover', t.h); 
+            root.style.setProperty('--primary-rgb', t.r); 
+            root.style.setProperty('--background', t.bg); 
+            root.style.setProperty('--surface', t.surf); 
+            root.style.setProperty('--border', t.bord);
+            
             localStorage.setItem('accentTheme', k);
-            mainContentArea.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active')); dot.classList.add('active');
+            mainContentArea.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active')); 
+            dot.classList.add('active');
             showNotification(`Atmósfera aplicada`, 'info');
         };
     });

@@ -108,6 +108,21 @@ export function renderProducts(container) {
             });
         }
         html += `</div>`;
+        
+        html += `
+            <!-- Modal Eliminar Producto -->
+            <div id="deleteProductModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;">
+                <div class="card" style="width: 90%; max-width: 400px; padding: 1.5rem; text-align: center; background: var(--surface);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🗑️</div>
+                    <h3 style="margin-bottom: 0.5rem; font-size: 1.2rem; font-weight: 800;">¿Eliminar Producto?</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">¿Eliminar permanentemente "<span id="deleteProdName"></span>"?</p>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem;">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="confirmDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--danger); border-color: var(--danger); font-weight: 700;">Eliminar</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
         container.innerHTML = html;
 
@@ -121,7 +136,16 @@ export function renderProducts(container) {
                 const prod = products.find(p => p.id === id);
                 if (!prod) return;
 
-                if (confirm(`¿Eliminar permanentemente "${prod.name}"?`)) {
+                const modal = container.querySelector('#deleteProductModal');
+                const nameSpan = container.querySelector('#deleteProdName');
+                const confirmBtn = container.querySelector('#confirmDeleteBtn');
+                const cancelBtn = container.querySelector('#cancelDeleteBtn');
+
+                nameSpan.textContent = prod.name;
+                modal.style.display = 'flex';
+
+                confirmBtn.onclick = async () => {
+                    modal.style.display = 'none';
                     try {
                         const businessId = localStorage.getItem('businessId');
                         await deleteDoc(doc(db, "businesses", businessId, "products", id));
@@ -131,7 +155,11 @@ export function renderProducts(container) {
                         console.error("Error al eliminar:", error);
                         showNotification("Error al eliminar", "error");
                     }
-                }
+                };
+
+                cancelBtn.onclick = () => {
+                    modal.style.display = 'none';
+                };
             });
         });
 
