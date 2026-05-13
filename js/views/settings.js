@@ -113,6 +113,7 @@ export async function renderSettings(mainContentArea) {
                 <div class="card-header-custom">🎨 Tema de la App</div>
                 <div class="theme-grid-compact">
                     <div class="theme-dot" data-theme="default" style="background: #e2e8f0; border: 2px solid #cbd5e1; color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Tema Original">∅</div>
+                    <div id="settingsThemeToggle" class="theme-dot" style="background: var(--background); border: 2px solid var(--border); color: var(--text-main); display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer;" title="Cambiar Modo Claro/Oscuro">☀️</div>
                     <div class="theme-dot" data-theme="orange" style="background: #f97316;"></div>
                     <div class="theme-dot" data-theme="blue" style="background: #3b82f6;"></div>
                     <div class="theme-dot" data-theme="emerald" style="background: #10b981;"></div>
@@ -457,6 +458,28 @@ export async function renderSettings(mainContentArea) {
             showNotification(`Atmósfera aplicada`, 'info');
         };
     });
+
+    // Lógica para el botón de Modo Claro/Oscuro en Ajustes
+    const settingsThemeToggle = mainContentArea.querySelector('#settingsThemeToggle');
+    if (settingsThemeToggle) {
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        settingsThemeToggle.textContent = currentTheme === 'light' ? '🌙' : '☀️';
+        
+        settingsThemeToggle.onclick = () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                settingsThemeToggle.textContent = '🌙';
+                showNotification('Modo claro activado', 'info');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                settingsThemeToggle.textContent = '☀️';
+                showNotification('Modo oscuro activado', 'info');
+            }
+        };
+    }
 
     loadAllData();
 }

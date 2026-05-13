@@ -34,10 +34,10 @@ export function renderReports(container) {
                         <h2 style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span>📊</span> Consultas / Reportes
                         </h2>
-                        <div class="btn-group" style="display: flex; gap: 0.5rem; background: var(--background); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border);">
-                            <button id="btnStoreReports" class="btn ${currentSubView === 'stores' ? 'btn-primary' : 'btn-ghost'}" style="font-size: 0.85rem; padding: 0.5rem 1rem;">🏪 Por Tienda</button>
-                            <button id="btnEmployeeReports" class="btn ${currentSubView === 'employees' ? 'btn-primary' : 'btn-ghost'}" style="font-size: 0.85rem; padding: 0.5rem 1rem;">👤 Por Empleado</button>
-                            <button id="btnReconciliation" class="btn ${currentSubView === 'reconciliation' ? 'btn-primary' : 'btn-ghost'}" style="font-size: 0.85rem; padding: 0.5rem 1rem;">🔄 Conciliación</button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button id="btnStoreReports" class="btn ${currentSubView === 'stores' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🏪 Por Tienda</button>
+                            <button id="btnEmployeeReports" class="btn ${currentSubView === 'employees' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">👤 Por Empleado</button>
+                            <button id="btnReconciliation" class="btn ${currentSubView === 'reconciliation' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🔄 Conciliación</button>
                         </div>
                     </div>
                 </div>
@@ -356,29 +356,28 @@ export function renderReports(container) {
                         <table class="table" style="font-size: 0.85rem; width: 100%; min-width: 900px; border-collapse: collapse;">
                             <thead>
                                 <tr style="background: var(--background);">
-                                    <th style="width: 12%; padding: 1rem; text-align: center;">Fecha</th>
-                                    <th style="width: 13%; padding: 1rem; text-align: center;">Método</th>
-                                    <th style="width: 15%; padding: 1rem; text-align: center;">Monto</th>
-                                    <th style="width: 18%; padding: 1rem; text-align: center;">Referencia</th>
-                                    <th style="width: 24%; padding: 1rem;">Tienda / Empleado</th>
-                                    <th style="width: 18%; padding: 1rem; text-align: center;">Acción</th>
+                                    <th style="width: 10%; padding: 0.5rem; text-align: center;">Fecha</th>
+                                    <th style="width: 18%; padding: 0.5rem; text-align: center;">Tienda</th>
+                                    <th style="width: 18%; padding: 0.5rem; text-align: center;">Empleado</th>
+                                    <th style="width: 12%; padding: 0.5rem; text-align: center;">Método</th>
+                                    <th style="width: 15%; padding: 0.5rem; text-align: center;">Monto</th>
+                                    <th style="width: 15%; padding: 0.5rem; text-align: center;">Referencia</th>
+                                    <th style="width: 12%; padding: 0.5rem; text-align: center;">Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${payments.map(p => `
                                     <tr id="pay-row-${p.id}" style="border-bottom: 1px solid var(--border);">
-                                        <td style="padding: 1rem; text-align: center;">${p.date || '---'}</td>
-                                        <td style="padding: 1rem; text-align: center;"><span class="badge badge-primary" style="padding: 0.4rem 0.6rem;">${p.method.replace('_', ' ')}</span></td>
-                                        <td style="padding: 1rem; text-align: center; font-weight: 800; color: ${p.currency === 'USD' ? 'var(--success)' : 'inherit'}; font-size: 0.95rem;">
+                                        <td style="padding: 0.5rem; text-align: center;">${p.date || '---'}</td>
+                                        <td style="padding: 0.5rem; text-align: center; font-weight: 600; color: var(--text-main);">${p.storeName || 'Tienda'}</td>
+                                        <td style="padding: 0.5rem; text-align: center; font-weight: 600; color: var(--text-main);">${p.recordedBy || p.employeeName || 'Empleado'}</td>
+                                        <td style="padding: 0.5rem; text-align: center;"><span class="badge badge-primary" style="padding: 0.3rem 0.5rem;">${p.method.replace('_', ' ')}</span></td>
+                                        <td style="padding: 0.5rem; text-align: center; font-weight: 800; color: ${p.currency === 'USD' ? 'var(--success)' : 'inherit'}; font-size: 0.9rem;">
                                             ${p.currency} ${p.amount.toFixed(2)}
                                         </td>
-                                        <td style="padding: 1rem; text-align: center;"><code style="background: var(--background); padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: bold; color: var(--primary);">${p.ref || 'N/A'}</code></td>
-                                        <td style="padding: 1rem;">
-                                            <div style="font-weight: 600; color: var(--text-main);">${p.storeName || 'Tienda'}</div>
-                                            <div style="font-size: 0.75rem; color: var(--text-muted);">${p.employeeName || 'Empleado'}</div>
-                                        </td>
-                                        <td style="padding: 1rem; text-align: center;">
-                                            <button class="btn btn-primary btn-sm btn-verify" data-id="${p.id}" data-ref="${p.ref || 'N/A'}" style="background: var(--success); border-color: var(--success); width: 100%; font-weight: bold;">✅ VERIFICADO</button>
+                                        <td style="padding: 0.5rem; text-align: center; color: #ef4444; font-weight: bold;">${p.reference || p.ref || 'N/A'}</td>
+                                        <td style="padding: 0.5rem; text-align: center;">
+                                            <button class="btn btn-primary btn-sm btn-verify" data-id="${p.id}" data-ref="${p.reference || p.ref || 'N/A'}" style="background: var(--success); border-color: var(--success); width: 100%; font-weight: bold; font-size: 0.75rem; padding: 0.4rem;">VERIFICADO</button>
                                         </td>
                                     </tr>
                                 `).join('')}

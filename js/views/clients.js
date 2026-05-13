@@ -29,11 +29,10 @@ export function renderClients(container, onFinish = null, initialName = '') {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;" class="flex-stack-mobile">
                 <div>
                     <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">👥 Cartera de Clientes</h2>
-                    <p class="text-muted text-sm">Gestiona tus clientes y sus ubicaciones de entrega</p>
                 </div>
                 <button class="btn btn-primary" id="addClientBtn" style="width: auto; height: 42px; padding: 0 1.25rem; font-weight: 700; border-radius: var(--radius-full);">+ Crear Cliente</button>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
         
         if (clients.length === 0) {
@@ -41,18 +40,13 @@ export function renderClients(container, onFinish = null, initialName = '') {
         } else {
             clients.forEach(client => {
                 html += `
-                    <div class="card client-card" data-id="${client.id}" style="cursor: pointer; border-left: 4px solid var(--primary); padding: 1.5rem;">
-                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800;">
-                                ${client.fullName.charAt(0).toUpperCase()}
-                            </div>
+                    <div class="card client-card" data-id="${client.id}" style="cursor: pointer; border-left: 4px solid var(--primary); padding: 1rem;">
+                        <div style="margin-bottom: 0.75rem;">
                             <h3 class="card-title" style="margin-bottom: 0; font-size: 1.1rem;">${client.fullName}</h3>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                            <p class="card-label">📞 Teléfono</p>
-                            <p class="text-sm font-bold">${client.phone || 'Sin teléfono'}</p>
-                            <p class="card-label" style="margin-top: 0.5rem;">📍 Dirección</p>
-                            <p class="text-muted text-xs" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${client.address}</p>
+                            <p class="text-sm font-bold">📞 ${client.phone || 'Sin teléfono'}</p>
+                            <p class="text-muted text-xs" style="display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">📍 ${client.address}</p>
                         </div>
                     </div>
                 `;
