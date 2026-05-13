@@ -41,7 +41,7 @@ export function renderEmployees(container) {
                 <h2>Empleados</h2>
                 <button class="btn btn-primary" id="addEmployeeBtn" style="width: auto;">+ Crear Empleado</button>
             </div>
-            <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+            <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
         
         if (employees.length === 0) {
@@ -50,19 +50,10 @@ export function renderEmployees(container) {
             employees.forEach(emp => {
                 const statusColor = emp.status === 'ACTIVO' ? 'var(--success)' : (emp.status === 'INACTIVO' ? 'var(--danger)' : 'var(--warning)');
                 html += `
-                    <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; position: relative; transition: transform 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--border); display: flex; align-items: center; justify-content: center; font-weight: bold;">
-                                ${emp.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <h3 style="font-size: 1.1rem; margin-bottom: 0.2rem;">${emp.name}</h3>
-                                <p class="text-muted text-sm">${emp.role}</p>
-                            </div>
-                        </div>
-                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.75rem; font-weight: bold; color: ${statusColor};">${emp.status}</span>
-                        </div>
+                    <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${emp.name}</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">💼 ${emp.role}</p>
+                        <p style="font-size: 0.85rem; color: ${statusColor}; font-weight: bold;">🏷️ ${emp.status}</p>
                     </div>
                 `;
             });

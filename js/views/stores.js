@@ -22,14 +22,11 @@ export function renderStores(container) {
 
     function renderList() {
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <div>
-                    <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">🏪 Tiendas y Sucursales</h2>
-                    <p class="text-muted text-sm">Gestiona los puntos de venta de tu negocio</p>
-                </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">🏪 Tiendas y Sucursales</h2>
                 <button class="btn btn-primary" id="addStoreBtn" style="width: auto; height: 42px; padding: 0 1.25rem; font-weight: 700; border-radius: var(--radius-full);">+ Nueva Tienda</button>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
         
         if (stores.length === 0) {
@@ -37,13 +34,9 @@ export function renderStores(container) {
         } else {
             stores.forEach(store => {
                 html += `
-                    <div class="card store-card" data-id="${store.id}" style="cursor: pointer; border-left: 4px solid var(--success); padding: 1.5rem;">
-                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">📍</div>
-                            <h3 class="card-title" style="margin-bottom: 0; font-size: 1.15rem;">${store.name}</h3>
-                        </div>
-                        <p class="card-label">Dirección</p>
-                        <p class="text-muted text-sm" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${store.address}</p>
+                    <div class="card store-card" data-id="${store.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${store.name}</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📍 ${store.address}</p>
                     </div>
                 `;
             });

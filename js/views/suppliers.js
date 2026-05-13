@@ -31,7 +31,7 @@ export function renderSuppliers(container) {
                 <h2>Proveedores</h2>
                 <button class="btn btn-primary" id="addSupplierBtn" style="width: auto;">+ Crear Proveedor</button>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
         
         if (suppliers.length === 0) {
@@ -39,11 +39,14 @@ export function renderSuppliers(container) {
         } else {
             suppliers.forEach(supplier => {
                 html += `
-                    <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; border-left: 4px solid var(--warning);">
-                        <h3 class="card-title" title="${supplier.name}">${supplier.name}</h3>
-                        <p class="card-label">Contacto</p>
-                        <p class="text-sm" style="margin-bottom: 0.25rem;">${supplier.phone || 'Sin teléfono'}</p>
-                        ${supplier.sellerName ? `<p class="text-sm text-muted" style="margin-top: 0.5rem;"><strong>Vendedor:</strong> ${supplier.sellerName}</p>` : ''}
+                    <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; border-left: 4px solid var(--warning); padding: 1rem;">
+                        <div style="margin-bottom: 0.75rem;">
+                            <h3 class="card-title" style="margin-bottom: 0; font-size: 1.1rem;" title="${supplier.name}">${supplier.name}</h3>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <p class="text-sm font-bold" style="display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">👤 ${supplier.sellerName || 'Sin Vendedor'}</p>
+                            <p class="text-muted text-xs" style="display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">📞 ${supplier.sellerPhone || supplier.phone || 'Sin teléfono'}</p>
+                        </div>
                     </div>
                 `;
             });

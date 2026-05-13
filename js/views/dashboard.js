@@ -11,6 +11,7 @@ import { renderSales } from './sales.js';
 import { renderReports } from './reports.js';
 import { renderMaintenance } from './maintenance.js';
 import { renderSettings } from './settings.js';
+import { renderReceivables } from './receivables.js';
 
 import { auth, db } from '../services/firebase.js';
 import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
@@ -55,14 +56,14 @@ export function renderDashboard() {
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-brand" id="navHome">
                 ORANGE APP
-            </div>
-            
-            <div class="sidebar-user">
-                <p id="greetingName">Hola...</p>
                 <div class="status-indicator">
                     <span class="online-dot"></span>
                     <span class="status-text">Sesión Activa</span>
                 </div>
+            </div>
+            
+            <div class="sidebar-user">
+                <p id="greetingName">Hola...</p>
             </div>
             
             <nav class="sidebar-nav">
@@ -74,16 +75,16 @@ export function renderDashboard() {
                     <li><a href="#" id="navInventarios" class="sidebar-link">📦 Inventarios</a></li>
                     <li><a href="#" id="navVentas" class="sidebar-link">💰 Ventas</a></li>
                     ${isAdmin ? '<li><a href="#" id="navReportes" class="sidebar-link">📊 Consultas / Reportes</a></li>' : ''}
-                    <li><a href="#" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
+                    <li><a href="#" id="navCobros" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
                     <li><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
                     <li><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
                     ${isAdmin ? '<li><a href="#" id="navMantenimiento" class="sidebar-link" style="color: var(--danger);">⚙️ Mantenimiento</a></li>' : ''}
                 </ul>
             </nav>
 
-            <div class="sidebar-bottom">
-                <button id="closeShiftBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem; background-color: #f59e0b; border-color: #f59e0b; font-weight: bold; font-size: 0.9rem;">🔒 Cerrar Turno</button>
-                <button id="logoutBtn" class="btn btn-outline sidebar-logout-btn">🚪 Cerrar Sesión</button>
+            <div class="sidebar-bottom" style="display: flex; gap: 0.5rem; padding: 0.5rem 0.75rem;">
+                <button id="closeShiftBtn" class="btn btn-primary" style="flex: 1; padding: 6px; font-size: 0.7rem; background-color: #f59e0b; border-color: #f59e0b; font-weight: bold;">🔒 Cerrar Turno</button>
+                <button id="logoutBtn" class="btn btn-outline" style="flex: 1; padding: 6px; font-size: 0.7rem; color: var(--text-muted); border-color: var(--border);">🚪 Cerrar Sesión</button>
             </div>
 
             <button id="sidebarToggle" class="toggle-btn">
@@ -110,10 +111,7 @@ export function renderDashboard() {
                 </div>
                 
                 <div class="header-right">
-                    <button id="themeToggle" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0.4rem;color:var(--text-main);display:flex;align-items:center;gap:0.25rem;" title="Cambiar Modo">
-                        ☀️ <span class="hide-mobile" style="font-size:0.85rem;font-weight:500;">Modo</span>
-                    </button>
-                    
+
                     ${!isEmployee ? `
                     <button id="settingsBtn" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0.4rem;color:var(--text-main);display:flex;align-items:center;gap:0.25rem;" title="Configuración del Negocio">
                         ⚙️ <span class="hide-mobile" style="font-size:0.85rem;font-weight:500;">Ajustes</span>
@@ -155,7 +153,7 @@ export function renderDashboard() {
         </main>
 
         <aside id="chatSidebar" class="chat-sidebar collapsed">
-            <button id="chatToggle" class="chat-toggle-btn">
+            <button id="chatToggle" class="chat-toggle-btn" style="top: 1px;">
                 <span id="chatToggleIcon">◀</span>
                 <span id="chatBadge" class="chat-badge" style="display: none;">0</span>
             </button>
@@ -194,7 +192,7 @@ export function renderDashboard() {
             }
             
             .sidebar-brand {
-                padding: 1.5rem;
+                padding: 1rem 1.5rem 0.5rem 1.5rem;
                 font-weight: 900;
                 font-size: 1.5rem;
                 border-bottom: 1px solid var(--border);
@@ -204,14 +202,14 @@ export function renderDashboard() {
             }
             
             .sidebar-user {
-                padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+                padding: 0.5rem 1.5rem;
                 border-bottom: 1px solid var(--border);
             }
             
             .sidebar-user p {
-                font-size: 1rem;
+                font-size: 0.9rem;
                 font-weight: 600;
-                margin-bottom: 0.25rem;
+                margin-bottom: 0.15rem;
                 color: var(--text-main);
             }
             
@@ -286,7 +284,7 @@ export function renderDashboard() {
 
             .toggle-btn {
                 position: absolute;
-                top: 1rem;
+                top: 1px;
                 right: -28px;
                 width: 28px;
                 height: 48px;
@@ -433,7 +431,7 @@ export function renderDashboard() {
             }
 
             .sidebar-link {
-                display: block; padding: 0.75rem 1.5rem; color: var(--text-main); text-decoration: none; transition: var(--transition); border-left: 3px solid transparent;
+                display: block; padding: 0.35rem 1.5rem; color: var(--text-main); text-decoration: none; transition: var(--transition); border-left: 3px solid transparent; font-size: 0.85rem;
             }
             .sidebar-link:hover {
                 background-color: var(--background); border-left-color: var(--primary);
@@ -776,6 +774,12 @@ export function renderDashboard() {
         if (sidebarOpen) toggleSidebar();
     });
 
+    container.querySelector('#navCobros').addEventListener('click', (e) => {
+        e.preventDefault();
+        renderReceivables(mainContentArea);
+        if (sidebarOpen) toggleSidebar();
+    });
+
     const navReportes = container.querySelector('#navReportes');
     if (navReportes) {
         navReportes.addEventListener('click', (e) => {
@@ -915,7 +919,7 @@ export function renderDashboard() {
 
         const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
         if (cachedName) {
-            greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${cachedName}</span>${isEmployee && storeName ? `<br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${storeName}</span>` : ''}`;
+            greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${cachedName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
         }
 
         // 2. Si es empleado, cargar datos específicos
@@ -942,7 +946,7 @@ export function renderDashboard() {
             const empNameLocal = localStorage.getItem('employeeName');
             const empName = empNameLocal || cachedName || (auth.currentUser?.displayName || "Empleado");
             
-            greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${empName}</span>${storeName ? `<br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${storeName}</span>` : ''}`;
+            greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${empName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
             
             // Guardar solo en caché vinculada al correo
             if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
@@ -996,14 +1000,14 @@ export function renderDashboard() {
                     const ownerName = ownerDocSnap.exists() ? (ownerDocSnap.data().ownerName || "Propietario") : "Propietario";
                     const businessName = ownerDocSnap.exists() ? ownerDocSnap.data().name : "Mi Negocio";
                     
-                    greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${ownerName}</span><br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${businessName}</span>`;
+                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${ownerName}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${businessName}">${businessName}</div>`;
                     
                     if (userEmail) localStorage.setItem(`userName_${userEmail}`, ownerName);
                 } else {
                     const empName = cachedName || auth.currentUser?.displayName || "Administrador";
                     const storeName = localStorage.getItem('storeName') || 'Sede Principal';
                     
-                    greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">${empName}</span><br><span style="font-size: 0.8rem; color: var(--text-muted);">Estás en: ${storeName}</span>`;
+                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${empName}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>`;
                     
                     if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
                 }
@@ -1015,7 +1019,7 @@ export function renderDashboard() {
 
             } catch (error) {
                 console.error("Error cargando nombre:", error);
-                greetingEl.innerHTML = `Hola,<br><span style="font-size: 1.1rem; font-weight: bold; color: var(--text-main);">Administrador</span>`;
+                greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">Administrador</span>`;
             }
         }
     }
@@ -1035,7 +1039,7 @@ export function renderDashboard() {
     updateTime();
 
     // Theme & Settings
-    const themeToggle = container.querySelector('#themeToggle');
+
     const settingsBtn = container.querySelector('#settingsBtn');
     
     // Aplicar Atmósfera guardada al inicio
@@ -1059,27 +1063,7 @@ export function renderDashboard() {
         }
     }
 
-    const currentTheme = localStorage.getItem('theme') || 'dark';
-    if (currentTheme === 'light') {
-        document.documentElement.removeAttribute('data-theme');
-        themeToggle.innerHTML = '🌙 <span class="hide-mobile">Modo</span>';
-    } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        themeToggle.innerHTML = '☀️ <span class="hide-mobile">Modo</span>';
-    }
 
-    themeToggle.addEventListener('click', () => {
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        if (isDark) {
-            document.documentElement.removeAttribute('data-theme');
-            localStorage.setItem('theme', 'light');
-            themeToggle.innerHTML = '🌙 <span class="hide-mobile">Modo</span>';
-        } else {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            localStorage.setItem('theme', 'dark');
-            themeToggle.innerHTML = '☀️ <span class="hide-mobile">Modo</span>';
-        }
-    });
 
     if (settingsBtn) {
         settingsBtn.addEventListener('click', (e) => {

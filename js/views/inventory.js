@@ -59,9 +59,12 @@ export function renderInventory(container) {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;" class="flex-stack-mobile">
                 <h2>📦 Inventarios</h2>
             </div>
-            <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+            <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center;">
                 <button class="tab-btn btn ${activeTab==='general'?'btn-primary':'btn-outline'}" data-tab="general" style="width:auto;">Almacén General</button>
                 <button class="tab-btn btn ${activeTab==='produccion'?'btn-primary':'btn-outline'}" data-tab="produccion" style="width:auto;">Almacén Producción</button>
+                
+                <button class="tab-btn btn ${activeTab==='transferir'?'btn-primary':'btn-outline'}" data-tab="transferir" style="width:auto;">→ Transferir a Producción</button>
+                
                 <button class="tab-btn btn ${activeTab==='cargar'?'btn-primary':'btn-outline'}" data-tab="cargar" style="width:auto;">⚙️ Cargar Producción</button>
                 <button class="tab-btn btn ${activeTab==='tiendas'?'btn-primary':'btn-outline'}" data-tab="tiendas" style="width:auto;">🚚 Mover a Tiendas</button>
                 
@@ -81,21 +84,6 @@ export function renderInventory(container) {
                 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
                 input[type=number] { -moz-appearance: textfield; }
             </style>
-
-            <!-- Modal Transferencia -->
-            <div id="transferModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;padding:1rem;">
-                <div class="card" style="width:100%;max-width:680px;border-top:4px solid var(--primary);max-height:90vh;display:flex;flex-direction:column;">
-                    <div style="padding:1.5rem;border-bottom:1px solid var(--border);">
-                        <h3 style="margin:0;">Transferir al Almacén de Producción</h3>
-                        <p class="text-muted" style="margin:0.25rem 0 0;font-size:0.9rem;">Indica cuánto de cada insumo enviarás a Producción.</p>
-                    </div>
-                    <div id="transferList" style="flex:1;overflow-y:auto;padding:1rem;"></div>
-                    <div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:1rem;justify-content:flex-end;">
-                        <button class="btn btn-outline" id="transferCancelBtn" style="width:auto;">Cancelar</button>
-                        <button class="btn btn-primary" id="transferConfirmBtn" style="width:auto;">Confirmar Transferencia</button>
-                    </div>
-                </div>
-            </div>
 
             <!-- Modal Ajuste Manual -->
             <div id="adjustmentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;padding:1rem;">
@@ -153,12 +141,6 @@ export function renderInventory(container) {
             });
         });
 
-        // Transfer modal events
-        container.querySelector('#transferCancelBtn').addEventListener('click', () => {
-            container.querySelector('#transferModal').style.display = 'none';
-        });
-        container.querySelector('#transferConfirmBtn').addEventListener('click', confirmTransfer);
-        
         container.querySelector('#adjCancelBtn').addEventListener('click', () => {
             container.querySelector('#adjustmentModal').style.display = 'none';
         });
@@ -170,6 +152,7 @@ export function renderInventory(container) {
         else if (activeTab === 'cargar') renderCargar(tabContent);
         else if (activeTab === 'tiendas') renderMovimientoTiendas(tabContent);
         else if (activeTab === 'store') renderStoreInventory(tabContent, selectedStoreId);
+        else if (activeTab === 'transferir') renderTransferir(tabContent);
         else renderHistorial(tabContent);
     }
 
@@ -262,7 +245,6 @@ export function renderInventory(container) {
         el.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                 <p class="text-muted" style="margin:0;">${physicals.length} productos</p>
-                <button class="btn btn-primary" id="openTransferBtn" style="width:auto;">→ Transferir a Producción</button>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
@@ -277,7 +259,6 @@ export function renderInventory(container) {
                 </table>
             </div>`;
 
-        el.querySelector('#openTransferBtn').addEventListener('click', openTransferModal);
         el.querySelectorAll('.adjust-stock-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const prod = products.find(p => p.id === btn.dataset.id);
@@ -307,6 +288,9 @@ export function renderInventory(container) {
         el.innerHTML = `
             <div style="margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(251,146,60,0.1);border-radius:8px;border:1px solid rgba(251,146,60,0.3);">
                 <p style="margin:0;font-size:0.85rem;color:#f97316;">💡 Este almacén se alimenta desde las transferencias del Almacén General. El stock negativo indica que se usó más de lo transferido.</p>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <p class="text-muted" style="margin:0;">${insumos.length} insumos</p>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
@@ -729,41 +713,56 @@ export function renderInventory(container) {
     }
 
     // ─── MODAL: TRANSFERENCIA (Único modal restante para Almacén General) ─
-    function openTransferModal() {
-        const modal = container.querySelector('#transferModal');
-        const list = container.querySelector('#transferList');
-
+    function renderTransferir(el) {
         const insumos = products.filter(p =>
             p.category === 'INSUMO' ||
             (p.category && p.category !== 'SERVICIOS' && p.category !== 'RECETA')
         );
 
-        list.innerHTML = `
-            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-                <thead><tr style="border-bottom:2px solid var(--border);">
-                    <th style="padding:0.5rem;">Producto</th>
-                    <th style="padding:0.5rem;text-align:right;">Disp. General</th>
-                    <th style="padding:0.5rem;text-align:right;">Cant. a Transferir</th>
-                    <th style="padding:0.5rem;text-align:center;">Ud.</th>
-                </tr></thead>
-                <tbody>
-                    ${insumos.map(p => {
-                        const avail = p.stockGeneral ?? p.stock ?? 0;
-                        return `<tr style="border-bottom:1px solid var(--border);">
-                            <td style="padding:0.5rem;">${p.name}</td>
-                            <td style="padding:0.5rem;text-align:right;color:var(--text-muted);">${fmt(avail)}</td>
-                            <td style="padding:0.5rem;">
-                                <input type="number" step="0.01" min="0" class="form-control transfer-qty"
-                                    data-id="${p.id}" data-name="${p.name}" data-unit="${p.stockUnit||'ud'}"
-                                    style="text-align:right;" placeholder="0">
-                            </td>
-                            <td style="padding:0.5rem;text-align:center;color:var(--text-muted);">${p.stockUnit||'ud'}</td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table>`;
+        el.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <h4 style="margin:0;color:var(--primary);">Transferir al Almacén de Producción</h4>
+                <p class="text-muted" style="margin:0;">${insumos.length} insumos disponibles</p>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+                    <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
+                        <th style="padding:0.75rem;">Producto</th>
+                        <th style="padding:0.75rem;text-align:center;">Disp. General</th>
+                        <th style="padding:0.75rem;text-align:center;">Disp. Producción</th>
+                        <th style="padding:0.75rem;text-align:center;">Cant. a Transferir</th>
+                        <th style="padding:0.75rem;text-align:center;">Ud.</th>
+                    </tr></thead>
+                    <tbody>
+                        ${insumos.map(p => {
+                            const avail = p.stockGeneral ?? p.stock ?? 0;
+                            const prodStock = p.stockProduccion ?? 0;
+                            return `<tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:0.6rem;">${p.name}</td>
+                                <td style="padding:0.6rem;text-align:center;color:var(--text-muted);">${fmt(avail)}</td>
+                                <td style="padding:0.6rem;text-align:center;color:var(--text-muted);">${fmt(prodStock)}</td>
+                                <td style="padding:0.6rem;text-align:center;">
+                                    <input type="number" step="0.01" min="0" class="form-control transfer-qty"
+                                        data-id="${p.id}" data-name="${p.name}" data-unit="${p.stockUnit||'ud'}"
+                                        style="text-align:center; height: 32px; width: 80px; margin: 0 auto;" placeholder="0">
+                                </td>
+                                <td style="padding:0.6rem;text-align:center;color:var(--text-muted);">${p.stockUnit||'ud'}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:1rem;">
+                <button class="btn btn-outline" id="cancelTransferBtn" style="width:auto;">Cancelar</button>
+                <button class="btn btn-primary" id="transferConfirmBtn" style="width:auto;">Confirmar Transferencia</button>
+            </div>
+        `;
 
-        modal.style.display = 'flex';
+        el.querySelector('#cancelTransferBtn').addEventListener('click', () => {
+            activeTab = 'general';
+            renderShell();
+        });
+        el.querySelector('#transferConfirmBtn').addEventListener('click', confirmTransfer);
     }
 
     function openAdjustmentModal(prod) {
@@ -884,8 +883,8 @@ export function renderInventory(container) {
                 businessId, items, createdAt: serverTimestamp()
             });
 
-            container.querySelector('#transferModal').style.display = 'none';
             showToast('Transferencia registrada correctamente.', 'success');
+            activeTab = 'produccion';
             await loadData();
         } catch (err) {
             console.error(err);
