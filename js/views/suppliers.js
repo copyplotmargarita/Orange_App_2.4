@@ -27,9 +27,10 @@ export function renderSuppliers(container) {
 
     function renderList() {
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <h2>Proveedores</h2>
-                <button class="btn btn-primary" id="addSupplierBtn" style="width: auto;">+ Crear Proveedor</button>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--warning); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏭 Proveedores</h2>
+                <button class="btn btn-primary" id="addSupplierBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Proveedor</button>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
@@ -39,13 +40,13 @@ export function renderSuppliers(container) {
         } else {
             suppliers.forEach(supplier => {
                 html += `
-                    <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; border-left: 4px solid var(--warning); padding: 1rem;">
-                        <div style="margin-bottom: 0.75rem;">
-                            <h3 class="card-title" style="margin-bottom: 0; font-size: 1.1rem;" title="${supplier.name}">${supplier.name}</h3>
+                    <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--warning);">
+                        <div style="margin-bottom: 0.5rem;">
+                            <h3 style="font-size: 1rem; margin-bottom: 0; color: var(--warning); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${supplier.name}">${supplier.name}</h3>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                            <p class="text-sm font-bold" style="display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">👤 ${supplier.sellerName || 'Sin Vendedor'}</p>
-                            <p class="text-muted text-xs" style="display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">📞 ${supplier.sellerPhone || supplier.phone || 'Sin teléfono'}</p>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">👤 ${supplier.sellerName || 'Sin Vendedor'}</p>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📞 ${supplier.sellerPhone || supplier.phone || 'Sin teléfono'}</p>
                         </div>
                     </div>
                 `;
@@ -55,6 +56,22 @@ export function renderSuppliers(container) {
         container.innerHTML = html;
 
         container.querySelector('#addSupplierBtn').addEventListener('click', renderForm);
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
         
         container.querySelectorAll('.supplier-card').forEach(card => {
             card.addEventListener('click', () => {
@@ -236,69 +253,62 @@ export function renderSuppliers(container) {
 
         container.innerHTML = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backDetailBtn" style="width: auto; padding: 0.5rem 1rem;">← Volver</button>
-                <h2>Detalle del Proveedor</h2>
+                <button class="btn btn-outline" id="backDetailBtn" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; border-radius: 12px; font-weight: 700; flex-shrink: 0;">← Volver</button>
+                <h2 style="margin: 0; color: var(--warning); font-size: 1.5rem; font-weight: 800; white-space: nowrap;">Ficha de Proveedor</h2>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 800px;">
+            <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 500px; margin: 0 auto; width: 100%;">
                 <!-- Tarjeta de Acciones Rápidas -->
-                <div class="card" style="background: var(--surface);">
-                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 1.5rem;">
-                        <div style="width: 64px; height: 64px; background-color: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">
-                            ${supplier.name.charAt(0).toUpperCase()}
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--warning); width: 100%;">
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 0.1rem; color: var(--warning);">${supplier.name}</h3>
+                        <p style="font-family: monospace; font-size: 0.8rem; color: var(--warning); font-weight: 700; margin-bottom: 1rem;">ID: ${supplier.id}</p>
+                        
+                        <div style="display: flex; justify-content: center; gap: 0.75rem;">
+                            ${phoneToContact ? `
+                                <a href="tel:${phoneToContact}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--warning); color: var(--warning); background: transparent;" title="Llamar al vendedor">📞</a>
+                            ` : ''}
+                            
+                            ${phoneToContact ? `
+                                <a target="_blank" href="https://wa.me/${phoneToContact.replace('+','')}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--warning); color: var(--warning); background: transparent;" title="WhatsApp al vendedor">💬</a>
+                            ` : ''}
+                            
+                            ${emailToContact ? `
+                                <a href="mailto:${emailToContact}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--warning); color: var(--warning); background: transparent;" title="Enviar Correo">✉️</a>
+                            ` : ''}
                         </div>
-                        <h3 style="font-size: 1.5rem; margin-bottom: 0.25rem;">${supplier.name}</h3>
-                        <p class="text-muted" style="font-weight: 500;">${supplier.id}</p>
+                        ${!phoneToContact && !emailToContact ? '<p class="text-muted text-sm text-center">No hay datos de contacto registrados.</p>' : ''}
                     </div>
-                    
-                    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-                        ${phoneToContact ? `
-                            <a href="tel:${phoneToContact}" class="btn btn-outline" style="width: auto; display: flex; align-items: center; gap: 0.5rem; border-color: #3b82f6; color: #3b82f6; text-decoration: none;" title="Llamar al vendedor">
-                                📞 Llamar
-                            </a>
-                        ` : ''}
-                        
-                        ${emailToContact ? `
-                        <a href="mailto:${emailToContact}" class="btn btn-outline" style="width: auto; display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
-                            ✉️ Enviar Correo
-                        </a>` : ''}
-                        
-                        ${phoneToContact ? `
-                        <a target="_blank" href="https://wa.me/${phoneToContact.replace('+','')}" class="btn btn-outline" style="width: auto; display: flex; align-items: center; gap: 0.5rem; border-color: #25D366; color: #25D366; text-decoration: none;" title="WhatsApp al vendedor">
-                            💬 WhatsApp
-                        </a>` : ''}
-                    </div>
-                    ${!phoneToContact && !emailToContact ? '<p class="text-muted text-sm text-center">No hay datos de contacto registrados.</p>' : ''}
                 </div>
 
                 <!-- Formulario de Edición -->
-                <div class="card" style="padding: 2rem; border-top: 4px solid var(--warning);">
-                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">✏️ Editar Datos</h3>
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--warning); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">✏️ Editar Datos</h3>
                     <form id="editSupplierForm">
-                        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                             <div class="form-group">
-                                <label>Correo Electrónico (Proveedor)</label>
-                                <input type="email" id="editEmail" class="form-control" value="${supplier.email || ''}">
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📧 Correo Electrónico (Proveedor)</label>
+                                <input type="email" id="editEmail" class="form-control" value="${supplier.email || ''}" style="height: 40px; font-size: 0.85rem; font-family: inherit;">
                             </div>
 
                             <div class="form-group">
-                                <label>Teléfono del Proveedor</label>
-                                <input type="tel" id="editSupPhone" class="form-control" value="${supplier.phone || ''}">
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📞 Teléfono del Proveedor</label>
+                                <input type="tel" id="editSupPhone" class="form-control" value="${supplier.phone || ''}" style="height: 40px; font-size: 0.85rem; font-family: inherit;">
                             </div>
 
                             <div class="form-group">
-                                <label>Nombre del Vendedor</label>
-                                <input type="text" id="editSellerName" class="form-control" value="${supplier.sellerName || ''}">
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">👤 Nombre del Vendedor</label>
+                                <input type="text" id="editSellerName" class="form-control" value="${supplier.sellerName || ''}" style="height: 40px; font-size: 0.85rem; font-family: inherit;">
                             </div>
 
                             <div class="form-group">
-                                <label>Teléfono del Vendedor</label>
-                                <input type="tel" id="editSellerPhone" class="form-control" value="${supplier.sellerPhone || ''}">
+                                <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📱 Teléfono del Vendedor</label>
+                                <input type="tel" id="editSellerPhone" class="form-control" value="${supplier.sellerPhone || ''}" style="height: 40px; font-size: 0.85rem; font-family: inherit;">
                             </div>
 
-                            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                                <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
-                                <button type="submit" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 50px; font-weight: 800;">GUARDAR</button>
+                            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                                <button type="button" class="btn btn-outline" id="cancelEditBtn" style="flex: 1; height: 42px; font-weight: 700; border-radius: 12px;">CANCELAR</button>
+                                <button type="submit" class="btn btn-primary" id="saveEditBtn" style="flex: 1; height: 42px; font-weight: 800; border-radius: 12px;">GUARDAR</button>
                             </div>
                         </div>
                     </form>
@@ -306,25 +316,6 @@ export function renderSuppliers(container) {
             </div>
             <style>
                 .iti { width: 100%; display: block; }
-                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
-                .form-control { 
-                    border-radius: 10px; 
-                    border: 1px solid var(--border); 
-                    padding: 0 1rem; 
-                    transition: var(--transition); 
-                    background: var(--surface); 
-                    color: var(--text-main); 
-                    font-size: 0.9rem; 
-                    font-family: 'Inter', sans-serif;
-                    width: 100%;
-                    height: 40px;
-                    box-sizing: border-box;
-                }
-                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
-                .btn { border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; cursor: pointer; }
-                .btn:hover { transform: translateY(-2px); }
-                .btn-primary { background: var(--primary); color: white; }
-                .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
             </style>
         `;
 

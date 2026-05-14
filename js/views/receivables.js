@@ -12,9 +12,11 @@ export async function renderReceivables(container) {
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
 
     container.innerHTML = `
-        <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin: 0;">📊 Cuentas por Cobrar</h2>
-            <div style="position: relative; width: 300px;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+            <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📋 Cuentas por Cobrar</h2>
+            
+            <div style="position: relative; width: 300px; margin-left: auto;" class="flex-stack-mobile">
                 <input type="text" id="searchClientInput" placeholder="🔍 Buscar cliente..." style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #ffffff; width: 100%; box-sizing: border-box; font-size: 14px;">
             </div>
         </div>
@@ -217,6 +219,22 @@ export async function renderReceivables(container) {
             });
         });
 
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
+
         // Add event listeners for rows
         contentDiv.querySelectorAll('.clickable-row').forEach(row => {
             row.addEventListener('click', () => {
@@ -259,15 +277,31 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
         `;
     }
 
-    container.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <button class="btn btn-outline" id="backToClientsBtn" style="width: auto; padding: 4px 10px; font-size: 13px;">⬅️ Volver</button>
-                <span style="font-size: 18px; font-weight: bold; color: #ffffff;">${clientData.clientName}</span>
-            </div>
-            <button class="btn btn-primary" id="massPayBtn" style="width: auto; padding: 6px 12px; font-size: 13px;">💰 Cargar Pago Masivo</button>
-        </div>
+    // Actualizar el encabezado principal
+    const topHeader = document.querySelector('#mainContentArea > div:first-child');
+    if (topHeader) {
+        const title = topHeader.querySelector('h2');
+        if (title) title.innerHTML = `👤 ${clientData.clientName}`;
         
+        const actionArea = topHeader.querySelector('div:last-child');
+        if (actionArea) {
+            actionArea.style.display = 'flex';
+            actionArea.style.justifyContent = 'flex-end';
+            actionArea.innerHTML = `<button class="btn btn-primary" id="massPayBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">💰 Pago Masivo</button>`;
+        }
+        
+        const backBtn = topHeader.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            // Clonar el botón para eliminar todos los listeners anteriores (que abrían la barra lateral)
+            const newBackBtn = backBtn.cloneNode(true);
+            backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+            newBackBtn.onclick = () => {
+                backToMainCallback();
+            };
+        }
+    }
+
+    container.innerHTML = `
         <table class="premium-table">
             <thead>
                 <tr>
@@ -298,9 +332,7 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
         </table>
     `;
 
-    container.querySelector('#backToClientsBtn').addEventListener('click', () => {
-        backToMainCallback(); // Re-render main view (restores global metrics)
-    });
+
 
     // Add listeners for sale rows (click to view detail)
     container.querySelectorAll('.sale-row').forEach(row => {
@@ -325,8 +357,13 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
         });
     });
 
-    container.querySelector('#massPayBtn').addEventListener('click', () => {
-        showCustomAlert("Información", "Cargar pago masivo para " + clientData.clientName);
+    document.getElementById('massPayBtn')?.addEventListener('click', () => {
+        showCustomAlert("Información", "Cargar pago masivo para " + clientData.clientName, () => {
+            showMassPaymentModal(clientData, () => {
+                // Callback para refrescar la vista después de pagar
+                renderClientReceivables(clientData, container, backToMainCallback);
+            });
+        });
     });
 }
 
@@ -380,12 +417,13 @@ function showPaymentModal(sale, onComplete) {
             <div class="form-group">
                 <label for="payMethod">Método de Pago</label>
                 <select id="payMethod" class="form-control">
-                    <option value="Dolares en Efectivo">Dolares en Efectivo</option>
                     <option value="Bs. Efectivo">Bs. Efectivo</option>
-                    <option value="Pago Movil">Pago Movil</option>
+                    <option value="Pago Móvil">Pago Móvil</option>
                     <option value="Punto de Venta">Punto de Venta</option>
+                    <option value="BioPago">BioPago</option>
                     <option value="Transferencia">Transferencia</option>
                     <option value="Binance">Binance</option>
+                    <option value="Dólares en Efectivo">Dólares en Efectivo</option>
                     <option value="Paypal">Paypal</option>
                     <option value="Zelle">Zelle</option>
                 </select>
@@ -438,7 +476,10 @@ function showPaymentModal(sale, onComplete) {
     // Lógica dinámica para cambiar de $ a Bs según el método de pago
     payMethodSelect.addEventListener('change', (e) => {
         const method = e.target.value;
-        const isBs = method === 'Bs. Efectivo' || method === 'Pago Movil' || method === 'Punto de Venta' || method === 'Transferencia';
+        
+        // Definir qué métodos son en Bolívares según CONTEXT.md
+        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
+        const isBs = bsMethods.includes(method);
         
         if (isBs) {
             payAmountLabel.textContent = "Monto a Pagar (Bs)";
@@ -449,14 +490,14 @@ function showPaymentModal(sale, onComplete) {
             payAmountInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         
-        // Lógica de referencia obligatoria
-        const electronicMethods = ['Pago Movil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
-        const isElectronic = electronicMethods.includes(method);
+        // Lógica de referencia obligatoria según CONTEXT.md
+        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
+        const requiresRef = refMethods.includes(method);
         
         const payReferenceLabel = modal.querySelector('#payReferenceLabel');
         const payReferenceInput = modal.querySelector('#payReference');
         
-        if (isElectronic) {
+        if (requiresRef) {
             payReferenceLabel.innerHTML = 'Referencia <span style="color: #ef4444;">*</span>';
             payReferenceInput.placeholder = "Obligatorio";
         } else {
@@ -475,18 +516,19 @@ function showPaymentModal(sale, onComplete) {
         const reference = modal.querySelector('#payReference').value;
         const payDate = modal.querySelector('#payDate').value;
 
-        const isBs = method === 'Bs. Efectivo' || method === 'Pago Movil' || method === 'Punto de Venta' || method === 'Transferencia';
-
+        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
+        const isBs = bsMethods.includes(method);
+        
         if (isNaN(amountValue) || amountValue <= 0) {
             showCustomAlert("Error", "Por favor ingresa un monto válido.");
             return;
         }
 
-        // Validación de referencia obligatoria
-        const electronicMethods = ['Pago Movil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
-        const isElectronic = electronicMethods.includes(method);
+        // Validación de referencia obligatoria según CONTEXT.md
+        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
+        const requiresRef = refMethods.includes(method);
         
-        if (isElectronic && !reference.trim()) {
+        if (requiresRef && !reference.trim()) {
             showCustomAlert("Validación", `El método ${method} requiere un número de referencia.`);
             return;
         }
@@ -551,7 +593,7 @@ function showPaymentModal(sale, onComplete) {
 }
 
 // Función para mostrar alertas personalizadas estilo modal
-function showCustomAlert(title, message) {
+function showCustomAlert(title, message, onAccept) {
     const modal = document.createElement('div');
     modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
     
@@ -568,6 +610,222 @@ function showCustomAlert(title, message) {
     
     modal.querySelector('#closeAlertBtn').addEventListener('click', () => {
         modal.remove();
+        if (onAccept) onAccept();
+    });
+}
+
+function showMassPaymentModal(clientData, onComplete) {
+    const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+    const totalDebtUSD = clientData.totalDebt || 0;
+    const totalDebtBs = totalDebtUSD * currentBcvRate;
+    const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+    
+    const businessId = localStorage.getItem('businessId');
+    const userEmail = localStorage.getItem('userEmail');
+    const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
+    const loggedInUser = cachedName || localStorage.getItem('employeeName') || localStorage.getItem('userName') || 'Usuario';
+    const currentStore = localStorage.getItem('storeName') || 'Sede Principal';
+    const storeId = localStorage.getItem('storeId') || 'general';
+
+    const modal = document.createElement('div');
+    modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
+    
+    modal.innerHTML = `
+        <div style="background: #1a202c; border-radius: 12px; width: 100%; max-width: 380px; padding: 1.5rem; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+            <button id="closePayModalBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #a0aec0;">×</button>
+            
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
+                <div>
+                    <h3 style="color: #ffffff; margin: 0; font-size: 1.3rem;">Pago Masivo</h3>
+                    <div style="color: #63b3ed; font-family: monospace; font-weight: bold; font-size: 1rem; margin-top: 0.1rem;">👤 ${clientData.clientName}</div>
+                </div>
+                <div style="text-align: right; font-size: 0.75rem; color: #a0aec0;">
+                    <div>Atendido por: <strong>${loggedInUser}</strong></div>
+                    <div>Tienda: <strong>${currentStore}</strong></div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 0.75rem; background: rgba(255,255,255,0.02); padding: 6px 10px; border-radius: 6px;">
+                <label style="color: #a0aec0; font-size: 0.75rem; display: block; margin-bottom: 0.1rem;">Total Deuda Pendiente</label>
+                <div style="color: #ffffff; font-size: 1.1rem; font-weight: bold;">$ ${fmt(totalDebtUSD)} <span style="font-size: 0.85rem; color: #a0aec0;">/ Bs. ${fmt(totalDebtBs)}</span></div>
+            </div>
+
+            <div class="form-group">
+                <label for="payDate">Fecha de Pago</label>
+                <input type="date" id="payDate" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="payMethod">Método de Pago</label>
+                <select id="payMethod" class="form-control">
+                    <option value="Bs. Efectivo">Bs. Efectivo</option>
+                    <option value="Pago Móvil">Pago Móvil</option>
+                    <option value="Punto de Venta">Punto de Venta</option>
+                    <option value="BioPago">BioPago</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Binance">Binance</option>
+                    <option value="Dólares en Efectivo">Dólares en Efectivo</option>
+                    <option value="Paypal">Paypal</option>
+                    <option value="Zelle">Zelle</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="payAmount" id="payAmountLabel">Monto a Pagar ($)</label>
+                <input type="text" id="payAmount" class="form-control">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.2rem !important;">
+                <label for="payReference" id="payReferenceLabel">Referencia / Notas</label>
+                <input type="text" id="payReference" class="form-control" placeholder="Opcional">
+            </div>
+
+            <button id="confirmPayBtn" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: bold; font-size: 14px;">Confirmar Pago</button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const payMethodSelect = modal.querySelector('#payMethod');
+    const payAmountLabel = modal.querySelector('#payAmountLabel');
+    const payAmountInput = modal.querySelector('#payAmount');
+    const payDateInput = modal.querySelector('#payDate');
+
+    payDateInput.value = todayStr;
+    payAmountInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function formatCurrencyInput(input) {
+        let value = input.value.replace(/\D/g, '');
+        if (value === '') { input.value = ''; return; }
+        let floatValue = parseFloat(value) / 100;
+        input.value = floatValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    payAmountInput.addEventListener('input', (e) => { formatCurrencyInput(e.target); });
+
+    payMethodSelect.addEventListener('change', (e) => {
+        const method = e.target.value;
+        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
+        const isBs = bsMethods.includes(method);
+        
+        if (isBs) {
+            payAmountLabel.textContent = "Monto a Pagar (Bs)";
+            const valBs = totalDebtUSD * currentBcvRate;
+            payAmountInput.value = valBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            payAmountLabel.textContent = "Monto a Pagar ($)";
+            payAmountInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        
+        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
+        const requiresRef = refMethods.includes(method);
+        
+        const payReferenceLabel = modal.querySelector('#payReferenceLabel');
+        const payReferenceInput = modal.querySelector('#payReference');
+        
+        if (requiresRef) {
+            payReferenceLabel.innerHTML = 'Referencia <span style="color: #ef4444;">*</span>';
+            payReferenceInput.placeholder = "Obligatorio";
+        } else {
+            payReferenceLabel.textContent = "Referencia / Notas";
+            payReferenceInput.placeholder = "Opcional";
+        }
+    });
+
+    modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
+    
+    modal.querySelector('#confirmPayBtn').addEventListener('click', async () => {
+        const rawValue = payAmountInput.value.replace(/\./g, '').replace(',', '.');
+        const amountValue = parseFloat(rawValue);
+        const method = payMethodSelect.value;
+        const reference = modal.querySelector('#payReference').value;
+        const payDate = modal.querySelector('#payDate').value;
+
+        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
+        const isBs = bsMethods.includes(method);
+
+        if (isNaN(amountValue) || amountValue <= 0) {
+            showCustomAlert("Error", "Por favor ingresa un monto válido.");
+            return;
+        }
+
+        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
+        const requiresRef = refMethods.includes(method);
+        
+        if (requiresRef && !reference.trim()) {
+            showCustomAlert("Validación", `El método ${method} requiere un número de referencia.`);
+            return;
+        }
+
+        let amountUSD = amountValue;
+        if (isBs) { amountUSD = amountValue / currentBcvRate; }
+
+        if (amountUSD > totalDebtUSD + 0.01) {
+            showCustomAlert("Validación", "El monto no puede ser mayor a la deuda total.");
+            return;
+        }
+
+        try {
+            // Lógica en Cascada
+            let remainingPayUSD = amountUSD;
+            const sortedSales = [...clientData.sales]
+                .filter(s => s.remainingUSD > 0)
+                .sort((a, b) => new Date(a.date) - new Date(b.date)); // FIFO: Más viejas primero
+
+            const payRef = collection(db, "businesses", businessId, "payments");
+            const today = new Date();
+
+            for (const sale of sortedSales) {
+                if (remainingPayUSD <= 0) break;
+
+                const amountToApplyUSD = Math.min(remainingPayUSD, sale.remainingUSD);
+                const amountToApplyBs = amountToApplyUSD * currentBcvRate;
+
+                // 1. Guardar el pago para esta factura
+                await addDoc(payRef, {
+                    saleId: sale.id,
+                    clientId: sale.clientId,
+                    amount: isBs ? amountToApplyBs : amountToApplyUSD, // Monto aplicado en la moneda del pago
+                    currency: isBs ? 'BS' : 'USD',
+                    method: method,
+                    reference: reference,
+                    date: payDate,
+                    bcvRate: currentBcvRate,
+                    timestamp: today,
+                    createdAt: today,
+                    recordedBy: loggedInUser,
+                    employeeEmail: userEmail || '',
+                    storeName: currentStore,
+                    storeId: storeId,
+                    correlative: sale.correlative || sale.id.slice(-6).toUpperCase(),
+                    isMassPayment: true,
+                    totalMassPaymentAmount: amountValue // Monto total del pago masivo
+                });
+
+                // 2. Actualizar la factura
+                const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
+                const newRemainingUSD = Math.max(0, sale.remainingUSD - amountToApplyUSD);
+                const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : 'abono';
+
+                await updateDoc(saleRef, {
+                    remainingUSD: newRemainingUSD,
+                    status: newStatus
+                });
+
+                // Actualizar en memoria
+                sale.remainingUSD = newRemainingUSD;
+                sale.status = newStatus;
+
+                remainingPayUSD -= amountToApplyUSD;
+            }
+
+            showCustomAlert("Éxito", "🎉 Pago masivo registrado con éxito.");
+            modal.remove();
+            onComplete();
+        } catch (error) {
+            console.error("Error al registrar el pago masivo:", error);
+            showCustomAlert("Error", `Error al registrar el pago masivo: ${error.message}`);
+        }
     });
 }
 

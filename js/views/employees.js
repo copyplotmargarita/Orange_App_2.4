@@ -37,9 +37,10 @@ export function renderEmployees(container) {
 
     function renderList() {
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <h2>Empleados</h2>
-                <button class="btn btn-primary" id="addEmployeeBtn" style="width: auto;">+ Crear Empleado</button>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👤 Empleados</h2>
+                <button class="btn btn-primary" id="addEmployeeBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Empleado</button>
             </div>
             <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
@@ -50,8 +51,8 @@ export function renderEmployees(container) {
             employees.forEach(emp => {
                 const statusColor = emp.status === 'ACTIVO' ? 'var(--success)' : (emp.status === 'INACTIVO' ? 'var(--danger)' : 'var(--warning)');
                 html += `
-                    <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s;">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${emp.name}</h3>
+                    <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--primary);">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${emp.name}</h3>
                         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">💼 ${emp.role}</p>
                         <p style="font-size: 0.85rem; color: ${statusColor}; font-weight: bold;">🏷️ ${emp.status}</p>
                     </div>
@@ -62,6 +63,22 @@ export function renderEmployees(container) {
         container.innerHTML = html;
 
         container.querySelector('#addEmployeeBtn').addEventListener('click', renderForm);
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
         
         const listGrid = container.querySelector('#employeeGrid');
         if (listGrid) {
@@ -272,57 +289,56 @@ export function renderEmployees(container) {
 
     function renderDetail(emp) {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                 <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full);">← Volver</button>
-                <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">Ficha de Empleado</h2>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👤 Ficha de Empleado</h2>
             </div>
 
-            <div class="card" style="max-width: 550px; margin: 0 auto 1.5rem; padding: 2rem; border-top: 4px solid var(--primary);">
-                <!-- Perfil Principal -->
-                <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);">
-                    <div style="width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #60a5fa); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; font-weight: 900; box-shadow: var(--shadow-md);">
-                        ${emp.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                        <h3 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.2rem; color: var(--text-main);">${emp.name}</h3>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="background: rgba(37, 99, 235, 0.1); color: var(--primary); padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">${emp.role}</span>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">•</span>
-                            <span style="font-size: 0.75rem; color: ${emp.status === 'ACTIVO' ? 'var(--success)' : 'var(--danger)'}; font-weight: 700;">${emp.status}</span>
+            <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 500px; margin: 0 auto; width: 100%;">
+                <!-- Bloque de Identificación -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 0.1rem; color: var(--primary);">${emp.name}</h3>
+                        <p style="font-family: monospace; font-size: 0.8rem; color: var(--primary); font-weight: 700; margin-bottom: 1rem;">ID: ${emp.documentId}</p>
+                        
+                        <div style="display: flex; justify-content: center; gap: 0.75rem;">
+                            <a href="tel:${emp.phone.replace(/\s+/g, '')}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="Llamar">📞</a>
+                            
+                            <a target="_blank" href="https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="WhatsApp">💬</a>
+                            
+                            ${emp.email ? `
+                                <a href="mailto:${emp.email}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="Correo">📧</a>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
 
-                <!-- Información Grid -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem;">
-                    <div>
-                        <p class="detail-label">🪪 Cédula</p>
-                        <p class="detail-value">${emp.documentId}</p>
+                <!-- Sección de Datos (Formulario Compacto) -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📋 Datos del Empleado</h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Cédula</label>
+                            <input type="text" value="${emp.documentId}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Correo</label>
+                            <input type="text" value="${emp.email}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Teléfono</label>
+                            <input type="text" value="${emp.phone}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">PIN de Acceso</label>
+                            <input type="text" value="${emp.pin || '---'}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit; font-weight: 800;" readonly>
+                        </div>
                     </div>
-                    <div>
-                        <p class="detail-label">📧 Correo</p>
-                        <p class="detail-value" style="font-size: 0.85rem;">${emp.email}</p>
-                    </div>
-                    <div>
-                        <p class="detail-label">📱 Teléfono</p>
-                        <p class="detail-value">${emp.phone}</p>
-                    </div>
-                    <div>
-                        <p class="detail-label">🔑 PIN de Acceso</p>
-                        <p class="detail-value" style="color: var(--primary); font-weight: 900; letter-spacing: 1px;">${emp.pin || '---'}</p>
-                    </div>
-                </div>
-
-                <!-- Botones de Contacto -->
-                <div style="display: flex; gap: 0.75rem; margin-bottom: 2.5rem;">
-                    <a href="tel:${emp.phone.replace(/\s+/g, '')}" class="btn-action" style="background: var(--primary); border-color: var(--primary); color: white;">📞 Llamar</a>
-                    <a href="mailto:${emp.email}" class="btn-action" style="background: #475569; border-color: #475569; color: white;">📧 Correo</a>
-                    <a href="https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}" target="_blank" class="btn-action" style="background: #25D366; border-color: #25D366; color: white;">💬 WhatsApp</a>
                 </div>
 
                 <!-- Gestión de Estado -->
-                <div style="background: var(--background); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border);">
-                    <label style="display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem;">⚙️ Acciones y Estado</label>
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">⚙️ Acciones y Estado</h3>
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                         <div style="display: flex; gap: 0.5rem;" id="statusGroup">
                             <button class="status-pill ${emp.status === 'ACTIVO' ? 'active' : ''}" data-val="ACTIVO">ACTIVO</button>
@@ -332,18 +348,14 @@ export function renderEmployees(container) {
                         <button class="btn" id="btnDeleteDetail" style="background: transparent; color: var(--danger); font-size: 0.75rem; font-weight: 700; border: 1px dashed var(--danger); height: 38px;">ELIMINAR REGISTRO 🗑️</button>
                     </div>
                 </div>
-            </div>
-            
-            <div style="display: flex; gap: 1rem; max-width: 550px; margin: 0 auto;">
-                <button class="btn btn-outline" id="cancelBtnDetail" style="flex: 1; height: 45px;">Volver</button>
-                <button class="btn btn-primary" id="saveStatusBtn" style="flex: 1; height: 45px; font-weight: 700;">Guardar Cambios</button>
+
+                <div style="display: flex; gap: 1rem; width: 100%;">
+                    <button class="btn btn-outline" id="cancelBtnDetail" style="flex: 1; height: 45px;">Volver</button>
+                    <button class="btn btn-primary" id="saveStatusBtn" style="flex: 1; height: 45px; font-weight: 700;">Guardar Cambios</button>
+                </div>
             </div>
 
             <style>
-                .detail-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px; }
-                .detail-value { font-size: 0.95rem; font-weight: 600; color: var(--text-main); }
-                .btn-action { flex: 1; display: flex; align-items: center; justify-content: center; height: 42px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text-main); text-decoration: none; font-size: 0.85rem; font-weight: 600; transition: var(--transition); }
-                .btn-action:hover { background: var(--background); transform: translateY(-2px); }
                 .status-pill { flex: 1; height: 34px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: var(--radius-full); font-size: 0.7rem; font-weight: 800; cursor: pointer; transition: var(--transition); }
                 .status-pill.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
             </style>
@@ -364,14 +376,12 @@ export function renderEmployees(container) {
 
         let currentStatus = emp.status;
         
-        container.querySelectorAll('#statusGroup .status-btn').forEach(btn => {
+        container.querySelectorAll('#statusGroup .status-pill').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                container.querySelectorAll('#statusGroup .status-btn').forEach(b => {
-                    b.classList.remove('btn-primary');
-                    b.classList.add('btn-outline');
+                container.querySelectorAll('#statusGroup .status-pill').forEach(b => {
+                    b.classList.remove('active');
                 });
-                e.target.classList.remove('btn-outline');
-                e.target.classList.add('btn-primary');
+                e.target.classList.add('active');
                 currentStatus = e.target.dataset.val;
             });
         });
@@ -399,7 +409,6 @@ export function renderEmployees(container) {
 
         container.querySelector('#btnDeleteDetail').addEventListener('click', (e) => {
             e.preventDefault();
-            // Mostrar modal personalizado
             container.querySelector('#deleteConfirmModal').style.display = 'flex';
         });
 
@@ -418,9 +427,8 @@ export function renderEmployees(container) {
                 await updateDoc(doc(db, "businesses", businessId, "employees", emp.id), {
                     status: 'ELIMINADO'
                 });
-                // Asegurarse de que el modal se cierre visualmente antes de cargar
                 container.querySelector('#deleteConfirmModal').style.display = 'none';
-                await loadEmployees(); // Esto recargará la vista principal de la lista
+                await loadEmployees();
             } catch (err) {
                 showNotification("Error al eliminar el empleado: " + err.message);
                 console.error(err);
