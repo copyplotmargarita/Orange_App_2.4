@@ -59,9 +59,10 @@ export function renderProducts(container) {
 
     function renderList() {
         let html = `
-            <div class="flex-stack-mobile" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <h2>Productos</h2>
-                ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: auto;">+ Crear Producto</button>` : ''}
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
+                ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Producto</button>` : ''}
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem;">
         `;
@@ -128,6 +129,22 @@ export function renderProducts(container) {
 
         const addBtn = container.querySelector('#addProductBtn');
         if (addBtn) addBtn.addEventListener('click', () => renderForm());
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
         
         container.querySelectorAll('.delete-product-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -244,12 +261,12 @@ export function renderProducts(container) {
 
                                 </div>
 
-                                <div class="form-group" style="margin-top: 1rem;">
+                                <div class="form-group">
                                     <label>📉 STOCK MÍNIMO (ALERTA)</label>
                                     <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5" value="${editProduct?.minStock || '0'}" style="border-color: #f59e0b; font-weight: bold;">
                                 </div>
 
-                                <div class="form-group" id="supplierGroup" style="display: none; margin-top: 1rem;">
+                                <div class="form-group" id="supplierGroup" style="display: none;">
                                     <label>🏭 PROVEEDORES ASOCIADOS</label>
                                     <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
                                         <select id="prodSupplierSelect" class="form-control" style="flex: 1;">
@@ -277,11 +294,10 @@ export function renderProducts(container) {
                             </div>
                         </div>
                     </div>
-
-                    <!-- Sistema de Unidades -->
-                    <div id="unitSection" class="card" style="display: none; border: none; border-left: 5px solid #8b5cf6; padding: 2rem; background: var(--surface); position: relative;">
+                                                <!-- Sistema de Unidades -->
+                    <div id="unitSection" class="card" style="display: none; border-top: 4px solid var(--primary); padding: 2rem; background: var(--surface); position: relative;">
                         <div style="margin-bottom: 2rem; text-align: left;">
-                            <h3 style="font-size: 1.25rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #8b5cf6; margin: 0; line-height: 1.2;">
+                            <h3 style="font-size: 1.25rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: var(--primary); margin: 0; line-height: 1.2;">
                                 UNIDADES Y CONVERSIÓN
                             </h3>
                         </div>
@@ -299,7 +315,7 @@ export function renderProducts(container) {
                                     <option value="Kilo" ${editProduct?.purchaseUnit==='Kilo'?'selected':''}>Kilo</option>
                                     <option value="Litro" ${editProduct?.purchaseUnit==='Litro'?'selected':''}>Litro</option>
                                     <option value="Gramo" ${editProduct?.purchaseUnit==='Gramo'?'selected':''}>Gramo</option>
-                                    <option value="Mililitro" ${editProduct?.purchaseUnit==='Mililitro'?'selected':''}>Mililitro</option>
+                                    <option value="Mililitro" ${editProduct?.unitContentUnit==='Mililitro'?'selected':''}>Mililitro</option>
                                 </select>
                             </div>
 
@@ -341,12 +357,12 @@ export function renderProducts(container) {
                             </div>
 
                             <!-- Tarjeta de Resumen Centrada (100px altura aprox) -->
-                            <div id="unitSummaryCard" style="background: rgba(139, 92, 246, 0.05); border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.2); padding: 0.75rem; display: flex; align-items: center; justify-content: space-around; height: 100px; box-sizing: border-box;">
+                            <div id="unitSummaryCard" style="background: var(--background); border-radius: 16px; border: 1px solid var(--border); padding: 0.75rem; display: flex; align-items: center; justify-content: space-around; height: 100px; box-sizing: border-box;">
                                 <div style="text-align: center;">
                                     <p style="font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">UNIDAD DE RECETA</p>
-                                    <p id="recipeUnitDisplay" style="font-size: 1.25rem; font-weight: 900; color: #8b5cf6; margin: 0;">—</p>
+                                    <p id="recipeUnitDisplay" style="font-size: 1.25rem; font-weight: 900; color: var(--primary); margin: 0;">—</p>
                                 </div>
-                                <div style="width: 1px; background: rgba(139, 92, 246, 0.1); height: 50px;"></div>
+                                <div style="width: 1px; background: var(--border); height: 50px;"></div>
                                 <div style="text-align: center;">
                                     <p style="font-size: 0.55rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">FACTOR DE PRECISIÓN</p>
                                     <p id="stockToRecipeFactorDisplay" style="font-size: 0.9rem; font-weight: 800; color: var(--text-main); margin: 0;">—</p>
@@ -356,30 +372,30 @@ export function renderProducts(container) {
                     </div>
 
                     <!-- Sección de Recetas (Si aplica) -->
-                    <div id="recipeYieldGroup" class="card" style="display: none; border-left: 4px solid #ec4899; padding: 2rem;">
-                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #ec4899; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">👩‍🍳 Configuración de Receta</h3>
+                    <div id="recipeYieldGroup" class="card" style="display: none; border-top: 4px solid var(--primary); padding: 2rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">👩‍🍳 Configuración de Receta</h3>
                         <div class="form-group">
                             <label>🍽️ RENDIMIENTO (PORCIONES/UNIDADES)</label>
                             <input type="number" step="0.01" id="prodYield" class="form-control" placeholder="¿Cuánto produce esta receta?" value="${editProduct?.yield || ''}">
-                            <button type="button" class="btn btn-primary mt-4" id="buildRecipeBtn" style="width: 100%; background: #ec4899; border-color: #ec4899; height: 50px; font-weight: 800;">
+                            <button type="button" class="btn btn-primary mt-4" id="buildRecipeBtn" style="width: 100%; background: var(--primary); border-color: var(--primary); height: 50px; font-weight: 800;">
                                 ➕ CONSTRUIR RECETA / INGREDIENTES
                             </button>
                         </div>
                     </div>
 
                     <!-- Sección: Costos y Precios (Ahora debajo) -->
-                    <div class="card" style="border-top: 4px solid var(--success); padding: 2rem;">
-                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--success); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">💰 Estructura de Costos y Precios</h3>
+                    <div class="card" style="border-top: 4px solid var(--primary); padding: 2rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">💰 Estructura de Costos y Precios</h3>
 
                         <div id="costPriceInputsWrapper" style="${isFromPurchase ? 'display: none;' : 'display: flex; flex-direction: column; gap: 0.35rem;'}">
                             <div class="form-group">
                                 <label id="costLabel">💵 COSTO DE ADQUISICIÓN</label>
-                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-size: 1.1rem; font-weight: 800; color: var(--success);">
+                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
                             </div>
 
-                            <div class="form-group" id="costPerUnitGroup" style="display: none; background: rgba(34, 197, 94, 0.05); padding: 1rem; border-radius: 12px; border: 1px dashed var(--success);">
-                                <label class="text-success" style="font-size: 0.65rem;">📉 COSTO POR UNIDAD MÍNIMA</label>
-                                <input type="text" id="prodCostPerUnit" class="form-control" readonly style="background: transparent; border: none; font-size: 1.1rem; font-weight: 800; padding: 0; height: auto;" value="${editProduct?.costPerUnit ? editProduct.costPerUnit.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}">
+                            <div class="form-group" id="costPerUnitGroup" style="display: none; background: var(--background); padding: 1rem; border-radius: 12px; border: 1px dashed var(--border);">
+                                <label style="font-size: 0.65rem; color: var(--primary); font-weight: 800;">📉 COSTO POR UNIDAD MÍNIMA</label>
+                                <input type="text" id="prodCostPerUnit" class="form-control" readonly style="background: transparent; border: none; font-size: 1.1rem; font-weight: 800; padding: 0; height: auto; color: var(--primary);" value="${editProduct?.costPerUnit ? editProduct.costPerUnit.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}">
                             </div>
 
                             <div class="form-group">
@@ -399,9 +415,9 @@ export function renderProducts(container) {
                         </div>
 
                         ${isFromPurchase ? `
-                        <div style="background: rgba(34, 197, 94, 0.05); padding: 1.5rem; border-radius: 12px; border: 1px dashed var(--success); text-align: center; margin-bottom: 1.5rem;">
+                        <div style="background: var(--background); padding: 1.5rem; border-radius: 12px; border: 1px dashed var(--border); text-align: center; margin-bottom: 1.5rem;">
                             <span style="font-size: 2rem;">🔗</span>
-                            <p style="margin: 0.75rem 0 0.25rem; font-weight: bold; color: var(--success);">Modo Enlazado a Compra</p>
+                            <p style="margin: 0.75rem 0 0.25rem; font-weight: bold; color: var(--primary);">Modo Enlazado a Compra</p>
                             <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Los costos y precios se calcularán automáticamente al procesar la compra.</p>
                         </div>
                         ` : ''}
@@ -532,7 +548,7 @@ export function renderProducts(container) {
             </div>
 
             <style>
-                .form-group label { margin-bottom: 2px; color: var(--text-muted); font-weight: 700; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
                 .form-control { 
                     border-radius: 10px; 
                     border: 1px solid var(--border); 

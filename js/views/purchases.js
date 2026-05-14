@@ -106,9 +106,10 @@ export function renderPurchases(container) {
         if (currentFilterStatus) filteredPurchases = filteredPurchases.filter(p => p.status === currentFilterStatus);
 
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;" class="flex-stack-mobile">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--primary);">📋 Cuentas por Pagar</h2>
-                <div style="display: flex; gap: 0.75rem; align-items: center;" class="flex-stack-mobile">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🧾 Cuentas por Pagar</h2>
+                <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
                     <select id="filterSupplier" class="form-control" style="width: auto; min-width: 180px; height: 42px; font-size: 0.85rem; border-radius: 10px;">
                         <option value="">Todos los Proveedores</option>
                         ${suppliers.map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
@@ -120,7 +121,7 @@ export function renderPurchases(container) {
                         <option value="PAGADO" ${currentFilterStatus === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                         <option value="CONTADO" ${currentFilterStatus === 'CONTADO' ? 'selected' : ''}>CONTADO</option>
                     </select>
-                    ${role !== 'employee' ? `<button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0.75rem 1.5rem; height: 42px; border-radius: 10px;">+ Cargar Compra</button>` : ''}
+                    ${role !== 'employee' ? `<button class="btn btn-primary" id="addPurchaseBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Cargar Compra</button>` : ''}
                 </div>
             </div>
         `;
@@ -150,21 +151,14 @@ export function renderPurchases(container) {
                 <p style="color: var(--text-muted); font-size: 1.1rem;">No hay registros que coincidan con los filtros.</p>
             </div>`;
         } else {
-            html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem;">`;
+            html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; margin-bottom: 2rem;">`;
             
             activeSuppliers.forEach(sup => {
                 html += `
-                    <div class="card supplier-debt-card" data-id="${sup.id}" style="padding: 1rem; border-left: 4px solid var(--danger); cursor: pointer; transition: transform 0.2s;">
-                        <h3 style="color: var(--primary); margin-bottom: 0.75rem; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sup.name}">${sup.name}</h3>
-                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                            <div>
-                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.15rem;">Deuda Total</p>
-                                <p style="font-size: 1.25rem; font-weight: bold; color: var(--danger);">$ ${sup.debt.toFixed(2)}</p>
-                            </div>
-                            <div style="text-align: right;">
-                                <p style="font-size: 0.95rem; font-weight: bold;">${sup.invoices} ${sup.invoices === 1 ? 'Factura' : 'Facturas'}</p>
-                            </div>
-                        </div>
+                    <div class="card supplier-debt-card" data-id="${sup.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--danger);">
+                        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--danger); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sup.name}">${sup.name}</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">💰 Deuda: <span style="color: var(--danger); font-weight: bold;">$ ${sup.debt.toFixed(2)}</span></p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📄 Facturas: ${sup.invoices}</p>
                     </div>
                 `;
             });
@@ -247,6 +241,22 @@ export function renderPurchases(container) {
 
         const addBtn = container.querySelector('#addPurchaseBtn');
         if (addBtn) addBtn.addEventListener('click', () => renderForm());
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
 
         container.querySelectorAll('.supplier-debt-card').forEach(card => {
             card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
@@ -274,8 +284,8 @@ export function renderPurchases(container) {
 
         let html = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem;">← Volver</button>
-                <h2 style="color: var(--primary);">Facturas Pendientes: ${supName}</h2>
+                <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800;">Facturas Pendientes: ${supName}</h2>
             </div>
 
             <div class="card mb-4" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
@@ -406,14 +416,14 @@ export function renderPurchases(container) {
                             <label>Forma de Pago <span class="text-danger">*</span></label>
                             <select id="pPaymentMethod" class="form-control" required>
                                 <option value="">Seleccione...</option>
-                                <option value="Binance">Binance</option>
-                                <option value="BioPago">BioPago</option>
                                 <option value="Bs. Efectivo">Bs. Efectivo</option>
-                                <option value="Dólares en Efectivo">Dólares en Efectivo</option>
                                 <option value="Pago Móvil">Pago Móvil</option>
-                                <option value="Paypal">Paypal</option>
-                                <option value="Tarjeta de Débito">Tarjeta de Débito</option>
+                                <option value="Punto de Venta">Punto de Venta</option>
+                                <option value="BioPago">BioPago</option>
                                 <option value="Transferencia">Transferencia</option>
+                                <option value="Binance">Binance</option>
+                                <option value="Dólares en Efectivo">Dólares en Efectivo</option>
+                                <option value="Paypal">Paypal</option>
                                 <option value="Zelle">Zelle</option>
                             </select>
                         </div>
@@ -511,9 +521,9 @@ export function renderPurchases(container) {
 
         pMethod.addEventListener('change', async () => {
             const val = pMethod.value;
-            const bsMethods = ['BioPago', 'Bs. Efectivo', 'Pago Móvil', 'Tarjeta de Débito', 'Transferencia'];
+            const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
             const usdMethods = ['Binance', 'Dólares en Efectivo', 'Paypal', 'Zelle'];
-            const refMethods = ['Binance', 'Pago Móvil', 'Paypal', 'Transferencia', 'Zelle'];
+            const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
 
             // Reset
             pBs.value = '';
@@ -642,19 +652,19 @@ export function renderPurchases(container) {
         
         let html = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">📦 Cargar Compra</h2>
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--primary);">📦 Cargar Compra</h2>
                 <p class="text-muted text-sm">Registra la recepción de mercancía y facturas</p>
             </div>
             
-            <form id="purchaseForm" style="max-width: 500px; margin: 0 auto;">
+            <form id="purchaseForm" style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- 1. Datos del Documento -->
-                <div class="card mb-3" style="padding: 2rem; border-top: 4px solid var(--primary);">
+                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
                     <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">1. Datos del Documento</h3>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
-                            <label>Proveedor <span class="text-danger">*</span></label>
-                            <select id="pSupplier" class="form-control" required>
+                            <label>PROVEEDOR <span class="text-danger">*</span></label>
+                            <select id="pSupplier" class="form-control" required style="height: 40px;">
                                 <option value="">Seleccione un proveedor...</option>
                                 <option value="CREATE_NEW" style="font-weight: bold; color: var(--primary);">+ CREAR PROVEEDOR</option>
                                 ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
@@ -662,24 +672,24 @@ export function renderPurchases(container) {
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                             <div class="form-group">
-                                <label>Emisión <span class="text-danger">*</span></label>
-                                <input type="date" id="pEmissionDate" class="form-control" required value="${todayStr}">
+                                <label>EMISIÓN <span class="text-danger">*</span></label>
+                                <input type="date" id="pEmissionDate" class="form-control" required value="${todayStr}" style="height: 40px;">
                             </div>
                             <div class="form-group">
-                                <label>Recepción <span class="text-danger">*</span></label>
-                                <input type="date" id="pReceptionDate" class="form-control" required value="${todayStr}">
+                                <label>RECEPCIÓN <span class="text-danger">*</span></label>
+                                <input type="date" id="pReceptionDate" class="form-control" required value="${todayStr}" style="height: 40px;">
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label>Tasa BCV de la Factura <span class="text-danger">*</span></label>
-                            <input type="text" inputmode="numeric" id="pBcvRate" class="form-control" required value="${bcvRate.toLocaleString('de-DE', {minimumFractionDigits:2})}">
-                            <small id="bcvWarning" style="color: var(--warning); display: none; margin-top: 4px; font-size: 0.7rem; font-weight: 700;">⚠️ No hay tasa cargada para la Fecha de Emisión, por favor cargue acá la tasa para esa fecha.</small>
+                            <label>TASA BCV DE LA FACTURA <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pBcvRate" class="form-control" required value="${bcvRate.toLocaleString('de-DE', {minimumFractionDigits:2})}" style="height: 40px;">
+                            <small id="bcvWarning" style="color: var(--primary); display: none; margin-top: 4px; font-size: 0.7rem; font-weight: 700;">⚠️ No hay tasa cargada para la Fecha de Emisión, por favor cargue acá la tasa para esa fecha.</small>
                         </div>
 
                         <div class="form-group">
-                            <label>Tipo de Documento <span class="text-danger">*</span></label>
-                            <select id="pDocType" class="form-control" required>
+                            <label>TIPO DE DOCUMENTO <span class="text-danger">*</span></label>
+                            <select id="pDocType" class="form-control" required style="height: 40px;">
                                 <option value="">Seleccione...</option>
                                 <option value="FACTURA">FACTURA</option>
                                 <option value="GUIA DE DESPACHO">GUIA DE DESPACHO</option>
@@ -689,13 +699,13 @@ export function renderPurchases(container) {
                         </div>
                         
                         <div class="form-group">
-                            <label>Número de Documento <span class="text-danger">*</span></label>
-                            <input type="text" id="pDocNumber" class="form-control" required placeholder="Ej. 001-A">
+                            <label>NÚMERO DE DOCUMENTO <span class="text-danger">*</span></label>
+                            <input type="text" id="pDocNumber" class="form-control" required placeholder="Ej. 001-A" style="height: 40px;">
                         </div>
                         
                         <div class="form-group">
-                            <label>Estado de la Compra <span class="text-danger">*</span></label>
-                            <select id="pStatus" class="form-control" required>
+                            <label>ESTADO DE LA COMPRA <span class="text-danger">*</span></label>
+                            <select id="pStatus" class="form-control" required style="height: 40px;">
                                 <option value="">Seleccione...</option>
                                 <option value="ABONO">ABONO</option>
                                 <option value="CONTADO">CONTADO</option>
@@ -707,12 +717,12 @@ export function renderPurchases(container) {
                 </div>
 
                 <!-- 2. Moneda y Productos -->
-                <div class="card mb-3" style="padding: 2rem;">
+                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
                     <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">2. Productos Recibidos</h3>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
-                            <label>Moneda de la Factura <span class="text-danger">*</span></label>
+                            <label>MONEDA DE LA FACTURA <span class="text-danger">*</span></label>
                             <div style="display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 40px;">
                                 <div id="btnCurrencyBs" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--primary); color: white; font-weight: 800; font-size: 0.7rem;">EN BOLÍVARES</div>
                                 <div id="btnCurrencyUsd" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--background); color: var(--text-main); font-weight: 800; font-size: 0.7rem;">EN DÓLARES</div>
@@ -724,8 +734,6 @@ export function renderPurchases(container) {
                             📦 SELECCIONAR PRODUCTOS
                         </button>
                     </div>
-
-                    <!-- Area to display selected products list summary (Removed as per redundancy request) -->
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; background: var(--background); padding: 1rem; border-radius: 12px; margin-top: 1rem;">
                         <div style="text-align: center;">
@@ -744,17 +752,17 @@ export function renderPurchases(container) {
                 </div>
 
                 <!-- 3. Pagos (Condicional) -->
-                <div class="card mb-3" id="paymentSection" style="display: none; padding: 2rem; border-left: 4px solid var(--success);">
-                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--success); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">3. Registro de Pago</h3>
+                <div class="card" id="paymentSection" style="display: none; padding: 2rem; border-top: 4px solid var(--primary);">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">3. Registro de Pago</h3>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
-                            <label>Fecha del Pago <span class="text-danger">*</span></label>
-                            <input type="date" id="pPaymentDate" class="form-control" value="${todayStr}">
+                            <label>FECHA DEL PAGO <span class="text-danger">*</span></label>
+                            <input type="date" id="pPaymentDate" class="form-control" value="${todayStr}" style="height: 40px;">
                         </div>
                         <div class="form-group">
-                            <label>Forma de Pago <span class="text-danger">*</span></label>
-                            <select id="pPaymentMethod" class="form-control">
+                            <label>FORMA DE PAGO <span class="text-danger">*</span></label>
+                            <select id="pPaymentMethod" class="form-control" style="height: 40px;">
                                 <option value="">Seleccione...</option>
                                 <option value="Binance">Binance</option>
                                 <option value="BioPago">BioPago</option>
@@ -769,24 +777,24 @@ export function renderPurchases(container) {
                         </div>
 
                         <div class="form-group" id="receivedBsGroup" style="display: none;">
-                            <label>Recibido Bs <span class="text-danger">*</span></label>
-                            <input type="text" inputmode="numeric" id="pReceivedBs" class="form-control" style="font-weight: bold; color: var(--success);">
+                            <label>RECIBIDO BS <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pReceivedBs" class="form-control" style="font-weight: bold; color: var(--primary); height: 40px;">
                         </div>
                         <div class="form-group" id="receivedUsdGroup" style="display: none;">
-                            <label>Recibido $ <span class="text-danger">*</span></label>
-                            <input type="text" inputmode="numeric" id="pReceivedUsd" class="form-control" style="font-weight: bold; color: var(--success);">
+                            <label>RECIBIDO $ <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pReceivedUsd" class="form-control" style="font-weight: bold; color: var(--primary); height: 40px;">
                         </div>
                         <div class="form-group" id="equivalentUsdGroup" style="display: none;">
-                            <label>Equivalente $ <small class="text-muted">(Auto-calculado)</small></label>
-                            <input type="text" id="pEquivalentUsd" class="form-control" readonly style="background: transparent; border-style: dashed;">
+                            <label>EQUIVALENTE $ <small class="text-muted">(Auto-calculado)</small></label>
+                            <input type="text" id="pEquivalentUsd" class="form-control" readonly style="background: transparent; border-style: dashed; height: 40px;">
                         </div>
                         <div class="form-group" id="referenceGroup" style="display: none;">
-                            <label>Número de Referencia <span class="text-danger">*</span></label>
-                            <input type="text" id="pReference" class="form-control" placeholder="Ej. 123456">
+                            <label>NÚMERO DE REFERENCIA <span class="text-danger">*</span></label>
+                            <input type="text" id="pReference" class="form-control" placeholder="Ej. 123456" style="height: 40px;">
                         </div>
                         <div class="form-group">
-                            <label>Saldo Pendiente $</label>
-                            <input type="text" id="pPendingBalance" class="form-control" readonly style="background: rgba(239, 68, 68, 0.05); color: var(--danger); font-weight: 900; font-size: 1.1rem; border-color: var(--danger);">
+                            <label>SALDO PENDIENTE $</label>
+                            <input type="text" id="pPendingBalance" class="form-control" readonly style="background: rgba(239, 68, 68, 0.05); color: var(--danger); font-weight: 900; font-size: 1.1rem; border-color: var(--danger); height: 40px;">
                         </div>
                     </div>
                 </div>
@@ -1296,10 +1304,13 @@ export function renderPurchases(container) {
         // Render structure
         let html = `
             <div style="height: auto; min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;" class="flex-stack-mobile">
-                <h2 style="margin: 0; color: var(--primary); font-size: 1.25rem; font-weight: 800;">📦 SELECCIONAR PRODUCTOS</h2>
-                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
-                    <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto; height: 40px; font-weight: 700; padding: 0 1.5rem;">DESCARTAR</button>
-                    <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 40px; font-weight: 800; padding: 0 1.5rem;">PROCESAR</button>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button type="button" class="btn btn-outline" id="pbBackBtn" style="height: 38px; width: auto; border-radius: 12px; font-weight: 700; font-size: 0.85rem; padding: 0.5rem 1rem; flex-shrink: 0;">← Volver</button>
+                    <h2 style="margin: 0; color: var(--primary); font-size: 1.5rem; font-weight: 800; white-space: nowrap;">📦 Seleccionar Productos</h2>
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px;">DESCARTAR</button>
+                    <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 42px; font-weight: 800; padding: 0 1.5rem; border-radius: 12px;">PROCESAR</button>
                 </div>
             </div>
             <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
@@ -1616,6 +1627,10 @@ export function renderPurchases(container) {
         });
 
         modal.querySelector('#pbCancelBtn').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        modal.querySelector('#pbBackBtn').addEventListener('click', () => {
             modal.style.display = 'none';
         });
 

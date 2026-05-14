@@ -29,16 +29,14 @@ export function renderReports(container) {
     function render() {
         container.innerHTML = `
             <div class="reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
-                <div class="card" style="padding: 1rem; flex: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                        <h2 style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span>📊</span> Consultas / Reportes
-                        </h2>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <button id="btnStoreReports" class="btn ${currentSubView === 'stores' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🏪 Por Tienda</button>
-                            <button id="btnEmployeeReports" class="btn ${currentSubView === 'employees' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">👤 Por Empleado</button>
-                            <button id="btnReconciliation" class="btn ${currentSubView === 'reconciliation' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🔄 Conciliación</button>
-                        </div>
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0;" class="flex-stack-mobile">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📊 Consultas / Reportes</h2>
+                    
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
+                        <button id="btnStoreReports" class="btn ${currentSubView === 'stores' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🏪 Por Tienda</button>
+                        <button id="btnEmployeeReports" class="btn ${currentSubView === 'employees' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">👤 Por Empleado</button>
+                        <button id="btnReconciliation" class="btn ${currentSubView === 'reconciliation' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🔄 Conciliación</button>
                     </div>
                 </div>
 
@@ -51,6 +49,22 @@ export function renderReports(container) {
         container.querySelector('#btnStoreReports').onclick = () => { currentSubView = 'stores'; render(); };
         container.querySelector('#btnEmployeeReports').onclick = () => { currentSubView = 'employees'; render(); };
         container.querySelector('#btnReconciliation').onclick = () => { currentSubView = 'reconciliation'; render(); };
+
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
 
         if (currentSubView === 'stores') renderStoreReports();
         else if (currentSubView === 'employees') renderEmployeeReports();

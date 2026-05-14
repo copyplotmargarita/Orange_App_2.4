@@ -56,8 +56,9 @@ export function renderInventory(container) {
 
     function renderShell() {
         container.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;" class="flex-stack-mobile">
-                <h2>📦 Inventarios</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📦 Inventarios</h2>
             </div>
             <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center;">
                 <button class="tab-btn btn ${activeTab==='general'?'btn-primary':'btn-outline'}" data-tab="general" style="width:auto;">Almacén General</button>
@@ -120,6 +121,22 @@ export function renderInventory(container) {
                 </div>
             </div>
         `;
+
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
 
         container.querySelector('#storeSelector')?.addEventListener('change', async (e) => {
             const storeId = e.target.value;

@@ -22,9 +22,10 @@ export function renderStores(container) {
 
     function renderList() {
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">🏪 Tiendas y Sucursales</h2>
-                <button class="btn btn-primary" id="addStoreBtn" style="width: auto; height: 42px; padding: 0 1.25rem; font-weight: 700; border-radius: var(--radius-full);">+ Nueva Tienda</button>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏪 Tiendas y Sucursales</h2>
+                <button class="btn btn-primary" id="addStoreBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Nueva Tienda</button>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
@@ -34,8 +35,8 @@ export function renderStores(container) {
         } else {
             stores.forEach(store => {
                 html += `
-                    <div class="card store-card" data-id="${store.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s;">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${store.name}</h3>
+                    <div class="card store-card" data-id="${store.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--success);">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${store.name}</h3>
                         <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📍 ${store.address}</p>
                     </div>
                 `;
@@ -45,6 +46,22 @@ export function renderStores(container) {
         container.innerHTML = html;
 
         container.querySelector('#addStoreBtn').addEventListener('click', renderForm);
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
         
         container.querySelectorAll('.store-card').forEach(card => {
             card.addEventListener('click', () => {
@@ -57,25 +74,25 @@ export function renderStores(container) {
     function renderForm() {
         container.innerHTML = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ Nueva Sucursal</h2>
+                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--success);">✨ Nueva Sucursal</h2>
                 <p class="text-muted text-sm">Registra un nuevo punto de venta para tu negocio</p>
             </div>
             
-            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">
+            <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--success);">
                 <form id="storeForm">
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
                             <label>🏪 Nombre de la Sucursal</label>
-                            <input type="text" id="storeName" class="form-control" placeholder="Ej. Sede Principal o Tienda Norte" required>
+                            <input type="text" id="storeName" class="form-control" placeholder="Ej. Sede Principal o Tienda Norte" required style="height: 40px;">
                         </div>
                         <div class="form-group">
                             <label>📍 Dirección Completa</label>
-                            <textarea id="storeAddress" class="form-control" placeholder="Calle, Avenida, Centro Comercial, Local..." required style="min-height: 80px; resize: none; padding-top: 0.75rem;"></textarea>
+                            <input type="text" id="storeAddress" class="form-control" placeholder="Calle, Avenida, Centro Comercial, Local..." required style="height: 40px;">
                         </div>
 
                         <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                             <button type="button" class="btn btn-outline" id="cancelBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
-                            <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 800;">REGISTRAR</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn" style="flex: 1; height: 50px; font-weight: 800; background: var(--success); border-color: var(--success);">REGISTRAR</button>
                         </div>
                     </div>
                 </form>
@@ -132,44 +149,35 @@ export function renderStores(container) {
 
     function renderDetail(store) {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                 <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full);">← Volver</button>
-                <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">Ficha de Sucursal</h2>
+                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏪 Ficha de Sucursal</h2>
             </div>
 
-            <div class="card" style="max-width: 550px; margin: 0 auto; padding: 2.5rem; border-top: 4px solid var(--success);">
-                <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);">
-                    <div style="width: 64px; height: 64px; border-radius: 16px; background: rgba(16, 185, 129, 0.1); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold;">
-                        🏪
-                    </div>
-                    <div>
-                        <h3 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.2rem;">${store.name}</h3>
-                        <p style="color: var(--success); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Sucursal Activa</p>
+            <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 500px; margin: 0 auto; width: 100%;">
+                <!-- Bloque de Identificación -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--success); width: 100%;">
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 0.1rem; color: var(--success);">${store.name}</h3>
+                        <p style="font-family: monospace; font-size: 0.8rem; color: var(--success); font-weight: 700; margin-bottom: 1rem;">ID: ${store.id}</p>
                     </div>
                 </div>
-                
-                <div style="display: grid; gap: 1.5rem;">
-                    <div>
-                        <p class="detail-label">📍 Dirección de la Tienda</p>
-                        <p class="detail-value" style="font-size: 1.1rem; line-height: 1.5;">${store.address}</p>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                        <div>
-                            <p class="detail-label">📅 Registrada el</p>
-                            <p class="detail-value">${new Date(store.createdAt).toLocaleDateString()}</p>
+
+                <!-- Sección de Datos (Formulario Compacto) -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--success); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📋 Datos de la Sucursal</h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Dirección de la Tienda</label>
+                            <input type="text" value="${store.address}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
                         </div>
-                        <div style="text-align: right;">
-                            <p class="detail-label">🆔 ID Sucursal</p>
-                            <p class="detail-value" style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${store.id.substring(0, 8)}...</p>
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Registrada el</label>
+                            <input type="text" value="${new Date(store.createdAt).toLocaleDateString()}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <style>
-                .detail-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; letter-spacing: 0.5px; }
-                .detail-value { font-size: 1rem; font-weight: 600; color: var(--text-main); }
-            </style>
         `;
 
         container.querySelector('#backBtn').addEventListener('click', renderList);

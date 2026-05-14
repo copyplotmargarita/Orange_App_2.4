@@ -26,11 +26,10 @@ export function renderClients(container, onFinish = null, initialName = '') {
 
     function renderList() {
         let html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;" class="flex-stack-mobile">
-                <div>
-                    <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">👥 Cartera de Clientes</h2>
-                </div>
-                <button class="btn btn-primary" id="addClientBtn" style="width: auto; height: 42px; padding: 0 1.25rem; font-weight: 700; border-radius: var(--radius-full);">+ Crear Cliente</button>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👥 Cartera de Clientes</h2>
+                <button class="btn btn-primary" id="addClientBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Cliente</button>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
         `;
@@ -42,7 +41,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 html += `
                     <div class="card client-card" data-id="${client.id}" style="cursor: pointer; border-left: 4px solid var(--primary); padding: 1rem;">
                         <div style="margin-bottom: 0.75rem;">
-                            <h3 class="card-title" style="margin-bottom: 0; font-size: 1.1rem;">${client.fullName}</h3>
+                            <h3 class="card-title" style="margin-bottom: 0; font-size: 1.1rem; color: var(--primary);">${client.fullName}</h3>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                             <p class="text-sm font-bold">📞 ${client.phone || 'Sin teléfono'}</p>
@@ -56,6 +55,21 @@ export function renderClients(container, onFinish = null, initialName = '') {
         container.innerHTML = html;
 
         container.querySelector('#addClientBtn').addEventListener('click', () => renderForm());
+        
+        container.querySelector('#backToDashboardBtn').addEventListener('click', () => {
+            const navHome = document.getElementById('navHome');
+            if (navHome) {
+                navHome.click();
+                
+                // Abrir la barra lateral si está cerrada
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon && toggleIcon.innerText === '▶') {
+                    document.getElementById('sidebarToggle')?.click();
+                }
+            } else {
+                window.location.hash = '#dashboard';
+            }
+        });
         
         if (onFinish) {
             const backHeader = document.createElement('div');
@@ -447,39 +461,41 @@ export function renderClients(container, onFinish = null, initialName = '') {
             
             <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 500px; margin: 0 auto; width: 100%;">
                 <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
-                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-                        <div style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), #60a5fa); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; font-weight: 900; box-shadow: var(--shadow-md); margin-bottom: 0.75rem;">
-                            ${client.fullName.charAt(0).toUpperCase()}
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 0.1rem; color: var(--primary);">${client.fullName}</h3>
+                        <p style="font-family: monospace; font-size: 0.8rem; color: var(--primary); font-weight: 700; margin-bottom: 1rem;">ID: ${client.id}</p>
+                        
+                        <div style="display: flex; justify-content: center; gap: 0.75rem;">
+                            <a href="tel:${client.phone}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="Llamar">📞</a>
+                            
+                            <a target="_blank" href="https://wa.me/${client.phone.replace('+','')}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="WhatsApp">💬</a>
+                            
+                            ${client.email ? `
+                                <a href="mailto:${client.email}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="Correo">📧</a>
+                            ` : ''}
+                            
+                            ${client.location ? `
+                                <a target="_blank" href="https://www.google.com/maps/search/?api=1&query=${client.location.lat},${client.location.lng}" class="btn btn-outline" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border-color: var(--primary); color: var(--primary); background: transparent;" title="Ubicación">📍</a>
+                            ` : ''}
                         </div>
-                        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 0.2rem;">${client.fullName}</h3>
-                        <p style="font-family: monospace; font-size: 0.8rem; color: var(--primary); font-weight: 700;">ID: ${client.id}</p>
-                    </div>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <a href="tel:${client.phone}" class="btn-action" style="background: var(--primary); border-color: var(--primary); color: white; height: 36px; font-size: 0.85rem;">📞 Llamar</a>
-                        <a target="_blank" href="https://wa.me/${client.phone.replace('+','')}" class="btn-action" style="background: #25D366; border-color: #25D366; color: white; height: 36px; font-size: 0.85rem;">💬 WhatsApp</a>
-                        ${client.email ? `<a href="mailto:${client.email}" class="btn-action" style="background: #475569; border-color: #475569; color: white; height: 36px; font-size: 0.85rem;">📧 Correo</a>` : ''}
-                        ${client.location ? `
-                            <a target="_blank" href="https://www.google.com/maps/search/?api=1&query=${client.location.lat},${client.location.lng}" class="btn-action" style="background: #4285F4; border-color: #4285F4; color: white; height: 36px; font-size: 0.85rem;">📍 Ir a la Ubicación</a>
-                        ` : ''}
                     </div>
                 </div>
 
                 <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
                     <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📋 Datos de Facturación</h3>
                     <form id="editClientForm">
-                        <div style="display: grid; grid-template-columns: 1fr; gap: 0.75rem;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                             <div class="form-group">
                                 <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📱 Teléfono Principal</label>
-                                <input type="tel" id="editPhone" class="form-control" value="${client.phone}" required style="height: 36px; font-size: 0.85rem;">
+                                <input type="tel" id="editPhone" class="form-control" value="${client.phone}" required style="height: 40px; font-size: 0.85rem;">
                             </div>
                             <div class="form-group">
                                 <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📧 Correo de Contacto</label>
-                                <input type="email" id="editEmail" class="form-control" value="${client.email || ''}" placeholder="Sin correo registrado" style="height: 36px; font-size: 0.85rem;">
+                                <input type="email" id="editEmail" class="form-control" value="${client.email || ''}" placeholder="Sin correo registrado" style="height: 40px; font-size: 0.85rem;">
                             </div>
                             <div class="form-group">
                                 <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">🏠 Dirección de Entrega</label>
-                                <textarea id="editAddress" class="form-control" rows="2" required style="resize: none; font-size: 0.85rem;">${client.address}</textarea>
+                                <input type="text" id="editAddress" class="form-control" value="${client.address}" required style="height: 40px; font-size: 0.85rem; font-family: inherit;">
                                 ${client.needsDelivery ? `
                                     <button type="button" id="showMapBtn" class="btn btn-outline" style="width: 100%; margin-top: 0.5rem; height: 30px; font-size: 0.7rem; border-style: dashed; font-weight: 700;">🗺️ EDITAR UBICACIÓN EN MAPA</button>
                                 ` : ''}
