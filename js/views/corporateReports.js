@@ -35,11 +35,20 @@ export function renderCorporateReports(container) {
         container.innerHTML = `
             <div class="corp-reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
                 
-                <!-- Encabezado de Vista (Regla CONTEXT.md) -->
+                <!-- Encabezado de Vista con Tabs Integrados -->
                 <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                     <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📈 Reportes Corporativos</h2>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">📈 Reportes Corporativos</h2>
                     
+                    <!-- Tabs de Navegación (Movidos aquí) -->
+                    <div style="display: flex; gap: 0.5rem; align-items: center; overflow-x: auto;">
+                        <button data-tab="dashboard" class="tab-chip ${currentTab === 'dashboard' ? 'active' : ''}">📊 Dashboard</button>
+                        <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre Diario</button>
+                        <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Registros de Ventas</button>
+                        <button data-tab="rankings" class="tab-chip ${currentTab === 'rankings' ? 'active' : ''}">🏆 Rendimiento</button>
+                        <button data-tab="inventario" class="tab-chip ${currentTab === 'inventario' ? 'active' : ''}">📦 Inventario</button>
+                    </div>
+
                     <!-- Filtros y Selectores en Cabecera (Empujados a la derecha) -->
                     <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
                         <div class="header-select-container">
@@ -53,15 +62,6 @@ export function renderCorporateReports(container) {
                         <!-- Fecha como input para que sea funcional -->
                         <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().toISOString().split('T')[0]}">
                     </div>
-                </div>
-
-                <!-- Tabs de Navegación (Estilo pastilla/chip) -->
-                <div style="display: flex; gap: 0.5rem; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; overflow-x: auto;">
-                    <button data-tab="dashboard" class="tab-chip ${currentTab === 'dashboard' ? 'active' : ''}">📊 Dashboard</button>
-                    <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre Diario</button>
-                    <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Registros de Ventas</button>
-                    <button data-tab="rankings" class="tab-chip ${currentTab === 'rankings' ? 'active' : ''}">🏆 Rendimiento</button>
-                    <button data-tab="inventario" class="tab-chip ${currentTab === 'inventario' ? 'active' : ''}">📦 Inventario</button>
                 </div>
 
                 <!-- Contenido Dinámico -->
