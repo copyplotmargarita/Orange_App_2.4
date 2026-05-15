@@ -35,8 +35,8 @@ export function renderCorporateReports(container) {
         container.innerHTML = `
             <div class="corp-reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
                 
-                <!-- Encabezado de Vista Plano (Misma separación para todos) -->
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <!-- Encabezado de Vista Plano (Justificado a la derecha) -->
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; justify-content: flex-end;" class="flex-stack-mobile">
                     <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 0.75rem; height: 38px; font-size: 0.85rem;">Volver</button>
                     <h2 style="color: var(--primary); font-size: 1.25rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">📈 Reportes Corporativos</h2>
                     
