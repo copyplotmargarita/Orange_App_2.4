@@ -36,30 +36,29 @@ export function renderCorporateReports(container) {
             <div class="corp-reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
                 
                 <!-- Encabezado de Vista con Tabs Integrados -->
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                    <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">📈 Reportes Corporativos</h2>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                    <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 0.75rem; height: 38px; font-size: 0.85rem;">Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.25rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">📈 Reportes Corporativos</h2>
                     
-                    <!-- Tabs de Navegación (Movidos aquí) -->
-                    <div style="display: flex; gap: 0.5rem; align-items: center; overflow-x: auto;">
+                    <!-- Tabs de Navegación -->
+                    <div style="display: flex; gap: 0.25rem; align-items: center;">
                         <button data-tab="dashboard" class="tab-chip ${currentTab === 'dashboard' ? 'active' : ''}">📊 Dashboard</button>
-                        <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre Diario</button>
-                        <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Registros de Ventas</button>
+                        <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre</button>
+                        <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Ventas</button>
                         <button data-tab="rankings" class="tab-chip ${currentTab === 'rankings' ? 'active' : ''}">🏆 Rendimiento</button>
                         <button data-tab="inventario" class="tab-chip ${currentTab === 'inventario' ? 'active' : ''}">📦 Inventario</button>
                     </div>
 
-                    <!-- Filtros y Selectores en Cabecera (Empujados a la derecha) -->
-                    <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
+                    <!-- Filtros y Selectores en Cabecera -->
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
                         <div class="header-select-container">
-                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 220px; padding-top: 0; padding-bottom: 0;">
+                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 180px; padding-top: 0; padding-bottom: 0;">
                                 <option value="all">Todas las Sucursales</option>
                                 <option value="centro">Centro</option>
                                 <option value="este">Centro Comercial Este</option>
                                 <option value="norte">Plaza Norte</option>
                             </select>
                         </div>
-                        <!-- Fecha como input para que sea funcional -->
                         <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().toISOString().split('T')[0]}">
                     </div>
                 </div>
@@ -75,9 +74,9 @@ export function renderCorporateReports(container) {
                     background: transparent;
                     border: 1px solid transparent;
                     color: var(--text-muted);
-                    padding: 0.5rem 1rem;
-                    border-radius: 8px;
-                    font-size: 0.85rem;
+                    padding: 0.35rem 0.6rem;
+                    border-radius: 6px;
+                    font-size: 0.8rem;
                     font-weight: 600;
                     cursor: pointer;
                     transition: all 0.2s ease;
