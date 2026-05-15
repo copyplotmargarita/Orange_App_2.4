@@ -124,7 +124,7 @@ export function renderRegister() {
             </form>
             
             <div class="text-center">
-                <p class="text-sm">¿Ya tienes cuenta? <a href="#login" style="color: var(--primary); text-decoration: none; font-weight: 500;">Inicia Sesión</a></p>
+                <p class="text-sm">¿Ya tienes cuenta? <a href="#entrar" style="color: var(--primary); text-decoration: none; font-weight: 500;">Inicia Sesión</a></p>
             </div>
         </div>
 

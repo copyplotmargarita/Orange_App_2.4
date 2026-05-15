@@ -11,7 +11,7 @@ import { renderSales } from './views/sales.js';
 
 const routes = {
     '': renderLogin,
-    '#login': renderLogin,
+    '#entrar': renderLogin,
     '#register': renderRegister,
     '#config': renderConfig,
     '#dashboard': renderDashboard,
@@ -28,28 +28,28 @@ function router() {
         const app = document.getElementById('app');
         if (!app) return;
         
-        let hash = window.location.hash || '#login';
+        let hash = window.location.hash || '#entrar';
         
         // Protección de rutas (Route Guards)
         const businessId = localStorage.getItem('businessId');
         
         if (businessId) {
             // Si está logueado, no permitir ir a login o vacío
-            if (hash === '#login' || hash === '') {
+            if (hash === '#entrar' || hash === '') {
                 window.location.hash = '#dashboard';
                 return;
             }
         } else {
             // Si NO está logueado, solo permitir login y register
-            if (hash !== '#login' && hash !== '#register') {
-                window.location.hash = '#login';
+            if (hash !== '#entrar' && hash !== '#register') {
+                window.location.hash = '#entrar';
                 return;
             }
         }
         
         const mainContent = document.getElementById('mainContentArea');
         
-        if (mainContent && hash !== '#login' && hash !== '#register' && hash !== '#dashboard') {
+        if (mainContent && hash !== '#entrar' && hash !== '#register' && hash !== '#dashboard') {
             const renderFunc = routes[hash];
             if (renderFunc) {
                 const view = renderFunc(mainContent);

@@ -1084,10 +1084,10 @@ export function renderDashboard() {
             localStorage.removeItem('storeName');
             localStorage.removeItem('employeeName');
             localStorage.removeItem('businessName');
-            navigate('#login');
+            navigate('#entrar');
         } catch (error) {
             console.error("Error al cerrar sesión:", error);
-            navigate('#login');
+            navigate('#entrar');
         }
     });
 
@@ -1169,7 +1169,7 @@ export function renderDashboard() {
                     // Limpieza total y Logout
                     localStorage.clear();
                     await auth.signOut();
-                    navigate('#login');
+                    navigate('#entrar');
                 },
                 onCancel: () => {
                     closeShiftBtn.disabled = false;
