@@ -170,6 +170,18 @@ export function renderCorporateReports(container) {
             };
         });
 
+        // Botón Volver
+        const backBtn = container.querySelector('#backBtn');
+        if (backBtn) {
+            backBtn.onclick = () => {
+                document.getElementById('navHome')?.click();
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon && toggleIcon.innerText === '▶') {
+                    document.getElementById('sidebarToggle')?.click();
+                }
+            };
+        }
+
         // Cargar vista específica
         const contentArea = container.querySelector('#corpReportsContent');
         if (currentTab === 'dashboard') renderDashboardView(contentArea);
