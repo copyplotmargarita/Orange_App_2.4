@@ -35,19 +35,34 @@ export function renderCorporateReports(container) {
         container.innerHTML = `
             <div class="corp-reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
                 
-                <!-- Encabezado de Vista (Regla CONTEXT.md) -->
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0;" class="flex-stack-mobile">
-                    <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📈 Reportes Corporativos</h2>
-                    
-                    <!-- Tabs de Navegación -->
-                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                        <button data-tab="dashboard" class="tab-btn btn ${currentTab === 'dashboard' ? 'btn-primary' : 'btn-outline'}">📊 Dashboard</button>
-                        <button data-tab="cierre" class="tab-btn btn ${currentTab === 'cierre' ? 'btn-primary' : 'btn-outline'}">🔒 Cierre</button>
-                        <button data-tab="ventas" class="tab-btn btn ${currentTab === 'ventas' ? 'btn-primary' : 'btn-outline'}">🛒 Ventas</button>
-                        <button data-tab="rankings" class="tab-btn btn ${currentTab === 'rankings' ? 'btn-primary' : 'btn-outline'}">🏆 Rankings</button>
-                        <button data-tab="inventario" class="tab-btn btn ${currentTab === 'inventario' ? 'btn-primary' : 'btn-outline'}">📦 Producción</button>
+                <!-- Encabezado de Vista (Inspirado en los ejemplos) -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0;" class="flex-stack-mobile">
+                    <div>
+                        <h2 style="color: var(--text-main); font-size: 1.5rem; font-weight: 800; margin-bottom: 0.25rem;">Dashboard de Tienda</h2>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Terminal de Administración</p>
                     </div>
+                    
+                    <!-- Filtros y Selectores en Cabecera -->
+                    <div style="display: flex; gap: 0.75rem; align-items: center;" class="flex-stack-mobile">
+                        <div class="header-select-container">
+                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 180px;">
+                                <option value="all">Todas las Sucursales</option>
+                                <option value="centro">Centro</option>
+                                <option value="este">Centro Comercial Este</option>
+                                <option value="norte">Plaza Norte</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-outline" style="height: 38px; width: auto; padding: 0 1rem; font-size: 0.85rem;">📅 24 de Oct, 2023</button>
+                    </div>
+                </div>
+
+                <!-- Tabs de Navegación (Estilo pastilla/chip) -->
+                <div style="display: flex; gap: 0.5rem; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; overflow-x: auto;">
+                    <button data-tab="dashboard" class="tab-chip ${currentTab === 'dashboard' ? 'active' : ''}">📊 Dashboard</button>
+                    <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre Diario</button>
+                    <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Registros de Ventas</button>
+                    <button data-tab="rankings" class="tab-chip ${currentTab === 'rankings' ? 'active' : ''}">🏆 Rendimiento</button>
+                    <button data-tab="inventario" class="tab-chip ${currentTab === 'inventario' ? 'active' : ''}">📦 Inventario</button>
                 </div>
 
                 <!-- Contenido Dinámico -->
@@ -57,60 +72,104 @@ export function renderCorporateReports(container) {
             </div>
 
             <style>
-                .tab-btn {
-                    width: auto;
-                    font-size: 0.85rem;
+                .tab-chip {
+                    background: transparent;
+                    border: 1px solid transparent;
+                    color: var(--text-muted);
                     padding: 0.5rem 1rem;
+                    border-radius: 20px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
                     white-space: nowrap;
-                    height: 38px;
-                    font-weight: 700;
                 }
-                .corp-card {
+                .tab-chip:hover {
+                    color: var(--text-main);
+                    background: var(--background);
+                }
+                .tab-chip.active {
+                    background: var(--primary);
+                    color: white;
+                    border-color: var(--primary);
+                }
+                .grid-container {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    gap: 1.25rem;
+                }
+                .premium-card {
                     background: var(--surface);
                     border-radius: 12px;
-                    padding: 1.5rem;
+                    padding: 1.25rem;
                     border: 1px solid var(--border);
-                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    position: relative;
                 }
-                .corp-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: var(--shadow-lg);
-                }
-                .stat-value {
-                    font-size: 1.75rem;
-                    font-weight: 800;
-                    color: var(--text-main);
-                    margin: 0.5rem 0;
-                }
-                .stat-label {
+                .premium-card .card-title {
                     font-size: 0.75rem;
                     text-transform: uppercase;
                     color: var(--text-muted);
                     font-weight: 700;
                     letter-spacing: 0.5px;
+                    margin-bottom: 0.5rem;
                 }
+                .premium-card .card-value {
+                    font-size: 1.75rem;
+                    font-weight: 800;
+                    color: var(--text-main);
+                    margin-bottom: 0.25rem;
+                }
+                .premium-card .card-sub {
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                }
+                .premium-card .card-sub.success { color: var(--success); }
+                .premium-card .card-sub.danger { color: var(--danger); }
+                
+                /* Estilos para tablas tipo el ejemplo */
+                .custom-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 0.85rem;
+                }
+                .custom-table th {
+                    text-align: left;
+                    padding: 0.75rem;
+                    color: var(--text-muted);
+                    font-weight: 600;
+                    border-bottom: 1px solid var(--border);
+                }
+                .custom-table td {
+                    padding: 0.75rem;
+                    border-bottom: 1px solid var(--border);
+                    color: var(--text-main);
+                }
+                .custom-table tr:last-child td {
+                    border-bottom: none;
+                }
+                .badge-status {
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 4px;
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                }
+                .badge-status.success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+                .badge-status.warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+                .badge-status.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
             </style>
         `;
 
         // Eventos de navegación
-        container.querySelectorAll('.tab-btn').forEach(btn => {
+        container.querySelectorAll('.tab-chip').forEach(btn => {
             btn.onclick = () => {
                 currentTab = btn.dataset.tab;
                 render();
             };
         });
-
-        // Botón Volver
-        const backBtn = container.querySelector('#backBtn');
-        if (backBtn) {
-            backBtn.onclick = () => {
-                document.getElementById('navHome')?.click();
-                const toggleIcon = document.getElementById('toggleIcon');
-                if (toggleIcon && toggleIcon.innerText === '▶') {
-                    document.getElementById('sidebarToggle')?.click();
-                }
-            };
-        }
 
         // Cargar vista específica
         const contentArea = container.querySelector('#corpReportsContent');
@@ -122,195 +181,355 @@ export function renderCorporateReports(container) {
     }
 
     // ==========================================
-    // VISTA: DASHBOARD (Resumen + Gráficos)
+    // VISTA: DASHBOARD (Inspirado en Imagen 2)
     // ==========================================
     async function renderDashboardView(content) {
         content.innerHTML = `
             <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                 
-                <!-- Tarjetas de Impacto -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                    <div class="corp-card" style="border-left: 4px solid var(--primary);">
-                        <div class="stat-label">Ventas del Mes</div>
-                        <div class="stat-value" id="valMes">$ 0.00</div>
-                        <div style="font-size: 0.8rem; color: var(--success);">+12% vs mes anterior</div>
+                <!-- 4 Tarjetas Superiores -->
+                <div class="grid-container">
+                    <div class="premium-card">
+                        <span class="card-title">Ventas Totales de Hoy</span>
+                        <div class="card-value">$42,850.12</div>
+                        <span class="card-sub success">+12.5% <span style="color:var(--text-muted); font-weight:400;">vs ayer</span></span>
                     </div>
-                    <div class="corp-card" style="border-left: 4px solid var(--success);">
-                        <div class="stat-label">Transacciones</div>
-                        <div class="stat-value" id="valTransacciones">0</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Ticket Promedio: <span id="valTicketProm">$ 0</span></div>
+                    <div class="premium-card">
+                        <span class="card-title">Ticket Promedio</span>
+                        <div class="card-value">$148.20</div>
+                        <span class="card-sub danger">-2.1% <span style="color:var(--text-muted); font-weight:400;">vs promedio mensual</span></span>
                     </div>
-                    <div class="corp-card" style="border-left: 4px solid var(--warning);">
-                        <div class="stat-label">Producto Top</div>
-                        <div class="stat-value" id="valTopProd" style="font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Cargando...</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">El más vendido</div>
+                    <div class="premium-card">
+                        <span class="card-title">Transacciones Activas</span>
+                        <div class="card-value">24</div>
+                        <span class="card-sub" style="color:var(--primary);">👥 Cajeros actuales</span>
                     </div>
-                    <div class="corp-card" style="border-left: 4px solid #8b5cf6;">
-                        <div class="stat-label">Efectividad Empleados</div>
-                        <div class="stat-value" id="valTopEmp" style="font-size: 1.2rem;">Cargando...</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Líder en ventas</div>
+                    <div class="premium-card">
+                        <span class="card-title">Rendimiento vs Objetivo</span>
+                        <div class="card-value">94.2%</div>
+                        <div style="width: 100%; background: var(--border); height: 6px; border-radius: 3px; margin-top: 0.5rem;">
+                            <div style="width: 94.2%; background: var(--primary); height: 100%; border-radius: 3px;"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Gráficos -->
+                <!-- Sección Central: Gráfico + Comparación -->
                 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;" class="grid-1-mobile">
                     
-                    <!-- Gráfico Principal: Ventas -->
-                    <div class="corp-card">
-                        <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">📈 Tendencia de Ventas (Últimos 6 Meses)</h3>
+                    <!-- Gráfico Tendencia Semanal -->
+                    <div class="premium-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; font-size: 1rem; font-weight: 800;">Tendencia de Ventas Semanal</h3>
+                            <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                                <span><span style="color:var(--primary);">●</span> Ingresos</span>
+                                <span><span style="color:var(--text-muted);">●</span> Objetivo</span>
+                            </div>
+                        </div>
                         <div style="height: 300px; position: relative;">
-                            <canvas id="chartVentas"></canvas>
+                            <canvas id="chartTendenciaSemanal"></canvas>
                         </div>
                     </div>
 
-                    <!-- Gráfico Secundario: Métodos de Pago -->
-                    <div class="corp-card">
-                        <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">💳 Métodos de Pago</h3>
-                        <div style="height: 300px; position: relative;">
-                            <canvas id="chartPagos"></canvas>
+                    <!-- Ventas por Comparación de Tiendas -->
+                    <div class="premium-card" style="padding: 1.5rem;">
+                        <h3 style="margin: 0 0 1.5rem 0; font-size: 1rem; font-weight: 800;">Ventas por Comparación</h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <!-- Tienda 1 -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                    <span style="font-weight: 600;">Centro</span>
+                                    <span style="font-weight: 700; color: var(--text-main);">$182.4k</span>
+                                </div>
+                                <div style="width: 100%; background: var(--border); height: 8px; border-radius: 4px;">
+                                    <div style="width: 85%; background: var(--primary); height: 100%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <!-- Tienda 2 -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                    <span style="font-weight: 600;">Centro Comercial Este</span>
+                                    <span style="font-weight: 700; color: var(--text-main);">$144.1k</span>
+                                </div>
+                                <div style="width: 100%; background: var(--border); height: 8px; border-radius: 4px;">
+                                    <div style="width: 65%; background: var(--primary); height: 100%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <!-- Tienda 3 -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                    <span style="font-weight: 600;">Plaza Norte</span>
+                                    <span style="font-weight: 700; color: var(--text-main);">$98.2k</span>
+                                </div>
+                                <div style="width: 100%; background: var(--border); height: 8px; border-radius: 4px;">
+                                    <div style="width: 45%; background: var(--primary); height: 100%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <!-- Tienda 4 -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                    <span style="font-weight: 600;">Terminal Aeropuerto</span>
+                                    <span style="font-weight: 700; color: var(--text-main);">$210.8k</span>
+                                </div>
+                                <div style="width: 100%; background: var(--border); height: 8px; border-radius: 4px;">
+                                    <div style="width: 95%; background: var(--primary); height: 100%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabla de Rendimiento por Tienda -->
-                <div class="corp-card">
-                    <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">🏪 Rendimiento por Tienda</h3>
-                    <div class="table-responsive">
-                        <table class="table" style="width: 100%; font-size: 0.9rem;">
+                <!-- Sección Inferior: Alertas y Actividad -->
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem;" class="grid-1-mobile">
+                    
+                    <!-- Alertas de Inventario -->
+                    <div class="premium-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; font-size: 1rem; font-weight: 800;">Alertas de Inventario</h3>
+                            <a href="#" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 600;">Ver Todo el Inventario</a>
+                        </div>
+                        <table class="custom-table">
                             <thead>
-                                <tr style="background: var(--background);">
-                                    <th style="padding: 0.75rem; text-align: left;">Tienda</th>
-                                    <th style="padding: 0.75rem; text-align: center;">Ventas Totales</th>
-                                    <th style="padding: 0.75rem; text-align: center;">Monto Generado</th>
-                                    <th style="padding: 0.75rem; text-align: center;">Ticket Promedio</th>
+                                <tr>
+                                    <th>Nombre del Artículo</th>
+                                    <th style="text-align: center;">Stock Actual</th>
+                                    <th style="text-align: center;">Umbral</th>
+                                    <th style="text-align: center;">Estado</th>
                                 </tr>
                             </thead>
-                            <tbody id="tiendasTableBody">
-                                <tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando datos...</td></tr>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight: 600;">Premium Leather Tote (Jet Black)</td>
+                                    <td style="text-align: center;">3 unidades</td>
+                                    <td style="text-align: center;">10 unidades</td>
+                                    <td style="text-align: center;"><span class="badge-status danger">Agotado</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600;">Audífonos Inalámbricos</td>
+                                    <td style="text-align: center;">12 unidades</td>
+                                    <td style="text-align: center;">15 unidades</td>
+                                    <td style="text-align: center;"><span class="badge-status warning">Bajo</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600;">Reloj Análogo Minimalista</td>
+                                    <td style="text-align: center;">8 unidades</td>
+                                    <td style="text-align: center;">20 unidades</td>
+                                    <td style="text-align: center;"><span class="badge-status danger">Agotado</span></td>
+                                </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Actividad Reciente -->
+                    <div class="premium-card" style="padding: 1.5rem;">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 800;">Actividad Reciente</h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Item 1 -->
+                            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                <div style="background: rgba(var(--primary-rgb), 0.1); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary);">🛒</div>
+                                <div style="flex: 1;">
+                                    <p style="font-size: 0.85rem; font-weight: 700; margin: 0; color: var(--text-main);">Nueva Venta #TX-9042</p>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">3 artículos • Total $245.00</p>
+                                </div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">hace 2m</span>
+                            </div>
+                            <!-- Item 2 -->
+                            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                <div style="background: rgba(239, 68, 68, 0.1); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;">↩️</div>
+                                <div style="flex: 1;">
+                                    <p style="font-size: 0.85rem; font-weight: 700; margin: 0; color: var(--text-main);">Reembolso Procesado #TX-8891</p>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">1 artículo • -$45.00</p>
+                                </div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">hace 14m</span>
+                            </div>
+                            <!-- Item 3 -->
+                            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                <div style="background: rgba(var(--primary-rgb), 0.1); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary);">🛒</div>
+                                <div style="flex: 1;">
+                                    <p style="font-size: 0.85rem; font-weight: 700; margin: 0; color: var(--text-main);">Nueva Venta #TX-9041</p>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">1 artículo • Total $1,200.00</p>
+                                </div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">hace 32m</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
 
-        // Cargar Datos y Gráficos
+        // Cargar Gráfico
         setTimeout(() => {
             initDashboardCharts();
-            loadDashboardData();
         }, 100);
     }
 
     // ==========================================
-    // VISTA: CIERRE DE CAJA
+    // VISTA: CIERRE DE CAJA (Inspirado en Imagen 1)
     // ==========================================
     function renderCierreView(content) {
         content.innerHTML = `
-            <div class="corp-card">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">🔒 Cierre de Caja Diario</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Aquí se mostrará el cierre de caja diario por tienda y empleado según los lineamientos del punto 1.</p>
-                <div style="margin-top: 1.5rem; text-align: center; padding: 3rem; background: var(--background); border-radius: 12px; color: var(--text-muted);">
-                    📊 Módulo en construcción. Se implementará la consulta de cierres históricos.
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Cabecera de Cierre -->
+                <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
+                    <div>
+                        <h2 style="color: var(--text-main); font-size: 1.3rem; font-weight: 800; margin-bottom: 0.25rem;">Cierre de Caja Diario</h2>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Resumen del turno actual</p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0 1rem;">🖨️ Imprimir Resumen</button>
+                        <button class="btn btn-primary" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0 1rem; background-color: #ef4444; border-color: #ef4444;">🔒 Cerrar Turno</button>
+                    </div>
+                </div>
+
+                <!-- 3 Tarjetas Superiores -->
+                <div class="grid-container">
+                    <div class="premium-card">
+                        <span class="card-title">Total Vendido</span>
+                        <div class="card-value">$12,450.00</div>
+                        <span class="card-sub danger">-4.2% <span style="color:var(--text-muted); font-weight:400;">vs ayer</span></span>
+                    </div>
+                    <div class="premium-card">
+                        <span class="card-title">Transacciones Totales</span>
+                        <div class="card-value">184</div>
+                        <span class="card-sub success">+12.5% <span style="color:var(--text-muted); font-weight:400;">vs ayer</span></span>
+                    </div>
+                    <div class="premium-card">
+                        <span class="card-title">Ticket Promedio</span>
+                        <div class="card-value">$67.66</div>
+                        <span class="card-sub success">+2.1% <span style="color:var(--text-muted); font-weight:400;">vs ayer</span></span>
+                    </div>
+                </div>
+
+                <!-- Sección Central: Desglose y Detalles -->
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;" class="grid-1-mobile">
+                    
+                    <!-- Desglose de Pagos -->
+                    <div class="premium-card" style="padding: 1.5rem;">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 800;">Desglose de Pagos</h3>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Método</th>
+                                    <th style="text-align: right;">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>💳 Tarjeta de Crédito</td>
+                                    <td style="text-align: right; font-weight: 700;">$8,120.50</td>
+                                </tr>
+                                <tr>
+                                    <td>💵 Efectivo</td>
+                                    <td style="text-align: right; font-weight: 700;">$3,210.00</td>
+                                </tr>
+                                <tr>
+                                    <td>🏦 Tarjeta de Débito</td>
+                                    <td style="text-align: right; font-weight: 700;">$980.50</td>
+                                </tr>
+                                <tr style="background: var(--background); font-weight: 800;">
+                                    <td style="color: var(--primary);">Gran Total</td>
+                                    <td style="text-align: right; color: var(--primary);">$12,450.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Detalles de Productos Vendidos -->
+                    <div class="premium-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; font-size: 1rem; font-weight: 800;">Detalles de Productos Vendidos</h3>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Filas: 5 de 42</span>
+                        </div>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre del Producto</th>
+                                    <th style="text-align: center;">Cantidad</th>
+                                    <th style="text-align: center;">Precio Unitario</th>
+                                    <th style="text-align: center;">Total</th>
+                                    <th style="text-align: center;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight: 600;">Quantum Wireless Pro Headphones</td>
+                                    <td style="text-align: center;">12</td>
+                                    <td style="text-align: center;">$299.99</td>
+                                    <td style="text-align: center; font-weight: 700;">$3,599.88</td>
+                                    <td style="text-align: center;"><span class="badge-status success">En Stock</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600;">Zenith Smart Watch S4</td>
+                                    <td style="text-align: center;">8</td>
+                                    <td style="text-align: center;">$450.00</td>
+                                    <td style="text-align: center; font-weight: 700;">$3,600.00</td>
+                                    <td style="text-align: center;"><span class="badge-status warning">Bajo</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600;">Lumina OLED 27" Display</td>
+                                    <td style="text-align: center;">3</td>
+                                    <td style="text-align: center;">$899.00</td>
+                                    <td style="text-align: center; font-weight: 700;">$2,697.00</td>
+                                    <td style="text-align: center;"><span class="badge-status danger">Agotado</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Footer de Cierre: Responsable y Notas -->
+                <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 1.5rem;" class="grid-1-mobile">
+                    
+                    <!-- Responsable -->
+                    <div class="premium-card" style="padding: 1.25rem;">
+                        <span class="card-title">Responsable del Turno</span>
+                        <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
+                            <div style="background: var(--background); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">👤</div>
+                            <div>
+                                <p style="font-size: 0.85rem; font-weight: 700; margin: 0; color: var(--text-main);">Carlos Mendoza</p>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">ID: #R89-224</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notas -->
+                    <div class="premium-card" style="padding: 1.25rem;">
+                        <span class="card-title">Notas del Auditor (Opcional)</span>
+                        <textarea class="form-control" style="margin-top: 0.5rem; height: 60px; font-size: 0.85rem; resize: none;" placeholder="Ingrese discrepancias o notas de la terminal aquí..."></textarea>
+                    </div>
+
+                    <!-- Verificación -->
+                    <div class="premium-card" style="padding: 1.25rem; text-align: center; justify-content: center;">
+                        <span class="card-title">Suma de Verificación</span>
+                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0.25rem 0;">TRX-7821-OK</div>
+                        <span style="font-size: 0.75rem; color: var(--success); font-weight: 700;">✓ Listo para validación final</span>
+                    </div>
                 </div>
             </div>
         `;
     }
 
-    // ==========================================
-    // VISTA: REGISTRO DE VENTAS
-    // ==========================================
+    // =-------------- [Otras vistas se mantienen como placeholders por ahora] --------------
+
     function renderVentasView(content) {
-        content.innerHTML = `
-            <div class="corp-card">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">🛒 Registro Detallado de Ventas</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Listado completo de ventas con filtros avanzados según el punto 2.</p>
-                <div style="margin-top: 1.5rem; text-align: center; padding: 3rem; background: var(--background); border-radius: 12px; color: var(--text-muted);">
-                    🔍 Módulo en construcción. Se conectará con la colección de ventas para auditoría.
-                </div>
-            </div>
-        `;
+        content.innerHTML = `<div class="premium-card"><h3>📝 Registro de Ventas</h3><p>Módulo en construcción basado en el punto 2.</p></div>`;
     }
-
-    // ==========================================
-    // VISTA: RANKINGS
-    // ==========================================
     function renderRankingsView(content) {
-        content.innerHTML = `
-            <div class="corp-card">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">🏆 Rankings (Top 10)</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Rankings de productos, clientes y empleados según el punto 4.</p>
-                <div style="margin-top: 1.5rem; text-align: center; padding: 3rem; background: var(--background); border-radius: 12px; color: var(--text-muted);">
-                    🥇 Módulo en construcción. Se generarán las listas dinámicas.
-                </div>
-            </div>
-        `;
+        content.innerHTML = `<div class="premium-card"><h3>🏆 Rendimiento y Rankings</h3><p>Módulo en construcción basado en el punto 4.</p></div>`;
     }
-
-    // ==========================================
-    // VISTA: INVENTARIO / PRODUCCIÓN
-    // ==========================================
     function renderInventarioView(content) {
-        content.innerHTML = `
-            <div class="corp-card">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 800;">📦 Reportes de Producción e Inventario</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Alertas de stock y proyecciones según el punto 5.</p>
-                <div style="margin-top: 1.5rem; text-align: center; padding: 3rem; background: var(--background); border-radius: 12px; color: var(--text-muted);">
-                    📉 Módulo en construcción. Se implementará la lógica de proyección.
-                </div>
-            </div>
-        `;
+        content.innerHTML = `<div class="premium-card"><h3>📦 Inventario y Producción</h3><p>Módulo en construcción basado en el punto 5.</p></div>`;
     }
 
     // ==========================================
-    // LÓGICA DE DATOS Y GRÁFICOS
+    // LÓGICA DE GRÁFICOS (Chart.js)
     // ==========================================
     
-    async function loadDashboardData() {
-        if (!businessId) return;
-
-        try {
-            // Simulación de carga de datos para el Dashboard "Impactante"
-            // En producción, esto leería de Firestore agregando datos o haciendo queries complejos.
-            
-            // 1. Simular valores de tarjetas
-            document.getElementById('valMes').textContent = "$ 15,420.00";
-            document.getElementById('valTransacciones').textContent = "342";
-            document.getElementById('valTicketProm').textContent = "$ 45.00";
-            document.getElementById('valTopProd').textContent = "Hamburguesa Especial";
-            document.getElementById('valTopEmp').textContent = "Carlos Pérez";
-
-            // 2. Simular tabla de tiendas
-            const tbody = document.getElementById('tiendasTableBody');
-            tbody.innerHTML = `
-                <tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 0.75rem;">Sucursal Las Mercedes</td>
-                    <td style="padding: 0.75rem; text-align: center;">150</td>
-                    <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: var(--success);">$ 7,500.00</td>
-                    <td style="padding: 0.75rem; text-align: center;">$ 50.00</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 0.75rem;">Sucursal Chacao</td>
-                    <td style="padding: 0.75rem; text-align: center;">120</td>
-                    <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: var(--success);">$ 5,400.00</td>
-                    <td style="padding: 0.75rem; text-align: center;">$ 45.00</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 0.75rem;">Almacén General</td>
-                    <td style="padding: 0.75rem; text-align: center;">72</td>
-                    <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: var(--success);">$ 2,520.00</td>
-                    <td style="padding: 0.75rem; text-align: center;">$ 35.00</td>
-                </tr>
-            `;
-
-        } catch (err) {
-            console.error("Error cargando datos del dashboard:", err);
-            showNotification("Error al cargar datos de reportes", "error");
-        }
-    }
-
     function initDashboardCharts() {
         if (!Chart) {
-            console.warn("Chart.js no está disponible. No se pueden renderizar los gráficos.");
+            console.warn("Chart.js no está disponible.");
             return;
         }
 
@@ -318,28 +537,38 @@ export function renderCorporateReports(container) {
         const textColor = isDark ? '#f8fafc' : '#0f172a';
         const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
 
-        // Configuración global de Chart.js
         Chart.defaults.color = textColor;
         Chart.defaults.font.family = "'Inter', sans-serif";
 
-        // 1. Gráfico de Ventas (Línea)
-        const ctxVentas = document.getElementById('chartVentas')?.getContext('2d');
-        if (ctxVentas) {
-            new Chart(ctxVentas, {
+        // Gráfico Tendencia Semanal (Línea con relleno)
+        const ctxSemanal = document.getElementById('chartTendenciaSemanal')?.getContext('2d');
+        if (ctxSemanal) {
+            new Chart(ctxSemanal, {
                 type: 'line',
                 data: {
-                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                    datasets: [{
-                        label: 'Ventas ($)',
-                        data: [12000, 14000, 11000, 15000, 18000, 15420],
-                        borderColor: '#f97316',
-                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#f97316'
-                    }]
+                    labels: ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁ', 'DOM'],
+                    datasets: [
+                        {
+                            label: 'Ingresos',
+                            data: [15000, 12000, 22000, 18000, 32000, 30000, 42850],
+                            borderColor: '#0052cc', // Azul corporativo
+                            backgroundColor: 'rgba(0, 82, 204, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#0052cc'
+                        },
+                        {
+                            label: 'Objetivo',
+                            data: [18000, 18000, 18000, 18000, 25000, 25000, 35000],
+                            borderColor: '#94a3b8',
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -351,50 +580,13 @@ export function renderCorporateReports(container) {
                             ticks: { color: textColor }
                         },
                         x: {
-                            grid: { color: gridColor },
+                            grid: { display: false },
                             ticks: { color: textColor }
                         }
                     },
                     plugins: {
                         legend: { display: false }
                     }
-                }
-            });
-        }
-
-        // 2. Gráfico de Pagos (Dona)
-        const ctxPagos = document.getElementById('chartPagos')?.getContext('2d');
-        if (ctxPagos) {
-            new Chart(ctxPagos, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Dólares', 'Pago Móvil', 'Punto', 'Zelle'],
-                    datasets: [{
-                        data: [50, 25, 15, 10],
-                        backgroundColor: [
-                            '#10b981', // Verde
-                            '#3b82f6', // Azul
-                            '#f59e0b', // Amarillo
-                            '#8b5cf6'  // Morado
-                        ],
-                        borderWidth: isDark ? 2 : 1,
-                        borderColor: isDark ? '#1e293b' : '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: textColor,
-                                padding: 15,
-                                font: { size: 11 }
-                            }
-                        }
-                    },
-                    cutout: '70%'
                 }
             });
         }
