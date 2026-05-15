@@ -35,24 +35,23 @@ export function renderCorporateReports(container) {
         container.innerHTML = `
             <div class="corp-reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
                 
-                <!-- Encabezado de Vista (Inspirado en los ejemplos) -->
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0;" class="flex-stack-mobile">
-                    <div>
-                        <h2 style="color: var(--text-main); font-size: 1.5rem; font-weight: 800; margin-bottom: 0.25rem;">Dashboard de Tienda</h2>
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Terminal de Administración</p>
-                    </div>
+                <!-- Encabezado de Vista (Regla CONTEXT.md) -->
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                    <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📈 Reportes Corporativos</h2>
                     
-                    <!-- Filtros y Selectores en Cabecera -->
-                    <div style="display: flex; gap: 0.75rem; align-items: center;" class="flex-stack-mobile">
+                    <!-- Filtros y Selectores en Cabecera (Empujados a la derecha) -->
+                    <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
                         <div class="header-select-container">
-                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 180px;">
+                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 220px;">
                                 <option value="all">Todas las Sucursales</option>
                                 <option value="centro">Centro</option>
                                 <option value="este">Centro Comercial Este</option>
                                 <option value="norte">Plaza Norte</option>
                             </select>
                         </div>
-                        <button class="btn btn-outline" style="height: 38px; width: auto; padding: 0 1rem; font-size: 0.85rem;">📅 24 de Oct, 2023</button>
+                        <!-- Fecha como input para que sea funcional -->
+                        <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().toISOString().split('T')[0]}">
                     </div>
                 </div>
 
@@ -77,7 +76,7 @@ export function renderCorporateReports(container) {
                     border: 1px solid transparent;
                     color: var(--text-muted);
                     padding: 0.5rem 1rem;
-                    border-radius: 20px;
+                    border-radius: 8px;
                     font-size: 0.85rem;
                     font-weight: 600;
                     cursor: pointer;
