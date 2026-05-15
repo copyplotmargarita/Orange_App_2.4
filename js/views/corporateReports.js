@@ -35,32 +35,24 @@ export function renderCorporateReports(container) {
         container.innerHTML = `
             <div class="corp-reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
                 
-                <!-- Encabezado de Vista con Tabs Integrados -->
+                <!-- Encabezado de Vista Plano (Misma separación para todos) -->
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                     <button class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 0.75rem; height: 38px; font-size: 0.85rem;">Volver</button>
                     <h2 style="color: var(--primary); font-size: 1.25rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">📈 Reportes Corporativos</h2>
                     
-                    <!-- Tabs de Navegación -->
-                    <div style="display: flex; gap: 0.25rem; align-items: center;">
-                        <button data-tab="dashboard" class="tab-chip ${currentTab === 'dashboard' ? 'active' : ''}">📊 Dashboard</button>
-                        <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre</button>
-                        <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Ventas</button>
-                        <button data-tab="rankings" class="tab-chip ${currentTab === 'rankings' ? 'active' : ''}">🏆 Rendimiento</button>
-                        <button data-tab="inventario" class="tab-chip ${currentTab === 'inventario' ? 'active' : ''}">📦 Inventario</button>
-                    </div>
+                    <button data-tab="dashboard" class="tab-chip ${currentTab === 'dashboard' ? 'active' : ''}">📊 Dashboard</button>
+                    <button data-tab="cierre" class="tab-chip ${currentTab === 'cierre' ? 'active' : ''}">🔒 Cierre</button>
+                    <button data-tab="ventas" class="tab-chip ${currentTab === 'ventas' ? 'active' : ''}">📝 Ventas</button>
+                    <button data-tab="rankings" class="tab-chip ${currentTab === 'rankings' ? 'active' : ''}">🏆 Rendimiento</button>
+                    <button data-tab="inventario" class="tab-chip ${currentTab === 'inventario' ? 'active' : ''}">📦 Inventario</button>
 
-                    <!-- Filtros y Selectores en Cabecera -->
-                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                        <div class="header-select-container">
-                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 180px; padding-top: 0; padding-bottom: 0;">
-                                <option value="all">Todas las Sucursales</option>
-                                <option value="centro">Centro</option>
-                                <option value="este">Centro Comercial Este</option>
-                                <option value="norte">Plaza Norte</option>
-                            </select>
-                        </div>
-                        <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().toISOString().split('T')[0]}">
-                    </div>
+                    <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 180px; padding-top: 0; padding-bottom: 0;">
+                        <option value="all">Todas las Sucursales</option>
+                        <option value="centro">Centro</option>
+                        <option value="este">Centro Comercial Este</option>
+                        <option value="norte">Plaza Norte</option>
+                    </select>
+                    <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().toISOString().split('T')[0]}">
                 </div>
 
                 <!-- Contenido Dinámico -->
