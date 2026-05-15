@@ -43,7 +43,7 @@ export function renderCorporateReports(container) {
                     <!-- Filtros y Selectores en Cabecera (Empujados a la derecha) -->
                     <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
                         <div class="header-select-container">
-                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 220px;">
+                            <select id="storeFilter" class="form-control" style="height: 38px; font-size: 0.85rem; width: auto; min-width: 220px; padding-top: 0; padding-bottom: 0;">
                                 <option value="all">Todas las Sucursales</option>
                                 <option value="centro">Centro</option>
                                 <option value="este">Centro Comercial Este</option>
