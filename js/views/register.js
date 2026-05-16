@@ -430,9 +430,9 @@ export function renderRegister() {
             localStorage.setItem('businessName', businessData.name);
             if (businessData.logoUrl) localStorage.setItem('businessLogo', businessData.logoUrl);
 
-            // 5. Redirigir a configuración
+            // 5. Redirigir a configuración de monedas
             loadingOverlay.style.display = 'none';
-            navigate('#dashboard');
+            navigate('#config');
             
         } catch (error) {
             loadingOverlay.style.display = 'none';
