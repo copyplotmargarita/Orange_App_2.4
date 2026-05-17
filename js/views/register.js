@@ -428,6 +428,7 @@ export function renderRegister() {
             localStorage.setItem('userRole', 'admin');
             localStorage.setItem('userName', businessData.ownerName);
             localStorage.setItem('businessName', businessData.name);
+            localStorage.setItem('businessCountry', businessData.country);
             if (businessData.logoUrl) localStorage.setItem('businessLogo', businessData.logoUrl);
 
             // 5. Redirigir a configuración de monedas
