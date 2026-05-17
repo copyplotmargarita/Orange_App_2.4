@@ -193,6 +193,16 @@ export function renderProducts(container) {
     }
 
     function renderForm(editProduct = null) {
+        // Restaurar estado si venimos de crear un proveedor desde este formulario
+        const restoredState = window.tempProductState;
+        if (restoredState) {
+            // Completar editProduct con el ID guardado si aplica
+            if (!editProduct && restoredState.editProductId) {
+                editProduct = products.find(p => p.id === restoredState.editProductId) || null;
+            }
+            window.tempProductState = null;
+        }
+
         let recipeIngredients = editProduct?.recipeIngredients || [];
         const isFromPurchase = !!window.tempPurchaseState;
         const purchaseSupplierId = window.tempPurchaseState?.supplierId || '';
@@ -581,10 +591,18 @@ export function renderProducts(container) {
         const btnAddSupplier = container.querySelector('#btnAddSupplier');
         const selectedSuppliersTags = container.querySelector('#selectedSuppliersTags');
         let selectedSupplierIds = editProduct?.supplierIds || (editProduct?.supplierId ? [editProduct.supplierId] : []);
-        
+
         // Si venimos de una compra, asegurar que ese proveedor esté en la lista
         if (isFromPurchase && purchaseSupplierId && !selectedSupplierIds.includes(purchaseSupplierId)) {
             selectedSupplierIds.push(purchaseSupplierId);
+        }
+
+        // Si venimos de crear un proveedor desde este formulario, restaurar lista + agregar el nuevo
+        if (restoredState) {
+            selectedSupplierIds = restoredState.selectedSupplierIds || [];
+            if (restoredState.newSupplierId && !selectedSupplierIds.includes(restoredState.newSupplierId)) {
+                selectedSupplierIds.push(restoredState.newSupplierId);
+            }
         }
 
         function renderSupplierTags() {
@@ -610,13 +628,39 @@ export function renderProducts(container) {
         btnAddSupplier.addEventListener('click', () => {
             const id = prodSupplierSelect.value;
             if (id && !selectedSupplierIds.includes(id)) {
+                // Hay proveedor seleccionado → agregarlo a la lista
                 selectedSupplierIds.push(id);
                 renderSupplierTags();
                 prodSupplierSelect.value = '';
+            } else {
+                // Sin selección → guardar estado y navegar a crear proveedor
+                window.tempProductState = {
+                    editProductId: editProduct?.id || null,
+                    name: container.querySelector('#prodName')?.value || '',
+                    barcode: container.querySelector('#prodBarcode')?.value || '',
+                    category: container.querySelector('#prodCategory')?.value || '',
+                    minStock: container.querySelector('#prodMinStock')?.value || '0',
+                    selectedSupplierIds: [...selectedSupplierIds],
+                    newSupplierId: null,
+                };
+                window.openCreateSupplierForProduct = true;
+                document.getElementById('navProveedores').click();
             }
         });
 
         renderSupplierTags();
+
+        // Restaurar campos del formulario si venimos de crear un proveedor
+        if (restoredState && !editProduct) {
+            if (restoredState.name) container.querySelector('#prodName').value = restoredState.name;
+            if (restoredState.barcode) container.querySelector('#prodBarcode').value = restoredState.barcode;
+            if (restoredState.minStock) container.querySelector('#prodMinStock').value = restoredState.minStock;
+            if (restoredState.category) {
+                container.querySelector('#prodCategory').value = restoredState.category;
+                container.querySelector('#prodCategory').dispatchEvent(new Event('change'));
+            }
+        }
+
         const saleableGroup = container.querySelector('#saleableGroup');
         const prodIsSaleable = container.querySelector('#prodIsSaleable');
         const btnSaleableYes = container.querySelector('#btnSaleableYes');

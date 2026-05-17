@@ -19,6 +19,11 @@ export function renderSuppliers(container) {
                 window.openCreateSupplierForPurchase = false;
                 renderForm();
             }
+
+            if (window.openCreateSupplierForProduct) {
+                window.openCreateSupplierForProduct = false;
+                renderForm();
+            }
         } catch (error) {
             console.error("Error cargando proveedores:", error);
             container.innerHTML = '<div class="text-danger">Error al cargar los proveedores.</div>';
@@ -231,6 +236,12 @@ export function renderSuppliers(container) {
                 if (window.tempPurchaseState) {
                     window.tempPurchaseState.supplierId = documentId;
                     document.getElementById('navCompras').click();
+                    return;
+                }
+
+                if (window.tempProductState) {
+                    window.tempProductState.newSupplierId = documentId;
+                    document.getElementById('navProductos').click();
                     return;
                 }
 
