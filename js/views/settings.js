@@ -24,20 +24,21 @@ export async function renderSettings(mainContentArea) {
                 <div class="card-header-custom">🏢 Perfil del Negocio</div>
                 <form id="businessProfileForm">
                     <div class="form-group mb-2">
-                        <label>Nombre Comercial</label>
-                        <input type="text" id="editBusinessName" class="form-control sm" required>
+                        <label>Nombre Comercial <span style="font-size:0.65rem; color:var(--text-muted); font-weight:400; text-transform:none;">🔒 No editable</span></label>
+                        <input type="text" id="editBusinessName" class="form-control sm" readonly style="opacity:0.6; cursor:not-allowed; background:var(--background);">
                     </div>
                     <div class="form-group mb-2">
-                        <label>Documento (RIF / Cédula)</label>
-                        <div class="input-group-custom">
-                            <select id="editBusinessDocPrefix" class="form-control sm prefix-select">
+                        <label>Documento (RIF / Cédula) <span style="font-size:0.65rem; color:var(--text-muted); font-weight:400; text-transform:none;">🔒 No editable</span></label>
+                        <div class="input-group-custom" style="opacity:0.6; cursor:not-allowed;">
+                            <select id="editBusinessDocPrefix" class="form-control sm prefix-select" disabled style="cursor:not-allowed; background:var(--background);">
                                 <option value="J-">J-</option>
                                 <option value="V-">V-</option>
                                 <option value="G-">G-</option>
                                 <option value="E-">E-</option>
                             </select>
-                            <input type="text" id="editBusinessDoc" class="form-control sm" required>
+                            <input type="text" id="editBusinessDoc" class="form-control sm" readonly style="cursor:not-allowed; background:var(--background);">
                         </div>
+                        <p style="font-size:0.65rem; color:var(--text-muted); margin-top:0.25rem;">Para modificar estos datos contacta al soporte.</p>
                     </div>
                     <div class="form-group mb-2">
                         <label>País</label>
