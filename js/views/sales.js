@@ -36,6 +36,9 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+    const appConfig = JSON.parse(localStorage.getItem('appConfig') || '{}');
+    const taxConfig = appConfig.tax || { enabled: false, name: 'Impuesto', rate: 0 };
+
     let settings = {
         type: 'venta',
         target: 'detal',
@@ -266,8 +269,10 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function renderCartView() {
-        const totalUSD = cart.reduce((sum, item) => sum + item.total, 0);
-        const grandTotalUSD = includeOldDebt ? totalUSD + clientDebt : totalUSD;
+        const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
+        const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
+        const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
+        const grandTotalUSD = includeOldDebt ? baseWithTaxUSD + clientDebt : baseWithTaxUSD;
         const totalBs = grandTotalUSD * bcvRate;
         const totalItems = cart.length;
 
@@ -387,13 +392,20 @@ export function renderSales(container, preSelectedClient = null) {
                                     <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Items</p>
                                     <p style="font-size: 0.9rem; font-weight: 800; margin: 0;">${totalItems}</p>
                                 </div>
+                                ${taxConfig.enabled ? `
+                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
+                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} ${taxConfig.rate}%</p>
+                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--warning, #f59e0b);">$${fmt(taxAmountUSD)}</p>
+                                </div>
+                                ` : `
                                 <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
                                     <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total $</p>
                                     <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--success);">$${fmt(grandTotalUSD)}</p>
                                 </div>
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid #3b82f6;">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total Bs</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: #3b82f6;">${fmt(totalBs)}</p>
+                                `}
+                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
+                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
+                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: ${taxConfig.enabled ? 'var(--success)' : '#3b82f6'};">${taxConfig.enabled ? `$${fmt(grandTotalUSD)}` : fmt(totalBs)}</p>
                                 </div>
                                 <div id="pullDebtBtn" class="card" style="padding: 0.5rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
                                     <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Deuda</p>
@@ -696,8 +708,10 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     async function renderPaymentView() {
-        const productsUSD = cart.reduce((sum, item) => sum + item.total, 0);
-        const totalUSD = includeOldDebt ? (productsUSD + clientDebt) : productsUSD;
+        const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
+        const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
+        const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
+        const totalUSD = includeOldDebt ? (baseWithTaxUSD + clientDebt) : baseWithTaxUSD;
         const totalBs = totalUSD * bcvRate;
         const totalItems = cart.length;
 
@@ -851,8 +865,10 @@ export function renderSales(container, preSelectedClient = null) {
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                                 ${(() => {
-                                    const productsUSD = cart.reduce((sum, item) => sum + item.total, 0);
-                                    const effectiveTotalUSD = includeOldDebt ? (productsUSD + clientDebt) : productsUSD;
+                                    const sub = cart.reduce((sum, item) => sum + item.total, 0);
+                                    const tax = taxConfig.enabled ? sub * taxConfig.rate / 100 : 0;
+                                    const baseWithTax = sub + tax;
+                                    const effectiveTotalUSD = includeOldDebt ? (baseWithTax + clientDebt) : baseWithTax;
                                     const effectiveTotalBs = effectiveTotalUSD * bcvRate;
                                     const paymentsTotalUSD = payments.reduce((sum, p) => {
                                         if (p.currency === 'USD') return sum + p.amount;
@@ -862,8 +878,18 @@ export function renderSales(container, preSelectedClient = null) {
                                     const currentChangeUSD = Math.max(0, paymentsTotalUSD - effectiveTotalUSD);
 
                                     return `
+                                    ${taxConfig.enabled ? `
+                                    <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--text-muted); margin: 0;">
+                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Subtotal USD</p>
+                                        <p style="font-size: 1rem; font-weight: 800; margin: 0;">$ ${fmt(sub)}</p>
+                                    </div>
+                                    <div class="card" style="padding: 0.6rem; background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; margin: 0;">
+                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} (${taxConfig.rate}%)</p>
+                                        <p style="font-size: 1rem; font-weight: 800; margin: 0; color: #f59e0b;">$ ${fmt(tax)}</p>
+                                    </div>
+                                    ` : ''}
                                     <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--primary); margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total USD</p>
+                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total USD${taxConfig.enabled ? ` c/${taxConfig.name}` : ''}</p>
                                         <p style="font-size: 1rem; font-weight: 800; margin: 0;">$ ${fmt(effectiveTotalUSD)}</p>
                                     </div>
                                     <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid #3b82f6; margin: 0;">
@@ -1241,7 +1267,9 @@ export function renderSales(container, preSelectedClient = null) {
             finishBtn.textContent = isPresupuesto ? 'Generando...' : 'Procesando...';
 
             try {
-                const totalUSD_original = cart.reduce((sum, item) => sum + item.total, 0);
+                const subtotalUSD_original = cart.reduce((sum, item) => sum + item.total, 0);
+                const taxAmountUSD_original = taxConfig.enabled ? subtotalUSD_original * taxConfig.rate / 100 : 0;
+                const totalUSD_original = subtotalUSD_original + taxAmountUSD_original;
                 const paymentsTotalUSD = payments.reduce((sum, p) => {
                     if (p.currency === 'USD') return sum + p.amount;
                     return sum + (p.amount / bcvRate);
@@ -1342,6 +1370,10 @@ export function renderSales(container, preSelectedClient = null) {
                     transaction.set(saleRef, {
                         correlative: correlative,
                         items: cart,
+                        subtotalUSD: subtotalUSD_original,
+                        taxName: taxConfig.enabled ? taxConfig.name : null,
+                        taxRate: taxConfig.enabled ? taxConfig.rate : 0,
+                        taxAmountUSD: taxAmountUSD_original,
                         totalUSD: totalUSD_original,
                         totalBs: totalUSD_original * bcvRate,
                         paidUSD: isPresupuesto ? 0 : paidToCurrentSale,
