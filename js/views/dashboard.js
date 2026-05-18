@@ -924,12 +924,64 @@ export function renderDashboard() {
 
         // 2. Si es empleado, cargar datos específicos
         if (isEmployee) {
-            // Ocultar módulos restringidos para empleados
-            const restricted = ['navProveedores', 'navCompras', 'navInventarios', 'navEmpleados', 'navTiendas'];
-            restricted.forEach(id => {
-                const el = container.querySelector(`#${id}`);
-                if (el) el.parentElement.style.display = 'none';
-            });
+            // Mapa módulo → nav ID del sidebar
+            const MODULE_NAV = {
+                ventas:      'navVentas',
+                clientes:    'navClientes',
+                cobros:      'navCobros',
+                productos:   'navProductos',
+                compras:     'navCompras',
+                inventario:  'navInventarios',
+                proveedores: 'navProveedores',
+                reportes:    'navReportes',
+                empleados:   'navEmpleados',
+                tiendas:     'navTiendas',
+            };
+            const ALL_NAV_IDS = Object.values(MODULE_NAV);
+
+            // Ocultar todos los módulos primero, luego mostrar solo los permitidos
+            const applyModules = (modules) => {
+                ALL_NAV_IDS.forEach(navId => {
+                    const el = container.querySelector(`#${navId}`);
+                    if (el) el.parentElement.style.display = 'none';
+                });
+                modules.forEach(mod => {
+                    const navId = MODULE_NAV[mod];
+                    if (!navId) return;
+                    const el = container.querySelector(`#${navId}`);
+                    if (el) el.parentElement.style.display = '';
+                });
+            };
+
+            // Leer módulos del empleado desde Firestore
+            try {
+                const userEmail = localStorage.getItem('userEmail') || auth.currentUser?.email;
+                if (userEmail && businessId) {
+                    const empQ = query(
+                        collection(db, "businesses", businessId, "employees"),
+                        where("email", "==", userEmail)
+                    );
+                    const empSnap = await getDocs(empQ);
+                    if (!empSnap.empty) {
+                        const empData = empSnap.docs[0].data();
+                        const modules = Array.isArray(empData.modules) && empData.modules.length > 0
+                            ? empData.modules
+                            : ['ventas', 'clientes']; // fallback mínimo para empleados legacy
+                        applyModules(modules);
+                    } else {
+                        // Empleado no encontrado → fallback conservador
+                        applyModules(['ventas', 'clientes']);
+                    }
+                }
+            } catch (e) {
+                console.error('Error cargando módulos del empleado:', e);
+                // Fallback al comportamiento anterior si falla Firestore
+                const restricted = ['navProveedores', 'navCompras', 'navInventarios', 'navEmpleados', 'navTiendas'];
+                restricted.forEach(id => {
+                    const el = container.querySelector(`#${id}`);
+                    if (el) el.parentElement.style.display = 'none';
+                });
+            }
 
             // Mostrar enlace Recibir Productos solo para empleados (evitando duplicados)
             const navList = container.querySelector('.nav-list');

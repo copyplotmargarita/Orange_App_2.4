@@ -119,17 +119,53 @@ export function renderEmployees(container) {
 
                         <div class="form-group">
                             <label>💼 Cargo</label>
-                            <select id="empRole" class="form-control" required>
-                                <option value="Administrador">Administrador</option>
-                                <option value="Cajero" selected>Cajero</option>
-                                <option value="Vendedor">Vendedor</option>
-                                <option value="Otro">Otro (Especificar)</option>
-                            </select>
+                            <input type="text" id="empRole" class="form-control" placeholder="Ej. Vendedor, Cajero, Almacenero..." required>
                         </div>
 
-                        <div class="form-group" id="roleCustomGroup" style="display: none;">
-                            <label>✍️ Especificar Cargo</label>
-                            <input type="text" id="empRoleCustom" class="form-control" placeholder="Ej. Gerente de Tienda">
+                        <div class="form-group">
+                            <label>🎭 Perfil Base <span style="font-size:0.65rem; font-weight:400; text-transform:none; color:var(--text-muted);">— pre-marca los módulos</span></label>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                                <button type="button" class="profile-btn btn btn-outline" data-profile="vendedor" style="flex:1; min-width:80px; height:34px; font-size:0.8rem; padding:0 0.5rem;">Vendedor</button>
+                                <button type="button" class="profile-btn btn btn-outline" data-profile="cajero" style="flex:1; min-width:80px; height:34px; font-size:0.8rem; padding:0 0.5rem;">Cajero</button>
+                                <button type="button" class="profile-btn btn btn-outline" data-profile="almacen" style="flex:1; min-width:80px; height:34px; font-size:0.8rem; padding:0 0.5rem;">Almacén</button>
+                                <button type="button" class="profile-btn btn btn-outline" data-profile="personalizado" style="flex:1; min-width:80px; height:34px; font-size:0.8rem; padding:0 0.5rem;">Personalizado</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>📋 Módulos con Acceso</label>
+                            <div id="modulesGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.35rem; background: var(--background); padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border);">
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="ventas"> 💰 Ventas
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="clientes"> 👥 Clientes
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="cobros"> 📋 Cobros
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="productos"> 🛍️ Productos
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="compras"> 🧾 Compras
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="inventario"> 📦 Inventario
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="proveedores"> 🏭 Proveedores
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="reportes"> 📊 Reportes
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="tiendas"> 🏪 Tiendas
+                                </label>
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
+                                    <input type="checkbox" name="modules" value="empleados"> 👤 Empleados
+                                </label>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -175,18 +211,36 @@ export function renderEmployees(container) {
             </style>
         `;
 
-        const roleSelect = container.querySelector('#empRole');
-        const roleCustomGroup = container.querySelector('#roleCustomGroup');
-        const roleCustomInput = container.querySelector('#empRoleCustom');
-        
-        roleSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'Otro') {
-                roleCustomGroup.style.display = 'block';
-                roleCustomInput.required = true;
-            } else {
-                roleCustomGroup.style.display = 'none';
-                roleCustomInput.required = false;
-            }
+        // Perfiles predeterminados → módulos
+        const PROFILES = {
+            vendedor:     ['ventas', 'clientes', 'cobros', 'productos'],
+            cajero:       ['ventas', 'clientes', 'cobros'],
+            almacen:      ['productos', 'compras', 'inventario', 'proveedores'],
+            personalizado: [],
+        };
+
+        function applyProfile(profileKey) {
+            const modules = PROFILES[profileKey] || [];
+            container.querySelectorAll('input[name="modules"]').forEach(cb => {
+                cb.checked = modules.includes(cb.value);
+            });
+            // Resaltar el botón activo
+            container.querySelectorAll('.profile-btn').forEach(btn => {
+                btn.classList.toggle('btn-primary', btn.dataset.profile === profileKey);
+                btn.classList.toggle('btn-outline', btn.dataset.profile !== profileKey);
+            });
+        }
+
+        container.querySelectorAll('.profile-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyProfile(btn.dataset.profile);
+                // Auto-rellenar el cargo si está vacío
+                const roleInput = container.querySelector('#empRole');
+                if (!roleInput.value) {
+                    const labels = { vendedor: 'Vendedor', cajero: 'Cajero', almacen: 'Almacenero', personalizado: '' };
+                    roleInput.value = labels[btn.dataset.profile] || '';
+                }
+            });
         });
 
         container.querySelector('#cancelBtn').addEventListener('click', renderList);
@@ -210,8 +264,8 @@ export function renderEmployees(container) {
                 const existingEmp = allEmployees.find(emp => emp.documentId === cedula);
 
                 const name = toTitleCase(container.querySelector('#empName').value);
-                const rawRole = roleSelect.value === 'Otro' ? roleCustomInput.value : roleSelect.value;
-                const role = toTitleCase(rawRole);
+                const role = toTitleCase(container.querySelector('#empRole').value);
+                const modules = [...container.querySelectorAll('input[name="modules"]:checked')].map(cb => cb.value);
                 const phone = iti.getNumber();
                 const email = container.querySelector('#empEmail').value;
 
@@ -256,12 +310,13 @@ export function renderEmployees(container) {
                     await signOut(secondaryAuth);
 
                     await addDoc(collection(db, "businesses", businessId, "employees"), {
-                        name, 
+                        name,
                         documentId: cedula,
                         role,
+                        modules,
                         phone,
                         email,
-                        pin, // Guardar el PIN en la base de datos para consulta del admin
+                        pin,
                         status: 'ACTIVO',
                         createdAt: new Date().toISOString()
                     });
