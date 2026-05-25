@@ -1,7 +1,7 @@
 import { navigate } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase } from '../utils.js';
-import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 import { venezuelaData } from '../data/locations.js';
@@ -402,10 +402,24 @@ export function renderRegister() {
             createdAt: new Date().toISOString()
         };
 
+        let user = null;
         try {
-            // 1. Crear usuario en Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
+            // 1. Crear usuario en Firebase Auth o verificar credenciales si ya existe (Deadlock recovery)
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                user = userCredential.user;
+            } catch (authErr) {
+                if (authErr.code === 'auth/email-already-in-use') {
+                    loadingText.textContent = 'Verificando credenciales existentes...';
+                    const signInCredential = await signInWithEmailAndPassword(auth, email, password);
+                    user = signInCredential.user;
+                } else {
+                    throw authErr;
+                }
+            }
+
+            // Retardo para asegurar la sincronización del token de Auth con el cliente Firestore
+            await new Promise(resolve => setTimeout(resolve, 350));
 
             // 2. Procesar Logo si existe
             const logoFile = logoInput.files[0];
@@ -421,7 +435,26 @@ export function renderRegister() {
 
             // 3. Guardar datos del negocio en Firestore
             loadingText.textContent = 'Finalizando Configuración...';
-            await setDoc(doc(db, "businesses", user.uid), businessData);
+            
+            let success = false;
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    await setDoc(doc(db, "businesses", user.uid), businessData);
+                    success = true;
+                    break;
+                } catch (err) {
+                    console.warn(`Intento ${retryCount + 1} de guardar negocio falló:`, err);
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 250)); // Esperar antes de reintentar
+                    } else {
+                        throw err; // Si fallaron todos los reintentos, lanzar el error original
+                    }
+                }
+            }
 
             // 4. Guardar sesión local
             localStorage.setItem('businessId', user.uid);
