@@ -32,7 +32,10 @@ export function renderPurchases(container) {
     }
     let purchases = [];
     let suppliers = [];
+    let creditors = [];
     let products = [];
+    let expenseTemplates = [];
+    let equipmentList = [];
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
     const role = localStorage.getItem('userRole');
 
@@ -80,14 +83,30 @@ export function renderPurchases(container) {
             const supSnap = await getDocs(collection(db, "businesses", businessId, "suppliers"));
             suppliers = supSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+            const credSnap = await getDocs(collection(db, "businesses", businessId, "creditors"));
+            creditors = credSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            const tempSnap = await getDocs(collection(db, "businesses", businessId, "expense_templates"));
+            expenseTemplates = tempSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            const eqSnap = await getDocs(collection(db, "businesses", businessId, "equipment"));
+            equipmentList = eqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
             const prodSnap = await getDocs(collection(db, "businesses", businessId, "products"));
             products = prodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             const purSnap = await getDocs(collection(db, "businesses", businessId, "purchases"));
             purchases = purSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-            if (window.tempPurchaseState) {
-                renderForm();
+            if (window.openCreatePurchase) {
+                delete window.openCreatePurchase;
+                setTimeout(() => {
+                    if (window.tempPurchaseState) {
+                        renderForm('PRODUCTO');
+                    } else {
+                        renderTypeSelector();
+                    }
+                }, 100);
             } else {
                 renderDeck();
             }
@@ -99,10 +118,14 @@ export function renderPurchases(container) {
 
     let currentFilterSupplier = '';
     let currentFilterStatus = '';
+    let currentFilterType = 'TODOS';
 
     function renderDeck() {
         let filteredPurchases = purchases;
-        if (currentFilterSupplier) filteredPurchases = filteredPurchases.filter(p => p.supplierId === currentFilterSupplier);
+        if (currentFilterType !== 'TODOS') {
+            filteredPurchases = filteredPurchases.filter(p => p.purchaseType === currentFilterType);
+        }
+        if (currentFilterSupplier) filteredPurchases = filteredPurchases.filter(p => (p.supplierId === currentFilterSupplier || p.creditorId === currentFilterSupplier));
         if (currentFilterStatus) filteredPurchases = filteredPurchases.filter(p => p.status === currentFilterStatus);
 
         let html = `
@@ -124,36 +147,87 @@ export function renderPurchases(container) {
                     ${role !== 'employee' ? `<button class="btn btn-primary" id="addPurchaseBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Cargar Compra</button>` : ''}
                 </div>
             </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); overflow-x: auto; padding-bottom: 0.5rem;" class="hide-scrollbar">
+                <button class="btn tab-btn" data-type="TODOS" style="background: ${currentFilterType === 'TODOS' ? 'var(--primary)' : 'transparent'}; color: ${currentFilterType === 'TODOS' ? 'white' : 'var(--text-muted)'}; font-weight: bold; border: none; padding: 0.5rem 1rem; border-radius: 8px;">TODAS</button>
+                <button class="btn tab-btn" data-type="PRODUCTO" style="background: ${currentFilterType === 'PRODUCTO' ? 'var(--primary)' : 'transparent'}; color: ${currentFilterType === 'PRODUCTO' ? 'white' : 'var(--text-muted)'}; font-weight: bold; border: none; padding: 0.5rem 1rem; border-radius: 8px;">INSUMOS / PRODUCTOS</button>
+                <button class="btn tab-btn" data-type="EQUIPO_UTENSILIO" style="background: ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'var(--primary)' : 'transparent'}; color: ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'white' : 'var(--text-muted)'}; font-weight: bold; border: none; padding: 0.5rem 1rem; border-radius: 8px;">EQUIPOS</button>
+                <button class="btn tab-btn" data-type="GASTO_SERVICIO" style="background: ${currentFilterType === 'GASTO_SERVICIO' ? 'var(--primary)' : 'transparent'}; color: ${currentFilterType === 'GASTO_SERVICIO' ? 'white' : 'var(--text-muted)'}; font-weight: bold; border: none; padding: 0.5rem 1rem; border-radius: 8px;">GASTOS Y SERVICIOS</button>
+            </div>
+            
+            ${currentFilterType === 'EQUIPO_UTENSILIO' ? `
+            <div style="margin-bottom: 1.5rem; display: flex; justify-content: flex-end;">
+                <button class="btn btn-secondary" id="viewEquipmentBtn" style="padding: 0.5rem 1rem; border-radius: 8px; font-weight: bold; background: var(--surface); color: var(--primary); border: 2px solid var(--primary); display: flex; align-items: center; gap: 0.5rem;">
+                    <span>📋</span> Ver Inventario de Equipos
+                </button>
+            </div>
+            ` : ''}
         `;
 
-        // Group debt by supplier (based on filtered results)
-        const supplierDebt = {};
+        // Banner de Gastos Recurrentes
+        const today = new Date();
+        const upcomingTemplates = expenseTemplates.filter(t => {
+            if (!t.nextDueDate) return false;
+            const dueDate = new Date(t.nextDueDate);
+            const diffTime = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            return diffTime <= 7; // Muestra si vence en 7 días o ya está vencido
+        });
+
+        if (upcomingTemplates.length > 0) {
+            html += `
+                <div style="background: var(--warning); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; color: #fff;">
+                    <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-weight: 800;">🔔 Recordatorio de Gastos</h3>
+                    <p style="margin: 0 0 1rem 0; font-size: 0.85rem; opacity: 0.9;">Tienes ${upcomingTemplates.length} gasto(s) recurrente(s) próximo(s) a vencer o vencido(s).</p>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            `;
+            upcomingTemplates.forEach(t => {
+                const cred = creditors.find(c => c.id === t.creditorId);
+                const credName = cred ? cred.name : 'Acreedor Desconocido';
+                html += `
+                    <button class="btn template-btn" data-id="${t.id}" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 0.75rem; padding: 0.5rem 1rem; border-radius: 8px;">
+                        Pagar: ${t.description} (${credName})
+                    </button>
+                `;
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Group debt by entity (supplier or creditor) based on filtered results
+        const entityDebt = {};
         suppliers.forEach(s => {
-            supplierDebt[s.id] = { id: s.id, name: s.name, debt: 0, invoices: 0 };
+            entityDebt[s.id] = { id: s.id, name: s.name, debt: 0, invoices: 0 };
+        });
+        creditors.forEach(c => {
+            entityDebt[c.id] = { id: c.id, name: c.name, debt: 0, invoices: 0 };
         });
 
         filteredPurchases.forEach(p => {
-            if (!supplierDebt[p.supplierId]) {
-                supplierDebt[p.supplierId] = { id: p.supplierId, name: 'Proveedor Desconocido', debt: 0, invoices: 0 };
-            }
-            // Solo mostramos tarjetas para facturas con deuda real
-            if (p.status === 'CREDITO' || p.status === 'ABONO') {
-                supplierDebt[p.supplierId].debt += parseFloat(p.pendingBalanceUsd || 0);
-                supplierDebt[p.supplierId].invoices++;
+            const entId = p.purchaseType === 'GASTO_SERVICIO' ? p.creditorId : p.supplierId;
+            if (entId) {
+                if (!entityDebt[entId]) {
+                    entityDebt[entId] = { id: entId, name: 'Desconocido', debt: 0, invoices: 0 };
+                }
+                if (p.status === 'CREDITO' || p.status === 'ABONO' || p.status === 'PENDIENTE') {
+                    entityDebt[entId].debt += parseFloat(p.pendingBalanceUsd || 0);
+                    entityDebt[entId].invoices++;
+                }
             }
         });
 
-        // Filtrar proveedores que realmente tienen deuda activa (> 0)
-        const activeSuppliers = Object.values(supplierDebt).filter(s => s.debt > 0.01);
+        // Filtrar entidades que realmente tienen deuda activa (> 0)
+        const activeEntities = Object.values(entityDebt).filter(s => s.debt > 0.01);
 
-        if (activeSuppliers.length === 0) {
+        if (activeEntities.length === 0) {
             html += `<div style="padding: 3rem; text-align: center; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
                 <p style="color: var(--text-muted); font-size: 1.1rem;">No hay registros que coincidan con los filtros.</p>
             </div>`;
         } else {
             html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; margin-bottom: 2rem;">`;
             
-            activeSuppliers.forEach(sup => {
+            activeEntities.forEach(sup => {
                 html += `
                     <div class="card supplier-debt-card" data-id="${sup.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--danger);">
                         <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--danger); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sup.name}">${sup.name}</h3>
@@ -190,11 +264,17 @@ export function renderPurchases(container) {
         } else {
             // Sort desc
             [...filteredPurchases].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(p => {
-                const supObj = suppliers.find(s => s.id === p.supplierId);
-                const supName = supObj ? supObj.name : 'Desconocido';
+                let supName = 'Desconocido';
+                if (p.purchaseType === 'GASTO_SERVICIO') {
+                    const credObj = creditors.find(c => c.id === p.creditorId);
+                    if (credObj) supName = credObj.name;
+                } else {
+                    const supObj = suppliers.find(s => s.id === p.supplierId);
+                    if (supObj) supName = supObj.name;
+                }
                 
                 let badgeColor = 'var(--text-muted)';
-                if (p.status === 'CREDITO') badgeColor = 'var(--danger)';
+                if (p.status === 'CREDITO' || p.status === 'PENDIENTE') badgeColor = 'var(--danger)';
                 if (p.status === 'PAGADO' || p.status === 'CONTADO') badgeColor = 'var(--success)';
                 if (p.status === 'ABONO') badgeColor = 'var(--warning)';
 
@@ -239,8 +319,39 @@ export function renderPurchases(container) {
             renderDeck();
         });
 
+        container.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentFilterType = e.currentTarget.dataset.type;
+                renderDeck();
+            });
+        });
+
+        container.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const templateId = e.currentTarget.dataset.id;
+                const template = expenseTemplates.find(t => t.id === templateId);
+                if (template) {
+                    renderForm('GASTO_SERVICIO', {
+                        templateId: template.id,
+                        creditorId: template.creditorId,
+                        categoryId: template.categoryId,
+                        description: template.description,
+                        recurrenceType: template.recurrenceType,
+                        amountUsd: template.amountUsd
+                    });
+                }
+            });
+        });
+
         const addBtn = container.querySelector('#addPurchaseBtn');
-        if (addBtn) addBtn.addEventListener('click', () => renderForm());
+        if (addBtn) addBtn.addEventListener('click', () => renderTypeSelector());
+        
+        const viewEqBtn = container.querySelector('#viewEquipmentBtn');
+        if (viewEqBtn) {
+            viewEqBtn.addEventListener('click', () => {
+                renderEquipmentInventory();
+            });
+        }
         
         const backBtn = container.querySelector('#backToDashboardBtn');
         if (backBtn) {
@@ -272,6 +383,97 @@ export function renderPurchases(container) {
             row.addEventListener('click', () => {
                 const purchase = purchases.find(p => p.id === row.dataset.id);
                 if (purchase) renderDetail(purchase);
+            });
+        });
+    }
+
+    function renderEquipmentInventory() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📋 Inventario de Equipos y Utensilios</h2>
+            </div>
+            
+            <div class="card" style="padding: 0; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background-color: var(--background); border-bottom: 1px solid var(--border);">
+                            <th style="padding: 1rem;">Nombre del Equipo</th>
+                            <th style="padding: 1rem;">Serial / Marca</th>
+                            <th style="padding: 1rem; text-align: center;">Cant.</th>
+                            <th style="padding: 1rem;">Costo Unit. ($)</th>
+                            <th style="padding: 1rem;">Costo Total ($)</th>
+                            <th style="padding: 1rem;">Fecha Compra</th>
+                            <th style="padding: 1rem;">Estado</th>
+                            <th style="padding: 1rem;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        if (equipmentList.length === 0) {
+            html += `<tr><td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay equipos registrados.</td></tr>`;
+        } else {
+            [...equipmentList].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(eq => {
+                const isDischarged = eq.status === 'BAJA';
+                html += `
+                    <tr style="border-bottom: 1px solid var(--border); ${isDischarged ? 'opacity: 0.5; background: var(--background);' : ''}">
+                        <td style="padding: 1rem; font-weight: bold;">${eq.name}</td>
+                        <td style="padding: 1rem; color: var(--text-muted);">${eq.serial || '-'}</td>
+                        <td style="padding: 1rem; text-align: center; font-weight: bold;">${eq.qty}</td>
+                        <td style="padding: 1rem;">$ ${parseFloat(eq.costUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
+                        <td style="padding: 1rem;">$ ${parseFloat(eq.totalCostUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
+                        <td style="padding: 1rem; font-size: 0.85rem;">${eq.purchaseDate || '-'}</td>
+                        <td style="padding: 1rem;">
+                            <span style="padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold; background: ${isDischarged ? 'var(--danger)20' : 'var(--success)20'}; color: ${isDischarged ? 'var(--danger)' : 'var(--success)'};">
+                                ${eq.status || 'ACTIVO'}
+                            </span>
+                        </td>
+                        <td style="padding: 1rem;">
+                            ${!isDischarged ? `
+                            <button class="btn btn-sm btn-danger discharge-btn" data-id="${eq.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 6px; background: var(--danger); border: none; color: white; cursor: pointer;">Dar de Baja</button>
+                            ` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        
+        container.querySelector('#backToDeckBtn')?.addEventListener('click', () => {
+            currentFilterType = 'EQUIPO_UTENSILIO';
+            renderDeck();
+        });
+        
+        container.querySelectorAll('.discharge-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.dataset.id;
+                if (confirm('¿Está seguro que desea dar de baja este equipo? Esto actualizará su estado en el inventario.')) {
+                    e.currentTarget.disabled = true;
+                    e.currentTarget.textContent = '...';
+                    try {
+                        const businessId = localStorage.getItem('businessId');
+                        await updateDoc(doc(db, "businesses", businessId, "equipment", id), {
+                            status: 'BAJA',
+                            dischargeDate: new Date().toISOString()
+                        });
+                        showToast('Equipo dado de baja correctamente.', 'success');
+                        await loadData(); 
+                        renderEquipmentInventory();
+                    } catch (err) {
+                        console.error(err);
+                        showToast('Error al dar de baja el equipo.', 'error');
+                        e.currentTarget.disabled = false;
+                        e.currentTarget.textContent = 'Dar de Baja';
+                    }
+                }
             });
         });
     }
@@ -384,9 +586,9 @@ export function renderPurchases(container) {
         const docRate = purchase.bcvRate || bcvRate || 1;
 
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--success);">💰 Cargar Pago</h2>
-                <p class="text-muted text-sm">Registrar abono a factura pendiente</p>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">💰 Cargar Pago</h2>
             </div>
 
             <div style="max-width: 500px; margin: 0 auto;">
@@ -581,6 +783,7 @@ export function renderPurchases(container) {
         });
 
         container.querySelector('#cancelPaymentBtn').addEventListener('click', () => renderSupplierDetail(purchase.supplierId));
+        container.querySelector('#backHeaderBtn')?.addEventListener('click', () => container.querySelector('#cancelPaymentBtn').click());
 
         container.querySelector('#paymentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -647,24 +850,74 @@ export function renderPurchases(container) {
         });
     }
 
-    function renderForm() {
+    function renderTypeSelector() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDeckBtnType" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📦 Registrar Compra o Gasto</h2>
+            </div>
+            
+            <div style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; text-align: center;">
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-bottom: 1rem;">¿Qué tipo de compra vas a registrar?</h3>
+                
+                <button class="btn btn-outline type-btn" data-type="PRODUCTO" style="height: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; border-radius: 12px; border: 2px solid var(--border);">
+                    <span style="font-size: 2rem;">📦</span>
+                    <span style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">Compra de Productos</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">Mercancía, insumos de producción o venta directa</span>
+                </button>
+
+                <button class="btn btn-outline type-btn" data-type="EQUIPO_UTENSILIO" style="height: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; border-radius: 12px; border: 2px solid var(--border);">
+                    <span style="font-size: 2rem;">🔧</span>
+                    <span style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">Equipo o Utensilio</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">Herramientas, maquinaria, mobiliario, utensilios</span>
+                </button>
+
+                <button class="btn btn-outline type-btn" data-type="GASTO_SERVICIO" style="height: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; border-radius: 12px; border: 2px solid var(--border);">
+                    <span style="font-size: 2rem;">📋</span>
+                    <span style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">Gasto / Servicio</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">Alquiler, electricidad, agua, aseo, internet</span>
+                </button>
+            </div>
+            
+            <style>
+                .type-btn:hover { border-color: var(--primary) !important; background: var(--surface); }
+            </style>
+        `;
+
+        container.innerHTML = html;
+        
+        container.querySelector('#backToDeckBtnType').addEventListener('click', () => {
+            renderDeck();
+        });
+
+        container.querySelectorAll('.type-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-type');
+                renderForm(type);
+            });
+        });
+    }
+
+    function renderForm(purchaseType = 'PRODUCTO', prefillData = null) {
         const todayStr = new Date().toISOString().split('T')[0];
         
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--primary);">📦 Cargar Compra</h2>
-                <p class="text-muted text-sm">Registra la recepción de mercancía y facturas</p>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button type="button" class="btn btn-outline" id="backToTypeSelectorBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">
+                    ${purchaseType === 'PRODUCTO' ? '📦 Cargar Productos' : (purchaseType === 'EQUIPO_UTENSILIO' ? '🔧 Cargar Equipo' : '📋 Cargar Gasto/Servicio')}
+                </h2>
             </div>
             
-            <form id="purchaseForm" style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
+            <form id="purchaseForm" style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;" data-type="${purchaseType}">
                 <!-- 1. Datos del Documento -->
-                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
+                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary); ${purchaseType === 'GASTO_SERVICIO' ? 'display: none;' : ''}">
                     <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">1. Datos del Documento</h3>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <div class="form-group">
                             <label>PROVEEDOR <span class="text-danger">*</span></label>
-                            <select id="pSupplier" class="form-control" required style="height: 40px;">
+                            <select id="pSupplier" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} style="height: 40px;">
                                 <option value="">Seleccione un proveedor...</option>
                                 <option value="CREATE_NEW" style="font-weight: bold; color: var(--primary);">+ CREAR PROVEEDOR</option>
                                 ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
@@ -673,39 +926,40 @@ export function renderPurchases(container) {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                             <div class="form-group">
                                 <label>EMISIÓN <span class="text-danger">*</span></label>
-                                <input type="date" id="pEmissionDate" class="form-control" required value="${todayStr}" style="height: 40px;">
+                                <input type="date" id="pEmissionDate" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} value="${todayStr}" style="height: 40px;">
                             </div>
                             <div class="form-group">
                                 <label>RECEPCIÓN <span class="text-danger">*</span></label>
-                                <input type="date" id="pReceptionDate" class="form-control" required value="${todayStr}" style="height: 40px;">
+                                <input type="date" id="pReceptionDate" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} value="${todayStr}" style="height: 40px;">
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label>TASA BCV DE LA FACTURA <span class="text-danger">*</span></label>
-                            <input type="text" inputmode="numeric" id="pBcvRate" class="form-control" required value="${bcvRate.toLocaleString('de-DE', {minimumFractionDigits:2})}" style="height: 40px;">
-                            <small id="bcvWarning" style="color: var(--primary); display: none; margin-top: 4px; font-size: 0.7rem; font-weight: 700;">⚠️ No hay tasa cargada para la Fecha de Emisión, por favor cargue acá la tasa para esa fecha.</small>
+                            <input type="text" inputmode="numeric" id="pBcvRate" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} value="${bcvRate.toLocaleString('de-DE', {minimumFractionDigits:2})}" style="height: 40px;">
+                            <small id="bcvWarning" style="color: var(--primary); display: none; margin-top: 4px; font-size: 0.7rem; font-weight: 700;">⚠️ No hay tasa cargada para la Fecha de Emisión.</small>
                         </div>
 
                         <div class="form-group">
                             <label>TIPO DE DOCUMENTO <span class="text-danger">*</span></label>
-                            <select id="pDocType" class="form-control" required style="height: 40px;">
+                            <select id="pDocType" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} style="height: 40px;">
                                 <option value="">Seleccione...</option>
                                 <option value="FACTURA">FACTURA</option>
                                 <option value="GUIA DE DESPACHO">GUIA DE DESPACHO</option>
                                 <option value="NOTA DE ENTREGA">NOTA DE ENTREGA</option>
                                 <option value="PRESUPUESTO">PRESUPUESTO</option>
+                                <option value="RECIBO">RECIBO</option>
                             </select>
                         </div>
                         
                         <div class="form-group">
                             <label>NÚMERO DE DOCUMENTO <span class="text-danger">*</span></label>
-                            <input type="text" id="pDocNumber" class="form-control" required placeholder="Ej. 001-A" style="height: 40px;">
+                            <input type="text" id="pDocNumber" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} placeholder="Ej. 001-A" style="height: 40px;">
                         </div>
                         
                         <div class="form-group">
                             <label>ESTADO DE LA COMPRA <span class="text-danger">*</span></label>
-                            <select id="pStatus" class="form-control" required style="height: 40px;">
+                            <select id="pStatus" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} style="height: 40px;">
                                 <option value="">Seleccione...</option>
                                 <option value="ABONO">ABONO</option>
                                 <option value="CONTADO">CONTADO</option>
@@ -716,6 +970,87 @@ export function renderPurchases(container) {
                     </div>
                 </div>
 
+                ${purchaseType === 'GASTO_SERVICIO' ? `
+                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
+                    <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">1. Detalles del Gasto</h3>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div class="form-group">
+                            <label>ACREEDOR / INSTITUCIÓN <span class="text-danger">*</span></label>
+                            <select id="pCreditor" class="form-control" required style="height: 40px;">
+                                <option value="">Seleccione acreedor...</option>
+                                <option value="CREATE_NEW" style="font-weight: bold; color: var(--primary);">+ CREAR ACREEDOR</option>
+                                ${[...creditors].sort((a,b)=>a.name.localeCompare(b.name)).map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>CATEGORÍA DEL GASTO <span class="text-danger">*</span></label>
+                            <select id="pCategory" class="form-control" required style="height: 40px;">
+                                <option value="">Seleccione...</option>
+                                <option value="ALQUILER">Alquiler</option>
+                                <option value="ELECTRICIDAD">Electricidad</option>
+                                <option value="AGUA">Agua</option>
+                                <option value="INTERNET">Internet</option>
+                                <option value="ASEO">Aseo / Basura</option>
+                                <option value="NOMINA">Nómina</option>
+                                <option value="MANTENIMIENTO">Mantenimiento</option>
+                                <option value="OTROS">Otros</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>DESCRIPCIÓN / MOTIVO <span class="text-danger">*</span></label>
+                            <input type="text" id="pDescription" class="form-control" required placeholder="Ej. Pago alquiler Local 1" style="height: 40px;">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>FECHA DE REGISTRO <span class="text-danger">*</span></label>
+                                <input type="date" id="pExpenseDate" class="form-control" required value="${todayStr}" style="height: 40px;">
+                            </div>
+                            <div class="form-group">
+                                <label>TASA BCV <span class="text-danger">*</span></label>
+                                <input type="text" inputmode="numeric" id="pExpenseBcvRate" class="form-control" required value="${bcvRate.toLocaleString('de-DE', {minimumFractionDigits:2})}" style="height: 40px;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>ESTADO DEL PAGO <span class="text-danger">*</span></label>
+                            <select id="pExpenseStatus" class="form-control" required style="height: 40px;">
+                                <option value="">Seleccione...</option>
+                                <option value="PAGADO">PAGADO AL CONTADO</option>
+                                <option value="PENDIENTE">PENDIENTE POR PAGAR</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem; border-top: 1px dashed var(--border); padding-top: 1rem;">
+                            <label>¿ES UN GASTO RECURRENTE?</label>
+                            <select id="pExpenseRecurrence" class="form-control" style="height: 40px;">
+                                <option value="NONE">No, es un pago único</option>
+                                <option value="MENSUAL">Sí, se repite mensualmente</option>
+                                <option value="ANUAL">Sí, se repite anualmente</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="pExpenseNextDueDateGroup" style="display: none; margin-top: 0.5rem;">
+                            <label>FECHA DEL PRÓXIMO PAGO <span class="text-danger">*</span></label>
+                            <input type="date" id="pExpenseNextDueDate" class="form-control" style="height: 40px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem; border-top: 1px dashed var(--border); padding-top: 1rem;">
+                            <label>MONEDA DEL GASTO <span class="text-danger">*</span></label>
+                            <div style="display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 40px;">
+                                <div id="btnExpenseCurrencyBs" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--background); color: var(--text-main); font-weight: 800; font-size: 0.7rem;">BOLÍVARES</div>
+                                <div id="btnExpenseCurrencyUsd" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--primary); color: white; font-weight: 800; font-size: 0.7rem;">DÓLARES</div>
+                            </div>
+                            <input type="hidden" id="pExpenseCurrency" value="USD">
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label style="font-size: 0.9rem;">MONTO TOTAL <span class="text-danger">*</span></label>
+                            <input type="text" inputmode="numeric" id="pExpenseAmount" class="form-control" required style="height: 50px; font-size: 1.5rem; font-weight: 900; color: var(--primary); text-align: center;">
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${purchaseType === 'PRODUCTO' ? `
                 <!-- 2. Moneda y Productos -->
                 <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
                     <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">2. Productos Recibidos</h3>
@@ -750,6 +1085,26 @@ export function renderPurchases(container) {
                         </div>
                     </div>
                 </div>
+                ` : ''}
+
+                ${purchaseType === 'EQUIPO_UTENSILIO' ? `
+                <!-- 2. Equipos -->
+                <div class="card" style="padding: 2rem; border-top: 4px solid var(--primary);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1.5rem;">
+                        <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 0;">2. Lista de Equipos</h3>
+                        <button type="button" class="btn btn-primary" id="addEqBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-left: auto;">+ Agregar Item</button>
+                    </div>
+                    
+                    <div id="equipmentList" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <!-- Equipos dinamicos -->
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; border-top: 2px solid var(--border); padding-top: 1rem; margin-top: 1rem; background: var(--background); padding: 1rem; border-radius: 12px;">
+                        <span style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">TOTAL FACTURA $</span>
+                        <span id="eqTotalUsd" style="font-weight: 900; font-size: 1.5rem; color: var(--primary);">$ 0.00</span>
+                    </div>
+                </div>
+                ` : ''}
 
                 <!-- 3. Pagos (Condicional) -->
                 <div class="card" id="paymentSection" style="display: none; padding: 2rem; border-top: 4px solid var(--primary);">
@@ -843,6 +1198,30 @@ export function renderPurchases(container) {
                 </div>
             </div>
 
+            <!-- Modal para Crear Acreedor -->
+            <div id="creditorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+                <div class="card" style="width: 100%; max-width: 450px; padding: 2rem; border-top: 5px solid var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+                    <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; color: var(--primary); margin-bottom: 0.5rem;">Nuevo Acreedor</h2>
+                    <p class="text-muted mb-4" style="font-size: 0.85rem;">Registre la institución o persona a quien se le paga el servicio o gasto.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Nombre del Acreedor <span class="text-danger">*</span></label>
+                            <input type="text" id="newCreditorName" class="form-control" placeholder="Ej. Corpoelec">
+                        </div>
+                        <div class="form-group">
+                            <label>RIF / Cédula</label>
+                            <input type="text" id="newCreditorRif" class="form-control" placeholder="Ej. J-123456789">
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                            <button type="button" class="btn btn-outline" id="cancelCreditorBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
+                            <button type="button" class="btn btn-primary" id="saveCreditorBtn" style="flex: 1; height: 50px; font-weight: 800;">GUARDAR</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <style>
                 .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
                 .form-control { 
@@ -878,6 +1257,7 @@ export function renderPurchases(container) {
         const btnCurrencyUsd = container.querySelector('#btnCurrencyUsd');
         const pCurrency = container.querySelector('#pCurrency');
         const pSupplier = container.querySelector('#pSupplier');
+        const pCreditor = container.querySelector('#pCreditor');
         const pDocType = container.querySelector('#pDocType');
         const pDocNumber = container.querySelector('#pDocNumber');
         const pEmissionDate = container.querySelector('#pEmissionDate');
@@ -931,6 +1311,7 @@ export function renderPurchases(container) {
         }
 
         // Navigation
+        container.querySelector('#backToTypeSelectorBtn').addEventListener('click', renderTypeSelector);
         container.querySelector('#cancelFormBtn').addEventListener('click', renderDeck);
 
         const updatePayments = () => {
@@ -991,7 +1372,7 @@ export function renderPurchases(container) {
         const itemTotalCostInput = container.querySelector('#itemTotalCostInput');
         [itemQtyInput, itemTotalCostInput].forEach(inp => applyNumericMask(inp));
 
-        pSupplier.addEventListener('change', () => {
+        pSupplier?.addEventListener('change', () => {
             if (pSupplier.value === 'CREATE_NEW') {
                 window.tempPurchaseState = {
                     supplierId: '', 
@@ -1012,23 +1393,84 @@ export function renderPurchases(container) {
                 document.getElementById('navProveedores').click();
             }
         });
+
+        const creditorModal = container.querySelector('#creditorModal');
+        const newCreditorName = container.querySelector('#newCreditorName');
+        const newCreditorRif = container.querySelector('#newCreditorRif');
+        const saveCreditorBtn = container.querySelector('#saveCreditorBtn');
+        const cancelCreditorBtn = container.querySelector('#cancelCreditorBtn');
+
+        pCreditor?.addEventListener('change', () => {
+            if (pCreditor.value === 'CREATE_NEW') {
+                creditorModal.style.display = 'flex';
+                setTimeout(() => newCreditorName.focus(), 50);
+            }
+        });
+
+        cancelCreditorBtn?.addEventListener('click', () => {
+            creditorModal.style.display = 'none';
+            pCreditor.value = '';
+        });
+
+        saveCreditorBtn?.addEventListener('click', async () => {
+            const name = newCreditorName.value.trim();
+            if (!name) {
+                showToast("El nombre del acreedor es requerido.", "error");
+                return;
+            }
+            saveCreditorBtn.disabled = true;
+            saveCreditorBtn.textContent = 'Guardando...';
+
+            try {
+                const businessId = localStorage.getItem('businessId');
+                const newRef = doc(collection(db, "businesses", businessId, "creditors"));
+                await setDoc(newRef, {
+                    name,
+                    rif: newCreditorRif.value.trim(),
+                    createdAt: new Date().toISOString()
+                });
+
+                creditors.push({ id: newRef.id, name, rif: newCreditorRif.value.trim() });
+                
+                // Re-render the select options
+                pCreditor.innerHTML = `
+                    <option value="">Seleccione acreedor...</option>
+                    <option value="CREATE_NEW" style="font-weight: bold; color: var(--primary);">+ CREAR ACREEDOR</option>
+                    ${[...creditors].sort((a,b)=>a.name.localeCompare(b.name)).map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                `;
+                pCreditor.value = newRef.id;
+
+                showToast("Acreedor creado correctamente.", "success");
+                creditorModal.style.display = 'none';
+                newCreditorName.value = '';
+                newCreditorRif.value = '';
+            } catch (error) {
+                console.error("Error creating creditor:", error);
+                showToast("Error al crear acreedor.", "error");
+            } finally {
+                saveCreditorBtn.disabled = false;
+                saveCreditorBtn.textContent = 'GUARDAR';
+            }
+        });
         
         // Currency Toggle Logic
-        btnCurrencyBs.addEventListener('click', () => {
-            pCurrency.value = 'BS';
-            btnCurrencyBs.style.background = 'var(--primary)';
-            btnCurrencyBs.style.color = 'white';
-            btnCurrencyUsd.style.background = 'var(--background)';
-            btnCurrencyUsd.style.color = 'var(--text-main)';
-        });
-        
-        btnCurrencyUsd.addEventListener('click', () => {
-            pCurrency.value = 'USD';
-            btnCurrencyUsd.style.background = 'var(--primary)';
-            btnCurrencyUsd.style.color = 'white';
-            btnCurrencyBs.style.background = 'var(--background)';
-            btnCurrencyBs.style.color = 'var(--text-main)';
-        });
+        if (btnCurrencyBs && btnCurrencyUsd) {
+            btnCurrencyBs.addEventListener('click', () => {
+                pCurrency.value = 'BS';
+                btnCurrencyBs.style.background = 'var(--primary)';
+                btnCurrencyBs.style.color = 'white';
+                btnCurrencyUsd.style.background = 'var(--background)';
+                btnCurrencyUsd.style.color = 'var(--text-main)';
+            });
+            
+            btnCurrencyUsd.addEventListener('click', () => {
+                pCurrency.value = 'USD';
+                btnCurrencyUsd.style.background = 'var(--primary)';
+                btnCurrencyUsd.style.color = 'white';
+                btnCurrencyBs.style.background = 'var(--background)';
+                btnCurrencyBs.style.color = 'var(--text-main)';
+            });
+        }
 
         // Status Logic
         pStatus.addEventListener('change', () => {
@@ -1135,20 +1577,192 @@ export function renderPurchases(container) {
         pReceivedUsd.addEventListener('input', calculatePendingBalance);
         pBcvRate.addEventListener('input', calculatePendingBalance);
 
-        // Product Builder logic
-        container.querySelector('#openProductBuilderBtn').addEventListener('click', () => {
-            const supplierId = pSupplier.value;
-            if (!supplierId || supplierId === 'CREATE_NEW') {
-                pSupplier.classList.add('input-error');
-                showToast("Por favor, seleccione un proveedor antes de cargar productos.", "error");
-                pSupplier.focus();
-                
-                // Quitar el error cuando cambie
-                pSupplier.addEventListener('change', () => pSupplier.classList.remove('input-error'), { once: true });
-                return;
+        // Equipment Builder logic
+        if (purchaseType === 'EQUIPO_UTENSILIO') {
+            const addEqBtn = container.querySelector('#addEqBtn');
+            const equipmentList = container.querySelector('#equipmentList');
+            const eqTotalUsd = container.querySelector('#eqTotalUsd');
+            
+            let equipmentItems = [];
+            
+            const updateEqTotals = () => {
+                totalPurchaseUsd = equipmentItems.reduce((sum, item) => sum + (item.costUsd * item.qty), 0);
+                const bcv = parseNum(pBcvRate.value) || 1;
+                totalPurchaseBs = totalPurchaseUsd * bcv;
+                if (eqTotalUsd) eqTotalUsd.textContent = `$ ${totalPurchaseUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                calculatePendingBalance();
+            };
+
+            if (addEqBtn) {
+                addEqBtn.addEventListener('click', () => {
+                    const id = Date.now().toString();
+                    equipmentItems.push({ id, name: '', description: '', serial: '', qty: 1, costUsd: 0 });
+                    renderEquipmentList();
+                });
             }
-            renderProductBuilder(currentPurchaseProducts, pCurrency.value, parseNum(pBcvRate.value) || 1, supplierId);
-        });
+
+            const renderEquipmentList = () => {
+                equipmentList.innerHTML = equipmentItems.map((item, index) => `
+                    <div class="card" style="padding: 1rem; background: var(--surface); border: 1px solid var(--border); position: relative;">
+                        <button type="button" class="btn btn-outline eq-remove-btn" data-index="${index}" style="position: absolute; top: 0.5rem; right: 0.5rem; width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; border-color: var(--danger); color: var(--danger); border-radius: 50%;">X</button>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Nombre del Equipo <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control eq-name" data-index="${index}" value="${item.name}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Serial / Marca</label>
+                                <input type="text" class="form-control eq-serial" data-index="${index}" value="${item.serial}">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label>Descripción breve</label>
+                                <input type="text" class="form-control eq-desc" data-index="${index}" value="${item.description}">
+                            </div>
+                            <div class="form-group">
+                                <label>Cantidad <span class="text-danger">*</span></label>
+                                <input type="number" step="1" min="1" class="form-control eq-qty" data-index="${index}" value="${item.qty}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Costo Unid. $ <span class="text-danger">*</span></label>
+                                <input type="text" inputmode="numeric" class="form-control eq-cost" data-index="${index}" value="${item.costUsd}" required>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                equipmentList.querySelectorAll('.eq-name').forEach(inp => inp.addEventListener('input', (e) => equipmentItems[e.target.dataset.index].name = e.target.value));
+                equipmentList.querySelectorAll('.eq-serial').forEach(inp => inp.addEventListener('input', (e) => equipmentItems[e.target.dataset.index].serial = e.target.value));
+                equipmentList.querySelectorAll('.eq-desc').forEach(inp => inp.addEventListener('input', (e) => equipmentItems[e.target.dataset.index].description = e.target.value));
+                equipmentList.querySelectorAll('.eq-qty').forEach(inp => {
+                    inp.addEventListener('input', (e) => {
+                        equipmentItems[e.target.dataset.index].qty = parseInt(e.target.value) || 0;
+                        updateEqTotals();
+                    });
+                });
+                equipmentList.querySelectorAll('.eq-cost').forEach(inp => {
+                    applyNumericMask(inp, () => {
+                        equipmentItems[inp.dataset.index].costUsd = parseNum(inp.value) || 0;
+                        updateEqTotals();
+                    });
+                });
+                equipmentList.querySelectorAll('.eq-remove-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        equipmentItems.splice(e.target.dataset.index, 1);
+                        renderEquipmentList();
+                        updateEqTotals();
+                    });
+                });
+            };
+            
+            window.currentEquipmentItems = equipmentItems;
+        }
+
+        if (purchaseType === 'GASTO_SERVICIO') {
+            const btnExpenseCurrencyBs = container.querySelector('#btnExpenseCurrencyBs');
+            const btnExpenseCurrencyUsd = container.querySelector('#btnExpenseCurrencyUsd');
+            const pExpenseCurrency = container.querySelector('#pExpenseCurrency');
+            const pExpenseAmount = container.querySelector('#pExpenseAmount');
+            const pExpenseBcvRate = container.querySelector('#pExpenseBcvRate');
+            
+            applyNumericMask(pExpenseAmount, () => {
+                calculateExpenseTotals();
+            });
+            applyNumericMask(pExpenseBcvRate, () => {
+                calculateExpenseTotals();
+            });
+
+            const calculateExpenseTotals = () => {
+                const amt = parseNum(pExpenseAmount.value) || 0;
+                const bcv = parseNum(pExpenseBcvRate.value) || 1;
+                if (pExpenseCurrency.value === 'USD') {
+                    totalPurchaseUsd = amt;
+                    totalPurchaseBs = amt * bcv;
+                } else {
+                    totalPurchaseBs = amt;
+                    totalPurchaseUsd = amt / bcv;
+                }
+            };
+
+            btnExpenseCurrencyBs?.addEventListener('click', () => {
+                pExpenseCurrency.value = 'BS';
+                btnExpenseCurrencyBs.style.background = 'var(--primary)';
+                btnExpenseCurrencyBs.style.color = 'white';
+                btnExpenseCurrencyUsd.style.background = 'var(--background)';
+                btnExpenseCurrencyUsd.style.color = 'var(--text-main)';
+                calculateExpenseTotals();
+            });
+
+            btnExpenseCurrencyUsd?.addEventListener('click', () => {
+                pExpenseCurrency.value = 'USD';
+                btnExpenseCurrencyUsd.style.background = 'var(--primary)';
+                btnExpenseCurrencyUsd.style.color = 'white';
+                btnExpenseCurrencyBs.style.background = 'var(--background)';
+                btnExpenseCurrencyBs.style.color = 'var(--text-main)';
+                calculateExpenseTotals();
+            });
+
+            const pExpenseRecurrence = container.querySelector('#pExpenseRecurrence');
+            const pExpenseNextDueDateGroup = container.querySelector('#pExpenseNextDueDateGroup');
+            const pExpenseNextDueDate = container.querySelector('#pExpenseNextDueDate');
+            
+            pExpenseRecurrence?.addEventListener('change', () => {
+                if (pExpenseRecurrence.value === 'NONE') {
+                    pExpenseNextDueDateGroup.style.display = 'none';
+                    pExpenseNextDueDate.required = false;
+                } else {
+                    pExpenseNextDueDateGroup.style.display = 'block';
+                    pExpenseNextDueDate.required = true;
+                    if (!pExpenseNextDueDate.value) {
+                        const d = new Date();
+                        if (pExpenseRecurrence.value === 'MENSUAL') d.setMonth(d.getMonth() + 1);
+                        if (pExpenseRecurrence.value === 'ANUAL') d.setFullYear(d.getFullYear() + 1);
+                        pExpenseNextDueDate.value = d.toISOString().split('T')[0];
+                    }
+                }
+            });
+
+            if (prefillData) {
+                // Wait a tick for elements to be fully ready
+                setTimeout(() => {
+                    container.querySelector('#pCreditor').value = prefillData.creditorId || '';
+                    container.querySelector('#pCategory').value = prefillData.categoryId || '';
+                    container.querySelector('#pDescription').value = prefillData.description || '';
+                    if (prefillData.amountUsd) {
+                        pExpenseCurrency.value = 'USD';
+                        btnExpenseCurrencyUsd.style.background = 'var(--primary)';
+                        btnExpenseCurrencyUsd.style.color = 'white';
+                        btnExpenseCurrencyBs.style.background = 'var(--background)';
+                        btnExpenseCurrencyBs.style.color = 'var(--text-main)';
+                        pExpenseAmount.value = fmtNum(prefillData.amountUsd);
+                    }
+                    if (prefillData.recurrenceType) {
+                        pExpenseRecurrence.value = prefillData.recurrenceType;
+                        pExpenseRecurrence.dispatchEvent(new Event('change'));
+                    }
+                    calculateExpenseTotals();
+                }, 50);
+            }
+        }
+
+        // Product Builder logic
+        const openProductBuilderBtn = container.querySelector('#openProductBuilderBtn');
+        if (openProductBuilderBtn) {
+            openProductBuilderBtn.addEventListener('click', () => {
+                const supplierId = pSupplier.value;
+                if (!supplierId || supplierId === 'CREATE_NEW') {
+                    pSupplier.classList.add('input-error');
+                    showToast("Por favor, seleccione un proveedor antes de cargar productos.", "error");
+                    pSupplier.focus();
+                    
+                    // Quitar el error cuando cambie
+                    pSupplier.addEventListener('change', () => pSupplier.classList.remove('input-error'), { once: true });
+                    return;
+                }
+                renderProductBuilder(currentPurchaseProducts, pCurrency.value, parseNum(pBcvRate.value) || 1, supplierId);
+            });
+        }
 
         // Este handler recibe los datos del modal cuando el usuario hace clic en "Procesar Selección"
         const handleProductsProcessed = (e) => {
@@ -1166,9 +1780,13 @@ export function renderPurchases(container) {
             totalPurchaseUsd = currentPurchaseProducts.reduce((acc, p) => acc + p.subTotalUsd, 0);
             totalPurchaseBs = currentPurchaseProducts.reduce((acc, p) => acc + p.subTotalBs, 0);
 
-            container.querySelector('#pItemsCount').textContent = currentPurchaseProducts.length;
-            container.querySelector('#pTotalBs').textContent = `Bs. ${totalPurchaseBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            container.querySelector('#pTotalUsd').textContent = `$ ${totalPurchaseUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const pItemsCount = container.querySelector('#pItemsCount');
+            const pTotalBs = container.querySelector('#pTotalBs');
+            const pTotalUsd = container.querySelector('#pTotalUsd');
+
+            if (pItemsCount) pItemsCount.textContent = currentPurchaseProducts.length;
+            if (pTotalBs) pTotalBs.textContent = `Bs. ${totalPurchaseBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            if (pTotalUsd) pTotalUsd.textContent = `$ ${totalPurchaseUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             
             calculatePendingBalance();
         }
@@ -1193,9 +1811,20 @@ export function renderPurchases(container) {
         const purchaseForm = container.querySelector('#purchaseForm');
         purchaseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (currentPurchaseProducts.length === 0) {
+            
+            if (purchaseType === 'PRODUCTO' && currentPurchaseProducts.length === 0) {
                 showToast("Debe agregar al menos un producto a la compra.", "error");
                 return;
+            }
+            if (purchaseType === 'EQUIPO_UTENSILIO') {
+                if (!window.currentEquipmentItems || window.currentEquipmentItems.length === 0) {
+                    showToast("Debe agregar al menos un equipo a la compra.", "error");
+                    return;
+                }
+                if (window.currentEquipmentItems.some(i => !i.name || i.qty <= 0 || i.costUsd < 0)) {
+                    showToast("Complete los datos requeridos para cada equipo.", "error");
+                    return;
+                }
             }
 
             const btn = container.querySelector('#savePurchaseBtn');
@@ -1205,80 +1834,177 @@ export function renderPurchases(container) {
             const businessId = localStorage.getItem('businessId');
             
             // Build purchase object
-            const purchaseData = {
-                supplierId: container.querySelector('#pSupplier').value,
-                bcvRate: parseNum(container.querySelector('#pBcvRate').value) || 1,
-                emissionDate: container.querySelector('#pEmissionDate').value,
-                receptionDate: container.querySelector('#pReceptionDate').value,
-                docType: container.querySelector('#pDocType').value,
-                docNumber: container.querySelector('#pDocNumber').value,
-                status: pStatus.value,
-                currency: pCurrency.value,
-                totalBs: totalPurchaseBs,
-                totalUsd: totalPurchaseUsd,
-                itemsCount: currentPurchaseProducts.reduce((acc, curr) => acc + curr.qty, 0),
-                products: currentPurchaseProducts,
-                createdAt: new Date().toISOString(),
-                createdBy: localStorage.getItem('userRole') || 'admin'
-            };
+            let purchaseData = {};
+
+            if (purchaseType === 'GASTO_SERVICIO') {
+                const pCreditorEl = container.querySelector('#pCreditor').value;
+                const amt = parseNum(container.querySelector('#pExpenseAmount').value);
+                if (!pCreditorEl || pCreditorEl === 'CREATE_NEW' || amt <= 0) {
+                    showToast("Por favor complete el acreedor y el monto.", "error");
+                    btn.disabled = false;
+                    btn.textContent = 'Crear Gasto';
+                    return;
+                }
+                
+                purchaseData = {
+                    purchaseType,
+                    creditorId: pCreditorEl,
+                    categoryId: container.querySelector('#pCategory').value,
+                    description: container.querySelector('#pDescription').value,
+                    bcvRate: parseNum(container.querySelector('#pExpenseBcvRate').value) || 1,
+                    emissionDate: container.querySelector('#pExpenseDate').value,
+                    receptionDate: container.querySelector('#pExpenseDate').value,
+                    docType: 'RECIBO',
+                    docNumber: 'S/N',
+                    status: container.querySelector('#pExpenseStatus').value,
+                    currency: container.querySelector('#pExpenseCurrency').value,
+                    totalBs: totalPurchaseBs,
+                    totalUsd: totalPurchaseUsd,
+                    createdAt: new Date().toISOString(),
+                    createdBy: localStorage.getItem('userRole') || 'admin'
+                };
+            } else {
+                purchaseData = {
+                    purchaseType,
+                    supplierId: container.querySelector('#pSupplier')?.value || null,
+                    bcvRate: parseNum(container.querySelector('#pBcvRate')?.value) || 1,
+                    emissionDate: container.querySelector('#pEmissionDate')?.value || todayStr,
+                    receptionDate: container.querySelector('#pReceptionDate')?.value || todayStr,
+                    docType: container.querySelector('#pDocType')?.value || null,
+                    docNumber: container.querySelector('#pDocNumber')?.value || null,
+                    status: pStatus?.value || 'PAGADO',
+                    currency: pCurrency?.value || 'BS',
+                    totalBs: totalPurchaseBs,
+                    totalUsd: totalPurchaseUsd,
+                    createdAt: new Date().toISOString(),
+                    createdBy: localStorage.getItem('userRole') || 'admin'
+                };
+
+                if (purchaseType === 'PRODUCTO') {
+                    purchaseData.itemsCount = currentPurchaseProducts.reduce((acc, curr) => acc + curr.qty, 0);
+                    purchaseData.products = currentPurchaseProducts;
+                } else if (purchaseType === 'EQUIPO_UTENSILIO') {
+                    purchaseData.itemsCount = window.currentEquipmentItems.reduce((acc, curr) => acc + curr.qty, 0);
+                    purchaseData.equipmentItems = window.currentEquipmentItems;
+                }
+            }
 
             // Payment data if applicable
-            if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
-                purchaseData.paymentDate = pPaymentDate.value;
-                purchaseData.paymentMethod = pPaymentMethod.value;
-                purchaseData.receivedBs = parseNum(pReceivedBs.value) || 0;
-                purchaseData.receivedUsd = parseNum(pReceivedUsd.value) || 0;
-                purchaseData.equivalentUsd = parseNum(pEquivalentUsd.value) || 0;
-                purchaseData.reference = container.querySelector('#pReference').value || null;
+            if (purchaseType === 'GASTO_SERVICIO') {
+                if (purchaseData.status === 'PAGADO') {
+                    purchaseData.paymentDate = purchaseData.emissionDate;
+                    purchaseData.paymentMethod = 'Efectivo'; // Default
+                    purchaseData.receivedBs = purchaseData.currency === 'BS' ? totalPurchaseBs : 0;
+                    purchaseData.receivedUsd = purchaseData.currency === 'USD' ? totalPurchaseUsd : 0;
+                    purchaseData.equivalentUsd = totalPurchaseUsd;
+                    purchaseData.reference = null;
+                    purchaseData.pendingBalanceUsd = 0;
+                } else {
+                    purchaseData.pendingBalanceUsd = totalPurchaseUsd;
+                }
+            } else {
+                if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
+                    purchaseData.paymentDate = pPaymentDate.value;
+                    purchaseData.paymentMethod = pPaymentMethod.value;
+                    purchaseData.receivedBs = parseNum(pReceivedBs.value) || 0;
+                    purchaseData.receivedUsd = parseNum(pReceivedUsd.value) || 0;
+                    purchaseData.equivalentUsd = parseNum(pEquivalentUsd.value) || 0;
+                    purchaseData.reference = container.querySelector('#pReference').value || null;
+                }
+                purchaseData.pendingBalanceUsd = parseNum(pPendingBalance.value) || 0;
             }
-            purchaseData.pendingBalanceUsd = parseNum(pPendingBalance.value) || 0;
 
             try {
                 // 1. Guardar la compra
                 const newPurchaseRef = doc(collection(db, "businesses", businessId, "purchases"));
                 await setDoc(newPurchaseRef, purchaseData);
 
+                // 1.2 Si es un gasto recurrente, guardar/actualizar la plantilla
+                if (purchaseType === 'GASTO_SERVICIO') {
+                    const rec = container.querySelector('#pExpenseRecurrence').value;
+                    if (rec !== 'NONE') {
+                        const nextDate = container.querySelector('#pExpenseNextDueDate').value;
+                        const templateData = {
+                            creditorId: purchaseData.creditorId,
+                            categoryId: purchaseData.categoryId,
+                            description: purchaseData.description,
+                            recurrenceType: rec,
+                            amountUsd: totalPurchaseUsd, 
+                            nextDueDate: nextDate,
+                            updatedAt: new Date().toISOString()
+                        };
+                        
+                        if (prefillData && prefillData.templateId) {
+                            await updateDoc(doc(db, "businesses", businessId, "expense_templates", prefillData.templateId), templateData);
+                        } else {
+                            templateData.createdAt = new Date().toISOString();
+                            await setDoc(doc(collection(db, "businesses", businessId, "expense_templates")), templateData);
+                        }
+                    }
+                }
+
                 // 1.5 Si hay pago inicial, crear el registro en la sub-colección de pagos
-                if (purchaseData.status === 'CONTADO' || purchaseData.status === 'ABONO') {
+                if ((purchaseType !== 'GASTO_SERVICIO' && (purchaseData.status === 'CONTADO' || purchaseData.status === 'ABONO')) ||
+                    (purchaseType === 'GASTO_SERVICIO' && purchaseData.status === 'PAGADO')) {
                     const firstPaymentRef = doc(collection(db, "businesses", businessId, "purchases", newPurchaseRef.id, "payments"));
                     await setDoc(firstPaymentRef, {
                         date: purchaseData.paymentDate,
-                        method: purchaseData.paymentMethod,
-                        reference: purchaseData.reference,
-                        amountBs: purchaseData.receivedBs,
-                        amountUsd: purchaseData.receivedUsd,
-                        equivalentUsd: purchaseData.equivalentUsd,
+                        method: purchaseData.paymentMethod || 'Efectivo',
+                        reference: purchaseData.reference || null,
+                        amountBs: purchaseData.receivedBs || 0,
+                        amountUsd: purchaseData.receivedUsd || 0,
+                        equivalentUsd: purchaseData.equivalentUsd || 0,
                         createdAt: new Date().toISOString(),
                         type: 'INITIAL'
                     });
                 }
 
-                // 2. Actualizar Inventario y Costos
-                // Iteramos los productos y lanzamos updates individuales a Firebase
-                for (let item of currentPurchaseProducts) {
-                    const prodRef = doc(db, "businesses", businessId, "products", item.id);
-                    const prodSnap = await getDoc(prodRef);
-                    if (prodSnap.exists()) {
-                        const pData = prodSnap.data();
-                        // Stock siempre en stockGeneral (Almacén General)
-                        const currentGeneral = pData.stockGeneral ?? pData.stock ?? 0;
-                        const newStockGeneral = currentGeneral + item.qty;
-                        const newCostPerStockUnit = item.costPerStockUnitUsd || item.costUsd;
-                        const factor = pData.stockToRecipeFactor || 1;
-                        const newCostPerRecipeUnit = factor > 0 ? newCostPerStockUnit / factor : newCostPerStockUnit;
+                // 2. Actualizar Inventario y Costos solo si es PRODUCTO
+                if (purchaseType === 'PRODUCTO') {
+                    for (let item of currentPurchaseProducts) {
+                        const prodRef = doc(db, "businesses", businessId, "products", item.id);
+                        const prodSnap = await getDoc(prodRef);
+                        if (prodSnap.exists()) {
+                            const pData = prodSnap.data();
+                            // Stock siempre en stockGeneral (Almacén General)
+                            const currentGeneral = pData.stockGeneral ?? pData.stock ?? 0;
+                            const newStockGeneral = currentGeneral + item.qty;
+                            const newCostPerStockUnit = item.costPerStockUnitUsd || item.costUsd;
+                            const factor = pData.stockToRecipeFactor || 1;
+                            const newCostPerRecipeUnit = factor > 0 ? newCostPerStockUnit / factor : newCostPerStockUnit;
 
-                        const roundTo05 = (num) => Math.round(num * 20) / 20;
-                        let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
-                        if (pData.category === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
+                            const roundTo05 = (num) => Math.round(num * 20) / 20;
+                            let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
+                            if (pData.category === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
 
-                        await updateDoc(prodRef, {
-                            stockGeneral: newStockGeneral,
-                            cost: newCostPerStockUnit,
-                            costPerStockUnit: newCostPerStockUnit,
-                            costPerRecipeUnit: newCostPerRecipeUnit,
-                            priceDetal: roundTo05(newCostPerStockUnit * mDetal),
-                            priceMayor: roundTo05(newCostPerStockUnit * mMayor),
-                            priceSpecial: roundTo05(newCostPerStockUnit * mSpecial)
+                            await updateDoc(prodRef, {
+                                stockGeneral: newStockGeneral,
+                                cost: newCostPerStockUnit,
+                                costPerStockUnit: newCostPerStockUnit,
+                                costPerRecipeUnit: newCostPerRecipeUnit,
+                                priceDetal: roundTo05(newCostPerStockUnit * mDetal),
+                                priceMayor: roundTo05(newCostPerStockUnit * mMayor),
+                                priceSpecial: roundTo05(newCostPerStockUnit * mSpecial)
+                            });
+                        }
+                    }
+                } else if (purchaseType === 'EQUIPO_UTENSILIO') {
+                    // Si es equipo, iterar equipmentItems y guardarlos en la colección "equipment"
+                    for (let eq of window.currentEquipmentItems) {
+                        const eqRef = doc(collection(db, "businesses", businessId, "equipment"));
+                        await setDoc(eqRef, {
+                            name: eq.name,
+                            description: eq.description || null,
+                            serial: eq.serial || null,
+                            qty: eq.qty,
+                            costUsd: eq.costUsd,
+                            totalCostUsd: eq.qty * eq.costUsd,
+                            purchaseId: newPurchaseRef.id,
+                            supplierId: purchaseData.supplierId,
+                            purchaseDate: purchaseData.emissionDate,
+                            status: 'ACTIVO',
+                            createdAt: new Date().toISOString(),
+                            createdBy: localStorage.getItem('userRole') || 'admin'
                         });
                     }
                 }

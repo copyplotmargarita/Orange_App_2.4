@@ -73,9 +73,9 @@ export function renderStores(container) {
 
     function renderForm() {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--success);">✨ Nueva Sucursal</h2>
-                <p class="text-muted text-sm">Registra un nuevo punto de venta para tu negocio</p>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ Nueva Sucursal</h2>
             </div>
             
             <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--success);">
@@ -121,6 +121,7 @@ export function renderStores(container) {
         `;
 
         container.querySelector('#cancelBtn').addEventListener('click', renderList);
+        container.querySelector('#backHeaderBtn')?.addEventListener('click', () => container.querySelector('#cancelBtn').click());
         container.querySelector('#storeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = container.querySelector('#saveBtn');

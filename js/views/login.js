@@ -1,7 +1,7 @@
 import { navigate } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-import { doc, getDoc, collection, getDocs, query, where, addDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, getDoc, collection, getDocs, query, where, addDoc, collectionGroup } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderLogin() {
     const container = document.createElement('div');
@@ -65,12 +65,18 @@ export function renderLogin() {
             const uid = auth.currentUser.uid;
             
             // 1. ¿Es el dueño principal del negocio?
-            const businessDoc = await getDoc(doc(db, "businesses", uid));
+            let businessDoc = null;
+            try {
+                businessDoc = await getDoc(doc(db, "businesses", uid));
+            } catch (err) {
+                console.warn("Posible restricción de permisos al leer negocio (es empleado).", err);
+            }
+
             let empData = null;
             let businessId = null;
             let cargo = "Administrador";
 
-            if (businessDoc.exists()) {
+            if (businessDoc && businessDoc.exists()) {
                 // Es el dueño, forzamos su rol a admin
                 businessId = uid;
                 const bData = businessDoc.data();
@@ -80,15 +86,13 @@ export function renderLogin() {
                 localStorage.setItem('employeeName', empData.name);
             } else {
                 // 2. Si no es el dueño, debe ser un empleado. Buscamos su cargo en la BD
-                const businessesSnap = await getDocs(collection(db, "businesses"));
-                for (const bDoc of businessesSnap.docs) {
-                    const q = query(collection(db, "businesses", bDoc.id, "employees"), where("email", "==", email));
-                    const empSnap = await getDocs(q);
-                    if (!empSnap.empty) {
-                        empData = empSnap.docs[0].data();
-                        businessId = bDoc.id;
-                        break;
-                    }
+                const { collectionGroup } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js");
+                const q = query(collectionGroup(db, "employees"), where("email", "==", email));
+                const empSnap = await getDocs(q);
+                
+                if (!empSnap.empty) {
+                    empData = empSnap.docs[0].data();
+                    businessId = empSnap.docs[0].ref.parent.parent.id;
                 }
                 
                 if (!empData) {

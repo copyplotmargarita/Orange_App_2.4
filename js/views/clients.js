@@ -95,9 +95,9 @@ export function renderClients(container, onFinish = null, initialName = '') {
         marker = null;
 
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; text-align: center; justify-content: center; flex-direction: column;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ Nuevo Cliente</h2>
-                <p class="text-muted text-sm">Registra los datos para facturación y delivery</p>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button type="button" class="btn btn-outline" id="backBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ Nuevo Cliente</h2>
             </div>
             
             <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">

@@ -208,9 +208,9 @@ export function renderProducts(container) {
         const purchaseSupplierId = window.tempPurchaseState?.supplierId || '';
 
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; flex-direction: column; text-align: center;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
-                <p class="text-muted text-sm">Configura los detalles técnicos, costos y precios de venta</p>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
             </div>
             
             <form id="productForm">
@@ -582,6 +582,7 @@ export function renderProducts(container) {
         `;
 
         // DOM Elements
+        container.querySelector('#backHeaderBtn')?.addEventListener('click', () => container.querySelector('#backBtn').click());
         const form = container.querySelector('#productForm');
         const catSelect = container.querySelector('#prodCategory');
         const supplierGroup = container.querySelector('#supplierGroup');

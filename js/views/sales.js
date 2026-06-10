@@ -93,47 +93,59 @@ export function renderSales(container, preSelectedClient = null) {
         }
         
         try {
-            // Load products - Simplified query to avoid index errors
-            const snapProd = await getDocs(collection(db, "businesses", businessId, "products"));
-            products = snapProd.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Load products
+            try {
+                const snapProd = await getDocs(collection(db, "businesses", businessId, "products"));
+                products = snapProd.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch(e) { throw new Error("products: " + e.message); }
 
             // If employee, merge local store stock
             if (role === 'employee') {
                 const localStoreId = localStorage.getItem('storeId');
                 if (localStoreId) {
-                    const snapStoreInv = await getDocs(collection(db, "businesses", businessId, "stores", localStoreId, "inventory"));
-                    const storeStockMap = {};
-                    snapStoreInv.forEach(doc => {
-                        storeStockMap[doc.id] = doc.data().qty || 0;
-                    });
-                    products = products.map(p => ({
-                        ...p,
-                        stockGeneral: storeStockMap[p.id] || 0
-                    }));
+                    try {
+                        const snapStoreInv = await getDocs(collection(db, "businesses", businessId, "stores", localStoreId, "inventory"));
+                        const storeStockMap = {};
+                        snapStoreInv.forEach(doc => {
+                            storeStockMap[doc.id] = doc.data().qty || 0;
+                        });
+                        products = products.map(p => ({
+                            ...p,
+                            stockGeneral: storeStockMap[p.id] || 0
+                        }));
+                    } catch(e) { 
+                        console.warn("No se pudo cargar el inventario local (probablemente por reglas de Firebase):", e.message); 
+                    }
                 }
             }
 
-            products.sort((a, b) => a.name.localeCompare(b.name));
+            products.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
             // Load clients
-            const snapCli = await getDocs(collection(db, "businesses", businessId, "clients"));
-            clients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            clients.sort((a, b) => a.fullName.localeCompare(b.fullName));
+            try {
+                const snapCli = await getDocs(collection(db, "businesses", businessId, "clients"));
+                clients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                clients.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')));
+            } catch(e) { throw new Error("clients: " + e.message); }
 
             // Load stores for admin filtering
             if (role === 'admin') {
-                const snapStores = await getDocs(collection(db, "businesses", businessId, "stores"));
-                stores = snapStores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                stores.sort((a, b) => a.name.localeCompare(b.name));
+                try {
+                    const snapStores = await getDocs(collection(db, "businesses", businessId, "stores"));
+                    stores = snapStores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    stores.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                } catch(e) { throw new Error("stores: " + e.message); }
             }
 
             // Load daily sales
-            await loadDailySales();
+            try {
+                await loadDailySales();
+            } catch(e) { throw new Error("sales: " + e.message); }
 
             render();
         } catch (error) {
             console.error("Error cargando datos:", error);
-            container.innerHTML = '<div class="text-danger">Error al cargar los datos.</div>';
+            container.innerHTML = `<div class="text-danger">Error al cargar los datos. Detalle: ${error.message}</div>`;
         }
     }
 
@@ -142,7 +154,10 @@ export function renderSales(container, preSelectedClient = null) {
         const businessId = localStorage.getItem('businessId');
         if (!businessId) return;
 
-        const q = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
+        let q = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
+        if (role !== 'admin') {
+            q = query(q, where("employeeEmail", "==", userEmail));
+        }
         const snap = await getDocs(q);
         const allSales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -150,7 +165,7 @@ export function renderSales(container, preSelectedClient = null) {
 
         dailySales = allSales.filter(sale => {
             if (role !== 'admin') {
-                return sale.employeeEmail === auth.currentUser?.email;
+                return sale.employeeEmail === userEmail;
             } else {
                 // Admin sees ONLY "Almacén General" in this view as requested
                 return (sale.storeId === 'general') || (!sale.storeId) || (sale.storeName === 'Almacén General');
@@ -185,7 +200,7 @@ export function renderSales(container, preSelectedClient = null) {
 
                 let pass = false;
                 if (role !== 'admin') {
-                    pass = (p.employeeEmail === auth.currentUser?.email);
+                    pass = (p.employeeEmail === userEmail);
                 } else {
                     // For admin, show ONLY the main warehouse (general store) in this personal view
                     pass = (p.storeId === 'general') || (!p.storeId) || (p.storeName === 'Almacén General');
@@ -283,6 +298,7 @@ export function renderSales(container, preSelectedClient = null) {
                     <!-- Left Header: Product Controls -->
                     <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;">
                         <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; min-width: 0;">
+                            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.3rem 0.6rem; height: 36px; font-size: 0.85rem;">← Volver</button>
                             <h2 style="margin: 0; font-size: 1rem; white-space: nowrap; flex: none;">🛒 Ventas</h2>
                             
                             <!-- Search Bar -->
@@ -442,6 +458,12 @@ export function renderSales(container, preSelectedClient = null) {
         `;
 
         // Event Listeners
+        container.querySelector('#backToDashboardBtn')?.addEventListener('click', () => {
+            const navHome = document.getElementById('navHome');
+            if (navHome) navHome.click();
+            else window.location.hash = '#dashboard';
+        });
+
         container.querySelector('#productSearch').addEventListener('input', (e) => {
             searchProductTerm = e.target.value.toLowerCase();
             container.querySelector('#productList').innerHTML = renderProductList();
@@ -1381,7 +1403,7 @@ export function renderSales(container, preSelectedClient = null) {
                         status: isPresupuesto ? 'presupuesto' : (currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito')),
                         clientId: selectedClient.id,
                         clientName: selectedClient.fullName,
-                        employeeEmail: auth.currentUser?.email,
+                        employeeEmail: userEmail,
                         employeeName: currentEmployeeName,
                         storeId: storeId || 'general',
                         storeName: storeName,
@@ -1423,7 +1445,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 businessId,
                                 storeId: storeId || 'general',
                                 storeName: storeName,
-                                employeeEmail: auth.currentUser?.email,
+                                employeeEmail: userEmail,
                                 employeeName: currentEmployeeName,
                                 date: todayStr,
                                 createdAt: serverTimestamp(),
@@ -1640,7 +1662,7 @@ export function renderSales(container, preSelectedClient = null) {
                        where("date", "==", todayStr));
         
         if (role !== 'admin') {
-            pq = query(pq, where("employeeEmail", "==", auth.currentUser.email));
+            pq = query(pq, where("employeeEmail", "==", userEmail));
         }
 
         const pSnap = await getDocs(pq);
@@ -1654,7 +1676,7 @@ export function renderSales(container, preSelectedClient = null) {
             // Strict filter based on session
             let pass = false;
             if (role !== 'admin') {
-                pass = (p.employeeEmail === auth.currentUser?.email);
+                pass = (p.employeeEmail === userEmail);
             } else {
                 pass = (p.storeId === 'general') || (!p.storeId) || (p.storeName === 'Almacén General');
             }
