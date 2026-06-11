@@ -193,14 +193,24 @@ export function renderProducts(container) {
     }
 
     function renderForm(editProduct = null) {
+        // Restaurar estado si venimos de crear un proveedor desde este formulario
+        const restoredState = window.tempProductState;
+        if (restoredState) {
+            // Completar editProduct con el ID guardado si aplica
+            if (!editProduct && restoredState.editProductId) {
+                editProduct = products.find(p => p.id === restoredState.editProductId) || null;
+            }
+            window.tempProductState = null;
+        }
+
         let recipeIngredients = editProduct?.recipeIngredients || [];
         const isFromPurchase = !!window.tempPurchaseState;
         const purchaseSupplierId = window.tempPurchaseState?.supplierId || '';
 
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; flex-direction: column; text-align: center;">
-                <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
-                <p class="text-muted text-sm">Configura los detalles técnicos, costos y precios de venta</p>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
             </div>
             
             <form id="productForm">
@@ -572,6 +582,7 @@ export function renderProducts(container) {
         `;
 
         // DOM Elements
+        container.querySelector('#backHeaderBtn')?.addEventListener('click', () => container.querySelector('#backBtn').click());
         const form = container.querySelector('#productForm');
         const catSelect = container.querySelector('#prodCategory');
         const supplierGroup = container.querySelector('#supplierGroup');
@@ -581,10 +592,18 @@ export function renderProducts(container) {
         const btnAddSupplier = container.querySelector('#btnAddSupplier');
         const selectedSuppliersTags = container.querySelector('#selectedSuppliersTags');
         let selectedSupplierIds = editProduct?.supplierIds || (editProduct?.supplierId ? [editProduct.supplierId] : []);
-        
+
         // Si venimos de una compra, asegurar que ese proveedor esté en la lista
         if (isFromPurchase && purchaseSupplierId && !selectedSupplierIds.includes(purchaseSupplierId)) {
             selectedSupplierIds.push(purchaseSupplierId);
+        }
+
+        // Si venimos de crear un proveedor desde este formulario, restaurar lista + agregar el nuevo
+        if (restoredState) {
+            selectedSupplierIds = restoredState.selectedSupplierIds || [];
+            if (restoredState.newSupplierId && !selectedSupplierIds.includes(restoredState.newSupplierId)) {
+                selectedSupplierIds.push(restoredState.newSupplierId);
+            }
         }
 
         function renderSupplierTags() {
@@ -610,13 +629,39 @@ export function renderProducts(container) {
         btnAddSupplier.addEventListener('click', () => {
             const id = prodSupplierSelect.value;
             if (id && !selectedSupplierIds.includes(id)) {
+                // Hay proveedor seleccionado → agregarlo a la lista
                 selectedSupplierIds.push(id);
                 renderSupplierTags();
                 prodSupplierSelect.value = '';
+            } else {
+                // Sin selección → guardar estado y navegar a crear proveedor
+                window.tempProductState = {
+                    editProductId: editProduct?.id || null,
+                    name: container.querySelector('#prodName')?.value || '',
+                    barcode: container.querySelector('#prodBarcode')?.value || '',
+                    category: container.querySelector('#prodCategory')?.value || '',
+                    minStock: container.querySelector('#prodMinStock')?.value || '0',
+                    selectedSupplierIds: [...selectedSupplierIds],
+                    newSupplierId: null,
+                };
+                window.openCreateSupplierForProduct = true;
+                document.getElementById('navProveedores').click();
             }
         });
 
         renderSupplierTags();
+
+        // Restaurar campos del formulario si venimos de crear un proveedor
+        if (restoredState && !editProduct) {
+            if (restoredState.name) container.querySelector('#prodName').value = restoredState.name;
+            if (restoredState.barcode) container.querySelector('#prodBarcode').value = restoredState.barcode;
+            if (restoredState.minStock) container.querySelector('#prodMinStock').value = restoredState.minStock;
+            if (restoredState.category) {
+                container.querySelector('#prodCategory').value = restoredState.category;
+                container.querySelector('#prodCategory').dispatchEvent(new Event('change'));
+            }
+        }
+
         const saleableGroup = container.querySelector('#saleableGroup');
         const prodIsSaleable = container.querySelector('#prodIsSaleable');
         const btnSaleableYes = container.querySelector('#btnSaleableYes');

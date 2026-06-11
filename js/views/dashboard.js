@@ -68,17 +68,18 @@ export function renderDashboard() {
             
             <nav class="sidebar-nav">
                 <ul class="nav-list">
-                    <li><a href="#" id="navClientes" class="sidebar-link">👥 Clientes</a></li>
-                    <li><a href="#" id="navProductos" class="sidebar-link">🛍️ Productos</a></li>
-                    <li><a href="#" id="navProveedores" class="sidebar-link">🏭 Proveedores</a></li>
-                    <li><a href="#" id="navCompras" class="sidebar-link">🧾 Compras</a></li>
-                    <li><a href="#" id="navInventarios" class="sidebar-link">📦 Inventarios</a></li>
-                    <li><a href="#" id="navVentas" class="sidebar-link">💰 Ventas</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navClientes" class="sidebar-link">👥 Clientes</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navProductos" class="sidebar-link">🛍️ Productos</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navProveedores" class="sidebar-link">🏭 Proveedores</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navCompras" class="sidebar-link">🧾 Compras</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navInventarios" class="sidebar-link">📦 Inventarios</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navVentas" class="sidebar-link">💰 Ventas</a></li>
                     ${isAdmin ? '<li><a href="#" id="navReportes" class="sidebar-link">📊 Consultas / Reportes</a></li>' : ''}
-                    <li><a href="#" id="navCobros" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
-                    <li><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
-                    <li><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navCobros" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
+                    <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
                     ${isAdmin ? '<li><a href="#" id="navMantenimiento" class="sidebar-link" style="color: var(--danger);">⚙️ Mantenimiento</a></li>' : ''}
+                    ${isEmployee ? '<li><a href="#" id="navRecibirProductos" class="sidebar-link" style="color:#f97316;">📥 Recibir Productos</a></li>' : ''}
                 </ul>
             </nav>
 
@@ -924,24 +925,65 @@ export function renderDashboard() {
 
         // 2. Si es empleado, cargar datos específicos
         if (isEmployee) {
-            // Ocultar módulos restringidos para empleados
-            const restricted = ['navProveedores', 'navCompras', 'navInventarios', 'navEmpleados', 'navTiendas'];
-            restricted.forEach(id => {
-                const el = container.querySelector(`#${id}`);
-                if (el) el.parentElement.style.display = 'none';
-            });
+            // Mapa módulo → nav ID del sidebar
+            const MODULE_NAV = {
+                ventas:      'navVentas',
+                clientes:    'navClientes',
+                cobros:      'navCobros',
+                productos:   'navProductos',
+                compras:     'navCompras',
+                inventario:  'navInventarios',
+                proveedores: 'navProveedores',
+                reportes:    'navReportes',
+                empleados:   'navEmpleados',
+                tiendas:     'navTiendas',
+            };
+            const ALL_NAV_IDS = Object.values(MODULE_NAV);
 
-            // Mostrar enlace Recibir Productos solo para empleados (evitando duplicados)
-            const navList = container.querySelector('.nav-list');
-            if (navList && !container.querySelector('#navRecibirProductos')) {
-                const li = document.createElement('li');
-                li.innerHTML = `<a href="#" id="navRecibirProductos" class="sidebar-link" style="color:#f97316;">📥 Recibir Productos</a>`;
-                navList.appendChild(li);
-                li.querySelector('a').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    renderStoreReceive(mainContentArea);
+            // Ocultar todos los módulos primero, luego mostrar solo los permitidos
+            const applyModules = (modules) => {
+                ALL_NAV_IDS.forEach(navId => {
+                    const el = container.querySelector(`#${navId}`);
+                    if (el) el.parentElement.style.display = 'none';
+                });
+                modules.forEach(mod => {
+                    const navId = MODULE_NAV[mod];
+                    if (!navId) return;
+                    const el = container.querySelector(`#${navId}`);
+                    if (el) el.parentElement.style.display = '';
+                });
+            };
+
+            // Leer módulos del empleado desde Firestore
+            try {
+                const userEmail = localStorage.getItem('userEmail') || auth.currentUser?.email;
+                if (userEmail && businessId) {
+                    const empQ = query(
+                        collection(db, "businesses", businessId, "employees"),
+                        where("email", "==", userEmail)
+                    );
+                    const empSnap = await getDocs(empQ);
+                    if (!empSnap.empty) {
+                        const empData = empSnap.docs[0].data();
+                        const modules = Array.isArray(empData.modules) && empData.modules.length > 0
+                            ? empData.modules
+                            : ['ventas', 'clientes']; // fallback mínimo para empleados legacy
+                        applyModules(modules);
+                    } else {
+                        // Empleado no encontrado → fallback conservador
+                        applyModules(['ventas', 'clientes']);
+                    }
+                }
+            } catch (e) {
+                console.error('Error cargando módulos del empleado:', e);
+                // Fallback al comportamiento anterior si falla Firestore
+                const restricted = ['navProveedores', 'navCompras', 'navInventarios', 'navEmpleados', 'navTiendas'];
+                restricted.forEach(id => {
+                    const el = container.querySelector(`#${id}`);
+                    if (el) el.parentElement.style.display = 'none';
                 });
             }
+
             
             const empNameLocal = localStorage.getItem('employeeName');
             const empName = empNameLocal || cachedName || (auth.currentUser?.displayName || "Empleado");
@@ -1451,8 +1493,9 @@ export function renderDashboard() {
     // Ejecutar la búsqueda de tasa con un pequeño delay
     setTimeout(() => {
         if (!bcvRateLoaded) {
-            // Ambos roles intentan buscar la tasa automáticamente para ayudarse mutuamente
-            fetchBcvRate(true);
+            // Si es administrador (el que ve la ventana de confirmación), deshabilitar auto-guardado
+            // para que revise y cierre manualmente. Si es empleado, intentar guardar en background.
+            fetchBcvRate(!isAdmin);
         }
     }, 1500);
 

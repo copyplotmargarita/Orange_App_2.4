@@ -36,6 +36,9 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+    const appConfig = JSON.parse(localStorage.getItem('appConfig') || '{}');
+    const taxConfig = appConfig.tax || { enabled: false, name: 'Impuesto', rate: 0 };
+
     let settings = {
         type: 'venta',
         target: 'detal',
@@ -90,47 +93,59 @@ export function renderSales(container, preSelectedClient = null) {
         }
         
         try {
-            // Load products - Simplified query to avoid index errors
-            const snapProd = await getDocs(collection(db, "businesses", businessId, "products"));
-            products = snapProd.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Load products
+            try {
+                const snapProd = await getDocs(collection(db, "businesses", businessId, "products"));
+                products = snapProd.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch(e) { throw new Error("products: " + e.message); }
 
             // If employee, merge local store stock
             if (role === 'employee') {
                 const localStoreId = localStorage.getItem('storeId');
                 if (localStoreId) {
-                    const snapStoreInv = await getDocs(collection(db, "businesses", businessId, "stores", localStoreId, "inventory"));
-                    const storeStockMap = {};
-                    snapStoreInv.forEach(doc => {
-                        storeStockMap[doc.id] = doc.data().qty || 0;
-                    });
-                    products = products.map(p => ({
-                        ...p,
-                        stockGeneral: storeStockMap[p.id] || 0
-                    }));
+                    try {
+                        const snapStoreInv = await getDocs(collection(db, "businesses", businessId, "stores", localStoreId, "inventory"));
+                        const storeStockMap = {};
+                        snapStoreInv.forEach(doc => {
+                            storeStockMap[doc.id] = doc.data().qty || 0;
+                        });
+                        products = products.map(p => ({
+                            ...p,
+                            stockGeneral: storeStockMap[p.id] || 0
+                        }));
+                    } catch(e) { 
+                        console.warn("No se pudo cargar el inventario local (probablemente por reglas de Firebase):", e.message); 
+                    }
                 }
             }
 
-            products.sort((a, b) => a.name.localeCompare(b.name));
+            products.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
             // Load clients
-            const snapCli = await getDocs(collection(db, "businesses", businessId, "clients"));
-            clients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            clients.sort((a, b) => a.fullName.localeCompare(b.fullName));
+            try {
+                const snapCli = await getDocs(collection(db, "businesses", businessId, "clients"));
+                clients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                clients.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')));
+            } catch(e) { throw new Error("clients: " + e.message); }
 
             // Load stores for admin filtering
             if (role === 'admin') {
-                const snapStores = await getDocs(collection(db, "businesses", businessId, "stores"));
-                stores = snapStores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                stores.sort((a, b) => a.name.localeCompare(b.name));
+                try {
+                    const snapStores = await getDocs(collection(db, "businesses", businessId, "stores"));
+                    stores = snapStores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    stores.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                } catch(e) { throw new Error("stores: " + e.message); }
             }
 
             // Load daily sales
-            await loadDailySales();
+            try {
+                await loadDailySales();
+            } catch(e) { throw new Error("sales: " + e.message); }
 
             render();
         } catch (error) {
             console.error("Error cargando datos:", error);
-            container.innerHTML = '<div class="text-danger">Error al cargar los datos.</div>';
+            container.innerHTML = `<div class="text-danger">Error al cargar los datos. Detalle: ${error.message}</div>`;
         }
     }
 
@@ -139,7 +154,10 @@ export function renderSales(container, preSelectedClient = null) {
         const businessId = localStorage.getItem('businessId');
         if (!businessId) return;
 
-        const q = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
+        let q = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
+        if (role !== 'admin') {
+            q = query(q, where("employeeEmail", "==", userEmail));
+        }
         const snap = await getDocs(q);
         const allSales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -147,7 +165,7 @@ export function renderSales(container, preSelectedClient = null) {
 
         dailySales = allSales.filter(sale => {
             if (role !== 'admin') {
-                return sale.employeeEmail === auth.currentUser?.email;
+                return sale.employeeEmail === userEmail;
             } else {
                 // Admin sees ONLY "Almacén General" in this view as requested
                 return (sale.storeId === 'general') || (!sale.storeId) || (sale.storeName === 'Almacén General');
@@ -182,7 +200,7 @@ export function renderSales(container, preSelectedClient = null) {
 
                 let pass = false;
                 if (role !== 'admin') {
-                    pass = (p.employeeEmail === auth.currentUser?.email);
+                    pass = (p.employeeEmail === userEmail);
                 } else {
                     // For admin, show ONLY the main warehouse (general store) in this personal view
                     pass = (p.storeId === 'general') || (!p.storeId) || (p.storeName === 'Almacén General');
@@ -266,8 +284,10 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function renderCartView() {
-        const totalUSD = cart.reduce((sum, item) => sum + item.total, 0);
-        const grandTotalUSD = includeOldDebt ? totalUSD + clientDebt : totalUSD;
+        const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
+        const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
+        const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
+        const grandTotalUSD = includeOldDebt ? baseWithTaxUSD + clientDebt : baseWithTaxUSD;
         const totalBs = grandTotalUSD * bcvRate;
         const totalItems = cart.length;
 
@@ -278,6 +298,7 @@ export function renderSales(container, preSelectedClient = null) {
                     <!-- Left Header: Product Controls -->
                     <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;">
                         <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; min-width: 0;">
+                            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.3rem 0.6rem; height: 36px; font-size: 0.85rem;">← Volver</button>
                             <h2 style="margin: 0; font-size: 1rem; white-space: nowrap; flex: none;">🛒 Ventas</h2>
                             
                             <!-- Search Bar -->
@@ -387,13 +408,20 @@ export function renderSales(container, preSelectedClient = null) {
                                     <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Items</p>
                                     <p style="font-size: 0.9rem; font-weight: 800; margin: 0;">${totalItems}</p>
                                 </div>
+                                ${taxConfig.enabled ? `
+                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
+                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} ${taxConfig.rate}%</p>
+                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--warning, #f59e0b);">$${fmt(taxAmountUSD)}</p>
+                                </div>
+                                ` : `
                                 <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
                                     <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total $</p>
                                     <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--success);">$${fmt(grandTotalUSD)}</p>
                                 </div>
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid #3b82f6;">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total Bs</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: #3b82f6;">${fmt(totalBs)}</p>
+                                `}
+                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
+                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
+                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: ${taxConfig.enabled ? 'var(--success)' : '#3b82f6'};">${taxConfig.enabled ? `$${fmt(grandTotalUSD)}` : fmt(totalBs)}</p>
                                 </div>
                                 <div id="pullDebtBtn" class="card" style="padding: 0.5rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
                                     <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Deuda</p>
@@ -430,6 +458,12 @@ export function renderSales(container, preSelectedClient = null) {
         `;
 
         // Event Listeners
+        container.querySelector('#backToDashboardBtn')?.addEventListener('click', () => {
+            const navHome = document.getElementById('navHome');
+            if (navHome) navHome.click();
+            else window.location.hash = '#dashboard';
+        });
+
         container.querySelector('#productSearch').addEventListener('input', (e) => {
             searchProductTerm = e.target.value.toLowerCase();
             container.querySelector('#productList').innerHTML = renderProductList();
@@ -696,8 +730,10 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     async function renderPaymentView() {
-        const productsUSD = cart.reduce((sum, item) => sum + item.total, 0);
-        const totalUSD = includeOldDebt ? (productsUSD + clientDebt) : productsUSD;
+        const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
+        const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
+        const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
+        const totalUSD = includeOldDebt ? (baseWithTaxUSD + clientDebt) : baseWithTaxUSD;
         const totalBs = totalUSD * bcvRate;
         const totalItems = cart.length;
 
@@ -851,8 +887,10 @@ export function renderSales(container, preSelectedClient = null) {
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                                 ${(() => {
-                                    const productsUSD = cart.reduce((sum, item) => sum + item.total, 0);
-                                    const effectiveTotalUSD = includeOldDebt ? (productsUSD + clientDebt) : productsUSD;
+                                    const sub = cart.reduce((sum, item) => sum + item.total, 0);
+                                    const tax = taxConfig.enabled ? sub * taxConfig.rate / 100 : 0;
+                                    const baseWithTax = sub + tax;
+                                    const effectiveTotalUSD = includeOldDebt ? (baseWithTax + clientDebt) : baseWithTax;
                                     const effectiveTotalBs = effectiveTotalUSD * bcvRate;
                                     const paymentsTotalUSD = payments.reduce((sum, p) => {
                                         if (p.currency === 'USD') return sum + p.amount;
@@ -862,8 +900,18 @@ export function renderSales(container, preSelectedClient = null) {
                                     const currentChangeUSD = Math.max(0, paymentsTotalUSD - effectiveTotalUSD);
 
                                     return `
+                                    ${taxConfig.enabled ? `
+                                    <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--text-muted); margin: 0;">
+                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Subtotal USD</p>
+                                        <p style="font-size: 1rem; font-weight: 800; margin: 0;">$ ${fmt(sub)}</p>
+                                    </div>
+                                    <div class="card" style="padding: 0.6rem; background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; margin: 0;">
+                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} (${taxConfig.rate}%)</p>
+                                        <p style="font-size: 1rem; font-weight: 800; margin: 0; color: #f59e0b;">$ ${fmt(tax)}</p>
+                                    </div>
+                                    ` : ''}
                                     <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--primary); margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total USD</p>
+                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total USD${taxConfig.enabled ? ` c/${taxConfig.name}` : ''}</p>
                                         <p style="font-size: 1rem; font-weight: 800; margin: 0;">$ ${fmt(effectiveTotalUSD)}</p>
                                     </div>
                                     <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid #3b82f6; margin: 0;">
@@ -1241,7 +1289,9 @@ export function renderSales(container, preSelectedClient = null) {
             finishBtn.textContent = isPresupuesto ? 'Generando...' : 'Procesando...';
 
             try {
-                const totalUSD_original = cart.reduce((sum, item) => sum + item.total, 0);
+                const subtotalUSD_original = cart.reduce((sum, item) => sum + item.total, 0);
+                const taxAmountUSD_original = taxConfig.enabled ? subtotalUSD_original * taxConfig.rate / 100 : 0;
+                const totalUSD_original = subtotalUSD_original + taxAmountUSD_original;
                 const paymentsTotalUSD = payments.reduce((sum, p) => {
                     if (p.currency === 'USD') return sum + p.amount;
                     return sum + (p.amount / bcvRate);
@@ -1342,6 +1392,10 @@ export function renderSales(container, preSelectedClient = null) {
                     transaction.set(saleRef, {
                         correlative: correlative,
                         items: cart,
+                        subtotalUSD: subtotalUSD_original,
+                        taxName: taxConfig.enabled ? taxConfig.name : null,
+                        taxRate: taxConfig.enabled ? taxConfig.rate : 0,
+                        taxAmountUSD: taxAmountUSD_original,
                         totalUSD: totalUSD_original,
                         totalBs: totalUSD_original * bcvRate,
                         paidUSD: isPresupuesto ? 0 : paidToCurrentSale,
@@ -1349,7 +1403,7 @@ export function renderSales(container, preSelectedClient = null) {
                         status: isPresupuesto ? 'presupuesto' : (currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito')),
                         clientId: selectedClient.id,
                         clientName: selectedClient.fullName,
-                        employeeEmail: auth.currentUser?.email,
+                        employeeEmail: userEmail,
                         employeeName: currentEmployeeName,
                         storeId: storeId || 'general',
                         storeName: storeName,
@@ -1391,7 +1445,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 businessId,
                                 storeId: storeId || 'general',
                                 storeName: storeName,
-                                employeeEmail: auth.currentUser?.email,
+                                employeeEmail: userEmail,
                                 employeeName: currentEmployeeName,
                                 date: todayStr,
                                 createdAt: serverTimestamp(),
@@ -1608,7 +1662,7 @@ export function renderSales(container, preSelectedClient = null) {
                        where("date", "==", todayStr));
         
         if (role !== 'admin') {
-            pq = query(pq, where("employeeEmail", "==", auth.currentUser.email));
+            pq = query(pq, where("employeeEmail", "==", userEmail));
         }
 
         const pSnap = await getDocs(pq);
@@ -1622,7 +1676,7 @@ export function renderSales(container, preSelectedClient = null) {
             // Strict filter based on session
             let pass = false;
             if (role !== 'admin') {
-                pass = (p.employeeEmail === auth.currentUser?.email);
+                pass = (p.employeeEmail === userEmail);
             } else {
                 pass = (p.storeId === 'general') || (!p.storeId) || (p.storeName === 'Almacén General');
             }
