@@ -1,6 +1,6 @@
 import { navigate } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
-import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
+import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderLogin() {
@@ -31,7 +31,10 @@ export function renderLogin() {
                 </div>
                 
                 <div class="form-group mb-4">
-                    <label>Contraseña</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label style="margin-bottom: 0;">Contraseña</label>
+                        <a href="#" id="forgotPasswordLnk" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 500;">¿Olvidaste tu contraseña?</a>
+                    </div>
                     <input type="password" id="password" class="form-control" placeholder="••••••••" required>
                 </div>
                 
@@ -47,6 +50,38 @@ export function renderLogin() {
     const form = container.querySelector('#loginForm');
     const errorMsg = container.querySelector('#errorMsg');
     const submitBtn = container.querySelector('#submitBtn');
+    const forgotPwdLnk = container.querySelector('#forgotPasswordLnk');
+
+    if (forgotPwdLnk) {
+        forgotPwdLnk.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const emailInput = container.querySelector('#email').value.trim();
+            if (!emailInput) {
+                errorMsg.style.color = 'var(--danger)';
+                errorMsg.textContent = 'Por favor, ingresa tu correo electrónico arriba para enviarte el enlace de recuperación.';
+                container.querySelector('#email').focus();
+                return;
+            }
+            
+            try {
+                errorMsg.style.color = 'var(--text-muted)';
+                errorMsg.textContent = 'Enviando enlace...';
+                
+                await sendPasswordResetEmail(auth, emailInput);
+                
+                errorMsg.style.color = 'var(--success)';
+                errorMsg.textContent = '✅ Enlace enviado. Revisa tu correo (incluyendo carpeta de spam) para crear una nueva contraseña.';
+            } catch (err) {
+                console.error("Error password reset:", err);
+                errorMsg.style.color = 'var(--danger)';
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
+                    errorMsg.textContent = 'Error: Correo no válido o cuenta no encontrada.';
+                } else {
+                    errorMsg.textContent = 'Error al enviar el enlace. Intenta de nuevo.';
+                }
+            }
+        });
+    }
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
