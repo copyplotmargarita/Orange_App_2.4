@@ -102,7 +102,7 @@ export function renderPurchases(container) {
                 delete window.openCreatePurchase;
                 setTimeout(() => {
                     if (window.tempPurchaseState) {
-                        renderForm('PRODUCTO');
+                        renderForm(window.tempPurchaseState.purchaseType || 'PRODUCTO');
                     } else {
                         renderTypeSelector();
                     }
@@ -1375,6 +1375,7 @@ export function renderPurchases(container) {
         pSupplier?.addEventListener('change', () => {
             if (pSupplier.value === 'CREATE_NEW') {
                 window.tempPurchaseState = {
+                    purchaseType: purchaseType,
                     supplierId: '', 
                     bcvRate: pBcvRate.value,
                     emissionDate: pEmissionDate.value,
@@ -2333,6 +2334,7 @@ export function renderPurchases(container) {
         modal.querySelector('#pbCreateProductBtn').addEventListener('click', () => {
             // Save state to window
             window.tempPurchaseState = {
+                purchaseType: purchaseType,
                 supplierId: pSupplier.value,
                 bcvRate: pBcvRate.value,
                 emissionDate: pEmissionDate.value,

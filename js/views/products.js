@@ -1310,6 +1310,7 @@ export function renderProducts(container) {
                 }
 
                 if (window.tempPurchaseState) {
+                    window.openCreatePurchase = true;
                     // Navigate back to purchases
                     document.getElementById('navCompras').click();
                     return;
