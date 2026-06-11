@@ -53,33 +53,75 @@ export function renderDashboard() {
     }
     
     container.innerHTML = `
-        <aside id="sidebar" class="sidebar">
-            <div class="sidebar-brand" id="navHome" style="display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 1.5rem; text-decoration: none; cursor: pointer;">
-                <svg viewBox="0 0 100 100" style="height: 40px; width: 40px; flex-shrink: 0; filter: drop-shadow(0 4px 6px rgba(249, 115, 22, 0.3));">
+                <svg viewBox="0 0 100 100" style="height: 44px; width: 44px; flex-shrink: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
                     <defs>
-                        <linearGradient id="orangeGrad" x1="10%" y1="0%" x2="90%" y2="100%">
-                            <stop offset="0%" stop-color="#ffb703" />
-                            <stop offset="50%" stop-color="#fb8500" />
-                            <stop offset="100%" stop-color="#e65c00" />
-                        </linearGradient>
+                        <!-- 3D spherical gradient for the rind -->
+                        <radialGradient id="rindGrad" cx="35%" cy="30%" r="70%">
+                            <stop offset="0%" stop-color="#ffedd5" />
+                            <stop offset="15%" stop-color="#ffb703" />
+                            <stop offset="55%" stop-color="#f97316" />
+                            <stop offset="85%" stop-color="#c2410c" />
+                            <stop offset="100%" stop-color="#7c2d12" />
+                        </radialGradient>
+                        
+                        <!-- Bright inner flesh gradient -->
+                        <radialGradient id="fleshGrad" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#fef08a" />
+                            <stop offset="35%" stop-color="#f59e0b" />
+                            <stop offset="85%" stop-color="#ea580c" />
+                            <stop offset="100%" stop-color="#9a3412" />
+                        </radialGradient>
+
+                        <!-- Leaf gradient with 3D effect -->
                         <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#84cc16" />
-                            <stop offset="100%" stop-color="#4d7c0f" />
+                            <stop offset="0%" stop-color="#a3e635" />
+                            <stop offset="50%" stop-color="#65a30d" />
+                            <stop offset="100%" stop-color="#3f6212" />
+                        </linearGradient>
+
+                        <!-- Leaf highlight for glossy look -->
+                        <linearGradient id="leafHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#d9f99d" stop-opacity="0.7"/>
+                            <stop offset="100%" stop-color="#65a30d" stop-opacity="0"/>
                         </linearGradient>
                     </defs>
-                    <circle cx="50" cy="58" r="38" fill="url(#orangeGrad)" />
-                    <circle cx="50" cy="58" r="33" fill="none" stroke="#ffedd5" stroke-width="1.5" opacity="0.6" />
-                    <!-- Gajos de la naranja -->
-                    <path d="M 50 25 L 50 58 L 78 40" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <path d="M 50 58 L 83 58" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <path d="M 50 58 L 78 76" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <path d="M 50 58 L 50 91" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <path d="M 50 58 L 22 76" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <path d="M 50 58 L 17 58" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <path d="M 50 58 L 22 40" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
-                    <!-- Hojas -->
-                    <path d="M 45 22 C 20 10, 15 35, 35 45 C 50 35, 60 15, 45 22 Z" fill="url(#leafGrad)" />
-                    <path d="M 55 20 C 75 5, 85 25, 70 40 C 60 30, 45 15, 55 20 Z" fill="url(#leafGrad)" opacity="0.9" />
+
+                    <!-- Back Leaf -->
+                    <path d="M 45 18 C 20 2, 8 35, 25 50 C 45 40, 60 18, 45 18 Z" fill="url(#leafGrad)" />
+                    <path d="M 45 18 C 20 2, 8 35, 25 50 C 45 40, 60 18, 45 18 Z" fill="url(#leafHighlight)" />
+                    <path d="M 21 40 C 30 28, 40 21, 45 18" stroke="#3f6212" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+                    <!-- Main Orange Rind (3D Sphere) -->
+                    <circle cx="50" cy="56" r="40" fill="url(#rindGrad)" />
+                    
+                    <!-- Pith (White spongy part) -->
+                    <circle cx="50" cy="56" r="35" fill="#fffbeb" opacity="0.95" />
+                    
+                    <!-- Flesh background -->
+                    <circle cx="50" cy="56" r="32" fill="url(#fleshGrad)" />
+
+                    <!-- Segments (High detail) -->
+                    <g stroke="#fffbeb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+                        <path d="M 50 56 L 50 25" />
+                        <path d="M 50 56 L 73 36" />
+                        <path d="M 50 56 L 80 56" />
+                        <path d="M 50 56 L 73 77" />
+                        <path d="M 50 56 L 50 87" />
+                        <path d="M 50 56 L 27 77" />
+                        <path d="M 50 56 L 20 56" />
+                        <path d="M 50 56 L 27 36" />
+                    </g>
+
+                    <!-- Center pith dot -->
+                    <circle cx="50" cy="56" r="4.5" fill="#fffbeb" />
+
+                    <!-- Front Leaf -->
+                    <path d="M 56 12 C 85 -5, 98 25, 78 45 C 65 32, 48 18, 56 12 Z" fill="url(#leafGrad)" />
+                    <path d="M 56 12 C 85 -5, 98 25, 78 45 C 65 32, 48 18, 56 12 Z" fill="url(#leafHighlight)" />
+                    <path d="M 83 34 C 68 22, 60 16, 56 12" stroke="#3f6212" stroke-width="1.5" fill="none" opacity="0.5"/>
+                    
+                    <!-- Front leaf stem -->
+                    <path d="M 50 20 L 53 10 C 53 8, 55 6, 58 5" stroke="#4d2c10" stroke-width="2.5" stroke-linecap="round" fill="none" />
                 </svg>
                 <div style="display: flex; flex-direction: column;">
                     <span style="font-weight: 800; font-size: 1.25rem; letter-spacing: 0.5px; background: linear-gradient(to right, #f97316, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">ORANGE APP</span>
