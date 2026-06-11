@@ -1,4 +1,4 @@
-import { navigate } from '../utils.js';
+import { navigate, showPromptModal, showConfirmModal } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
@@ -51,39 +51,49 @@ export function renderLogin() {
     const forgotPwdLnk = container.querySelector('#forgotPasswordLnk');
 
     if (forgotPwdLnk) {
-        forgotPwdLnk.addEventListener('click', async (e) => {
+        forgotPwdLnk.addEventListener('click', (e) => {
             e.preventDefault();
             
             const currentEmail = container.querySelector('#email').value.trim();
-            const promptEmail = window.prompt("Por favor, ingresa tu correo electrónico para recuperar la contraseña:", currentEmail);
             
-            if (!promptEmail || !promptEmail.trim()) {
-                return;
-            }
-            
-            const emailInput = promptEmail.trim();
-            
-            if (!window.confirm(`¿Está seguro de que este es su correo?\n\n${emailInput}`)) {
-                return;
-            }
-            
-            try {
-                errorMsg.style.color = 'var(--text-muted)';
-                errorMsg.textContent = 'Enviando enlace...';
-                
-                await sendPasswordResetEmail(auth, emailInput);
-                
-                errorMsg.style.color = 'var(--success)';
-                errorMsg.textContent = '✅ Enlace enviado. Revisa tu correo (incluyendo carpeta de spam) para crear una nueva contraseña.';
-            } catch (err) {
-                console.error("Error password reset:", err);
-                errorMsg.style.color = 'var(--danger)';
-                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
-                    errorMsg.textContent = 'Error: Correo no válido o cuenta no encontrada.';
-                } else {
-                    errorMsg.textContent = 'Error al enviar el enlace. Intenta de nuevo.';
-                }
-            }
+            showPromptModal(
+                "Recuperar Contraseña",
+                "Ingresa el correo asociado a tu cuenta:",
+                currentEmail,
+                (promptEmail) => {
+                    if (!promptEmail) return;
+                    
+                    showConfirmModal(
+                        "¿Estás seguro?",
+                        `¿Es este tu correo electrónico correcto?<br><strong style="color: var(--text-main); font-size: 1.1rem; display: block; margin-top: 0.5rem;">${promptEmail}</strong>`,
+                        async () => {
+                            try {
+                                errorMsg.style.color = 'var(--text-muted)';
+                                errorMsg.textContent = 'Enviando enlace...';
+                                
+                                await sendPasswordResetEmail(auth, promptEmail);
+                                
+                                errorMsg.style.color = 'var(--success)';
+                                errorMsg.textContent = '✅ Enlace enviado. Revisa tu correo (incluyendo carpeta de spam) para crear una nueva contraseña.';
+                            } catch (err) {
+                                console.error("Error password reset:", err);
+                                errorMsg.style.color = 'var(--danger)';
+                                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
+                                    errorMsg.textContent = 'Error: Correo no válido o cuenta no encontrada.';
+                                } else {
+                                    errorMsg.textContent = 'Error al enviar el enlace. Intenta de nuevo.';
+                                }
+                            }
+                        },
+                        "Enviar Enlace",
+                        "Cancelar",
+                        "❓"
+                    );
+                },
+                "Siguiente",
+                "Cancelar",
+                "🔐"
+            );
         });
     }
 

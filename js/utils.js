@@ -104,12 +104,12 @@ export function navigate(hash) {
 /**
  * Muestra un modal de confirmación con estilo premium
  */
-export function showConfirmModal(title, msg, onConfirm, confirmText = "Confirmar", cancelText = "Volver") {
+export function showConfirmModal(title, msg, onConfirm, confirmText = "Confirmar", cancelText = "Volver", icon = "🧾") {
     const modal = document.createElement('div');
     modal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;';
     modal.innerHTML = `
         <div class="card" style="width: 90%; max-width: 400px; padding: 2rem; text-align: center; animation: modalIn 0.3s ease-out;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">🧾</div>
+            <div style="font-size: 3rem; margin-bottom: 1rem;">${icon}</div>
             <h3 style="margin-bottom: 0.5rem;">${title}</h3>
             <p style="color: var(--text-muted); margin-bottom: 2rem;">${msg}</p>
             <div style="display: flex; gap: 1rem;">
@@ -137,5 +137,50 @@ export function showConfirmModal(title, msg, onConfirm, confirmText = "Confirmar
     modal.querySelector('#confirmFinalBtn').onclick = () => {
         modal.remove();
         onConfirm();
+    };
+}
+
+/**
+ * Muestra un modal de prompt con estilo premium
+ */
+export function showPromptModal(title, msg, defaultValue, onConfirm, confirmText = "Confirmar", cancelText = "Cancelar", icon = "✍️") {
+    const modal = document.createElement('div');
+    modal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+    modal.innerHTML = `
+        <div class="card" style="width: 90%; max-width: 400px; padding: 2rem; text-align: center; animation: modalIn 0.3s ease-out;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">${icon}</div>
+            <h3 style="margin-bottom: 0.5rem; color: var(--text-main);">${title}</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">${msg}</p>
+            <input type="text" id="promptInput" class="form-control" value="${defaultValue || ''}" style="margin-bottom: 2rem; text-align: center;">
+            <div style="display: flex; gap: 1rem;">
+                <button id="cancelPromptBtn" class="btn btn-outline" style="flex: 1;">${cancelText}</button>
+                <button id="confirmPromptBtn" class="btn btn-primary" style="flex: 1;">${confirmText}</button>
+            </div>
+        </div>
+    `;
+    
+    if (!document.getElementById('modal-animations')) {
+        const style = document.createElement('style');
+        style.id = 'modal-animations';
+        style.textContent = `
+            @keyframes modalIn {
+                from { transform: scale(0.9); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(modal);
+    
+    const input = modal.querySelector('#promptInput');
+    input.focus();
+    input.select();
+
+    modal.querySelector('#cancelPromptBtn').onclick = () => modal.remove();
+    modal.querySelector('#confirmPromptBtn').onclick = () => {
+        const val = input.value.trim();
+        modal.remove();
+        onConfirm(val);
     };
 }
