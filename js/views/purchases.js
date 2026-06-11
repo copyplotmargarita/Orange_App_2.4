@@ -2489,7 +2489,7 @@ export function renderPurchases(container) {
                             ${purchase.products.map(p => `
                                 <tr>
                                     <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.name}</td>
-                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.qty} ${p.unit || 'ud'}</td>
+                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.qty} ${p.stockUnit || 'ud'}</td>
                                     <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">$ ${p.costUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Bs. ${p.costBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--primary);">$ ${p.subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
