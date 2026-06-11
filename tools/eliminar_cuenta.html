@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Eliminador de Cuentas - Orange App</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: #1e293b; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 450px; border: 1px solid #334155; }
+        h1 { color: #f87171; margin-bottom: 0.5rem; font-size: 1.5rem;}
+        p { color: #94a3b8; line-height: 1.5; margin-bottom: 2rem; font-size: 0.9rem;}
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        .form-group label { display: block; color: #a0aec0; font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;}
+        .form-control { width: 100%; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; color: #ffffff; box-sizing: border-box; font-size: 1rem; transition: border-color 0.2s;}
+        .form-control:focus { border-color: #ef4444; outline: none; }
+        .btn { background: #ef4444; color: white; border: none; padding: 1rem 2rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.3s; width: 100%; display: flex; justify-content: center; align-items: center; gap: 0.5rem;}
+        .btn:hover { background: #dc2626; transform: scale(1.02); }
+        .btn:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        #log { margin-top: 1.5rem; text-align: left; font-family: monospace; font-size: 0.85rem; max-height: 200px; overflow-y: auto; background: #0f172a; padding: 1rem; border-radius: 0.5rem; color: #10b981; display: none; }
+        .log-error { color: #ef4444; }
+        .log-warning { color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🔥</div>
+        <h1>Eliminación de Cuenta</h1>
+        <p>Esta herramienta eliminará permanentemente todos los registros del empleado y su cuenta de autenticación de Firebase.</p>
+        
+        <div class="form-group">
+            <label for="emailInput">Correo Electrónico del Usuario</label>
+            <input type="email" id="emailInput" class="form-control" placeholder="ejemplo@correo.com" autocomplete="off">
+        </div>
+
+        <button id="cleanBtn" class="btn">
+            <span>EJECUTAR ELIMINACIÓN</span>
+        </button>
+        
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+        // Necesitamos funciones de la nube (Cloud Functions) u otro método backend para borrar cuentas de Auth.
+        // Dado que solo tenemos acceso frontend puro, usaremos la emulación de login si es posible,
+        // o explicaremos en el log que Auth debe hacerse manual si no hay backend.
+        // La API Web SDK no expone un admin.auth().deleteUser() por motivos de seguridad evidentes.
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyD9aam0cysVQgVDi3pMHu-tP7johs7aeI0",
+          authDomain: "app-ventas-db.firebaseapp.com",
+          projectId: "app-ventas-db",
+          storageBucket: "app-ventas-db.firebasestorage.app",
+          messagingSenderId: "767590061980",
+          appId: "1:767590061980:web:0631a07b64fa943e0ada59"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const cleanBtn = document.getElementById('cleanBtn');
+        const emailInput = document.getElementById('emailInput');
+        const log = document.getElementById('log');
+
+        const writeLog = (msg, type = 'info') => {
+            log.style.display = 'block';
+            let formattedMsg = msg;
+            if (type === 'error') formattedMsg = `<span class="log-error">${msg}</span>`;
+            if (type === 'warning') formattedMsg = `<span class="log-warning">${msg}</span>`;
+            
+            log.innerHTML += `> ${formattedMsg}<br>`;
+            log.scrollTop = log.scrollHeight;
+        };
+
+        cleanBtn.onclick = async () => {
+            const email = emailInput.value.trim().toLowerCase();
+            const businessId = localStorage.getItem('businessId');
+
+            if (!businessId) {
+                alert("Error: No se encontró el ID del negocio. Debes iniciar sesión en la app principal primero.");
+                return;
+            }
+
+            if (!email) {
+                alert("Por favor ingresa un correo electrónico.");
+                emailInput.focus();
+                return;
+            }
+
+            if (!confirm(`⚠️ ATENCIÓN ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los datos relacionados con el correo:\n\n${email}\n\nEsta acción es irreversible.`)) {
+                return;
+            }
+
+            cleanBtn.disabled = true;
+            emailInput.disabled = true;
+            cleanBtn.innerHTML = "PROCESANDO...";
+            log.innerHTML = '';
+            
+            writeLog(`Iniciando purga para: ${email}`);
+
+            try {
+                let foundDocs = 0;
+
+                // 1. Limpiar Empleados
+                writeLog("Buscando en la colección 'employees'...");
+                const empQ = query(collection(db, "businesses", businessId, "employees"), where("email", "==", email));
+                const empSnap = await getDocs(empQ);
+                
+                if (empSnap.empty) {
+                    writeLog("No se encontraron registros en 'employees'.", "warning");
+                } else {
+                    for (const d of empSnap.docs) {
+                        await deleteDoc(doc(db, "businesses", businessId, "employees", d.id));
+                        writeLog(`Eliminado registro de empleado: ${d.id}`);
+                        foundDocs++;
+                    }
+                }
+
+                // 2. Limpiar Sesiones / Turnos (Búsqueda por employeeEmail)
+                writeLog("Buscando turnos en la colección 'sessions'...");
+                const sessQ = query(collection(db, "businesses", businessId, "sessions"), where("employeeEmail", "==", email));
+                const sessSnap = await getDocs(sessQ);
+
+                if (sessSnap.empty) {
+                    writeLog("No se encontraron turnos activos/históricos.", "warning");
+                } else {
+                    for (const d of sessSnap.docs) {
+                        await deleteDoc(doc(db, "businesses", businessId, "sessions", d.id));
+                        writeLog(`Eliminado turno: ${d.id}`);
+                        foundDocs++;
+                    }
+                }
+
+                // --- NOTA IMPORTANTE SOBRE FIREBASE AUTH ---
+                writeLog("----------------------------------", "warning");
+                writeLog("⚠️ ACCIÓN REQUERIDA EN CONSOLA ⚠️", "warning");
+                writeLog("Por motivos de seguridad, el SDK Web Frontend no puede eliminar cuentas de Firebase Authentication de otros usuarios.", "warning");
+                writeLog(`Debes ir a la consola de Firebase -> Authentication y buscar el correo: ${email} para eliminar el acceso.`, "warning");
+                writeLog("----------------------------------", "warning");
+
+
+                if (foundDocs > 0) {
+                    writeLog(`✅ PURGA COMPLETADA: ${foundDocs} documentos de Firestore eliminados.`);
+                    alert(`Éxito. Se eliminaron ${foundDocs} documentos relacionados a ${email} en Firestore.\n\nRecuerda ir a la consola de Firebase para eliminar su cuenta de Authentication.`);
+                } else {
+                    writeLog("✅ PROCESO COMPLETADO: No se encontró ningún documento en Firestore para eliminar.");
+                }
+
+            } catch (error) {
+                writeLog("❌ ERROR: " + error.message, "error");
+                console.error("Error durante la purga:", error);
+            } finally {
+                cleanBtn.disabled = false;
+                emailInput.disabled = false;
+                cleanBtn.innerHTML = "<span>EJECUTAR NUEVA ELIMINACIÓN</span>";
+            }
+        };
+    </script>
+</body>
+</html>
