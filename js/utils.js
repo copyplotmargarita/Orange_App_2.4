@@ -1,6 +1,21 @@
 export function toTitleCase(str) {
     if (!str) return '';
+    
+    const upperExceptions = ['c.a.', 's.a.', 'f.p.', 's.r.l.', 'e.i.r.l.', 's.c.', 'c.a', 's.a', 'f.p', 's.r.l', 'e.i.r.l', 's.c', 'srl', 'eirl'];
+    
     return str.toLowerCase().split(' ').map(word => {
+        let cleanWord = word;
+        let punctuation = '';
+        
+        if (word.endsWith(',')) {
+            cleanWord = word.slice(0, -1);
+            punctuation = ',';
+        }
+        
+        if (upperExceptions.includes(cleanWord)) {
+            return cleanWord.toUpperCase() + punctuation;
+        }
+        
         return word.charAt(0).toUpperCase() + word.slice(1);
     }).join(' ');
 }
