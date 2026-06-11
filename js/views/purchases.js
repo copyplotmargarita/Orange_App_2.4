@@ -2249,14 +2249,14 @@ export function renderPurchases(container) {
             tempTotalBs = tempProducts.reduce((acc, p) => acc + (p.subTotalBs || 0), 0);
 
             pbTableBody.innerHTML = tempProducts.map((p, index) => {
-                const costDisplay = (p.purchaseQty && p.purchaseQty > 0) ? (p.subTotalUsd / p.purchaseQty) : 0;
+                const costDisplay = (p.qty && p.qty > 0) ? (p.subTotalUsd / p.qty) : 0;
                 return `
                 <tr style="border-bottom: 1px solid var(--border);" data-index="${index}">
                     <td style="padding: 0.5rem; font-size: 0.9rem;">${p.name}</td>
                     <td style="padding: 0.5rem; font-size: 0.9rem;">
                         <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <input type="text" inputmode="numeric" class="form-control edit-qty" value="${(p.purchaseQty || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 80px; height: 30px; padding: 0.25rem; font-size: 0.85rem; text-align: center;">
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">${p.purchaseUnit || 'ud'}</span>
+                            <input type="text" inputmode="numeric" class="form-control edit-qty" value="${(p.qty || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 80px; height: 30px; padding: 0.25rem; font-size: 0.85rem; text-align: center;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${p.stockUnit || 'ud'}</span>
                         </div>
                     </td>
                     <td style="padding: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
@@ -2287,8 +2287,8 @@ export function renderPurchases(container) {
                     const newQty = parseNum(qtyInp.value);
                     const newSub = parseNum(subInp.value);
                     
-                    p.purchaseQty = newQty;
-                    p.qty = newQty * (p.purchaseToStockQty || 1);
+                    p.qty = newQty;
+                    p.purchaseQty = (p.purchaseToStockQty || 1) > 0 ? newQty / (p.purchaseToStockQty || 1) : newQty;
                     p.subTotalUsd = newSub;
                     p.subTotalBs = newSub * rate;
                     
