@@ -53,11 +53,17 @@ export function renderLogin() {
     if (forgotPwdLnk) {
         forgotPwdLnk.addEventListener('click', async (e) => {
             e.preventDefault();
-            const emailInput = container.querySelector('#email').value.trim();
-            if (!emailInput) {
-                errorMsg.style.color = 'var(--danger)';
-                errorMsg.textContent = 'Por favor, ingresa tu correo electrónico arriba para enviarte el enlace de recuperación.';
-                container.querySelector('#email').focus();
+            
+            const currentEmail = container.querySelector('#email').value.trim();
+            const promptEmail = window.prompt("Por favor, ingresa tu correo electrónico para recuperar la contraseña:", currentEmail);
+            
+            if (!promptEmail || !promptEmail.trim()) {
+                return;
+            }
+            
+            const emailInput = promptEmail.trim();
+            
+            if (!window.confirm(`¿Está seguro de que este es su correo?\n\n${emailInput}`)) {
                 return;
             }
             
