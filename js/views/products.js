@@ -273,7 +273,7 @@ export function renderProducts(container) {
 
                                 <div class="form-group">
                                     <label>📉 STOCK MÍNIMO (ALERTA)</label>
-                                    <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5" value="${editProduct?.minStock || '0'}" style="border-color: #f59e0b; font-weight: bold;">
+                                    <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5,50" value="${editProduct?.minStock !== undefined ? editProduct.minStock.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00'}" style="border-color: #f59e0b; font-weight: bold;">
                                 </div>
 
                                 <div class="form-group" id="supplierGroup" style="display: none;">
@@ -640,7 +640,7 @@ export function renderProducts(container) {
                     name: container.querySelector('#prodName')?.value || '',
                     barcode: container.querySelector('#prodBarcode')?.value || '',
                     category: container.querySelector('#prodCategory')?.value || '',
-                    minStock: container.querySelector('#prodMinStock')?.value || '0',
+                    minStock: container.querySelector('#prodMinStock')?.value || '0,00',
                     selectedSupplierIds: [...selectedSupplierIds],
                     newSupplierId: null,
                 };
@@ -908,8 +908,8 @@ export function renderProducts(container) {
             return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield].forEach(applyNumericMask);
-        [prodPurchaseToStockQty, prodUnitContentQty, prodMinStock].forEach(applyIntegerMask);
+        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock].forEach(applyNumericMask);
+        [prodPurchaseToStockQty, prodUnitContentQty].forEach(applyIntegerMask);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {
