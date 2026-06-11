@@ -79,7 +79,10 @@ export function renderProducts(container) {
 
                 if (prod.category !== 'SERVICIOS') {
                     const sUnit = prod.stockUnit || 'ud';
-                    const minStock = prod.minStock || 0;
+                    let minStock = prod.minStock || 0;
+                    if (prod.minStockUnit && prod.purchaseUnit && prod.minStockUnit === prod.purchaseUnit && prod.minStockUnit !== sUnit) {
+                        minStock = minStock * (prod.purchaseToStockQty || 1);
+                    }
                     if (stock <= 0) {
                         stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: var(--danger); color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">SIN STOCK</span>`;
                     } else if (stock <= minStock) {
@@ -273,7 +276,23 @@ export function renderProducts(container) {
 
                                 <div class="form-group">
                                     <label>📉 STOCK MÍNIMO (ALERTA)</label>
-                                    <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5,50" value="${editProduct?.minStock !== undefined ? editProduct.minStock.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00'}" style="border-color: #f59e0b; font-weight: bold;">
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5,50" value="${(editProduct?.minStock != null) ? editProduct.minStock.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00'}" style="border-color: #f59e0b; font-weight: bold; flex: 1;">
+                                        <select id="prodMinStockUnit" class="form-control" style="width: auto; border-color: #f59e0b; font-weight: bold;">
+                                            <option value="Unidad" ${(editProduct?.minStockUnit || 'Unidad') === 'Unidad' ? 'selected' : ''}>Unidad</option>
+                                            <option value="Caja" ${(editProduct?.minStockUnit === 'Caja') ? 'selected' : ''}>Caja</option>
+                                            <option value="Bulto" ${(editProduct?.minStockUnit === 'Bulto') ? 'selected' : ''}>Bulto</option>
+                                            <option value="Saco" ${(editProduct?.minStockUnit === 'Saco') ? 'selected' : ''}>Saco</option>
+                                            <option value="Paquete" ${(editProduct?.minStockUnit === 'Paquete') ? 'selected' : ''}>Paquete</option>
+                                            <option value="Kilo" ${(editProduct?.minStockUnit === 'Kilo') ? 'selected' : ''}>Kilo</option>
+                                            <option value="Litro" ${(editProduct?.minStockUnit === 'Litro') ? 'selected' : ''}>Litro</option>
+                                            <option value="Gramo" ${(editProduct?.minStockUnit === 'Gramo') ? 'selected' : ''}>Gramo</option>
+                                            <option value="Mililitro" ${(editProduct?.minStockUnit === 'Mililitro') ? 'selected' : ''}>Mililitro</option>
+                                        </select>
+                                    </div>
+                                    <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">
+                                        Stock Actual: <strong style="color: ${(editProduct ? (editProduct.stockGeneral ?? editProduct.stock ?? 0) : 0) <= (editProduct?.minStock || 0) ? '#f59e0b' : 'var(--text-main)'}">${editProduct ? (editProduct.stockGeneral ?? editProduct.stock ?? 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + (editProduct.stockUnit || 'Unidad') : '0,00 Unidad'}</strong>
+                                    </small>
                                 </div>
 
                                 <div class="form-group" id="supplierGroup" style="display: none;">
@@ -641,6 +660,7 @@ export function renderProducts(container) {
                     barcode: container.querySelector('#prodBarcode')?.value || '',
                     category: container.querySelector('#prodCategory')?.value || '',
                     minStock: container.querySelector('#prodMinStock')?.value || '0,00',
+                    minStockUnit: container.querySelector('#prodMinStockUnit')?.value || 'Unidad',
                     selectedSupplierIds: [...selectedSupplierIds],
                     newSupplierId: null,
                 };
@@ -656,6 +676,7 @@ export function renderProducts(container) {
             if (restoredState.name) container.querySelector('#prodName').value = restoredState.name;
             if (restoredState.barcode) container.querySelector('#prodBarcode').value = restoredState.barcode;
             if (restoredState.minStock) container.querySelector('#prodMinStock').value = restoredState.minStock;
+            if (restoredState.minStockUnit) container.querySelector('#prodMinStockUnit').value = restoredState.minStockUnit;
             if (restoredState.category) {
                 container.querySelector('#prodCategory').value = restoredState.category;
                 container.querySelector('#prodCategory').dispatchEvent(new Event('change'));
@@ -1228,6 +1249,7 @@ export function renderProducts(container) {
             const barcode = container.querySelector('#prodBarcode').value.trim() || null;
             const name = toTitleCase(container.querySelector('#prodName').value.trim());
             const minStock = parseNum(container.querySelector('#prodMinStock').value) || 0;
+            const minStockUnit = container.querySelector('#prodMinStockUnit')?.value || 'Unidad';
             const isSaleable = prodIsSaleable.value === 'true';
             const supplierIds = selectedSupplierIds;
             const supplierId = selectedSupplierIds.length > 0 ? selectedSupplierIds[0] : null;
@@ -1269,6 +1291,7 @@ export function renderProducts(container) {
                     category,
                     subCategory,
                     minStock,
+                    minStockUnit,
                     isSaleable,
                     supplierIds,
                     supplierId,
