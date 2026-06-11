@@ -2334,7 +2334,7 @@ export function renderPurchases(container) {
         modal.querySelector('#pbCreateProductBtn').addEventListener('click', () => {
             // Save state to window
             window.tempPurchaseState = {
-                purchaseType: purchaseType,
+                purchaseType: 'PRODUCTO',
                 supplierId: pSupplier.value,
                 bcvRate: pBcvRate.value,
                 emissionDate: pEmissionDate.value,
