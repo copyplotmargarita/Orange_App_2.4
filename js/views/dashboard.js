@@ -55,7 +55,32 @@ export function renderDashboard() {
     container.innerHTML = `
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-brand" id="navHome" style="display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 1.5rem; text-decoration: none; cursor: pointer;">
-                <img src="./img/logo.png" alt="Orange App Logo" style="height: 42px; width: auto; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));">
+                <svg viewBox="0 0 100 100" style="height: 40px; width: 40px; flex-shrink: 0; filter: drop-shadow(0 4px 6px rgba(249, 115, 22, 0.3));">
+                    <defs>
+                        <linearGradient id="orangeGrad" x1="10%" y1="0%" x2="90%" y2="100%">
+                            <stop offset="0%" stop-color="#ffb703" />
+                            <stop offset="50%" stop-color="#fb8500" />
+                            <stop offset="100%" stop-color="#e65c00" />
+                        </linearGradient>
+                        <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#84cc16" />
+                            <stop offset="100%" stop-color="#4d7c0f" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="50" cy="58" r="38" fill="url(#orangeGrad)" />
+                    <circle cx="50" cy="58" r="33" fill="none" stroke="#ffedd5" stroke-width="1.5" opacity="0.6" />
+                    <!-- Gajos de la naranja -->
+                    <path d="M 50 25 L 50 58 L 78 40" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 50 58 L 83 58" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 50 58 L 78 76" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 50 58 L 50 91" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 50 58 L 22 76" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 50 58 L 17 58" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 50 58 L 22 40" stroke="#ffedd5" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <!-- Hojas -->
+                    <path d="M 45 22 C 20 10, 15 35, 35 45 C 50 35, 60 15, 45 22 Z" fill="url(#leafGrad)" />
+                    <path d="M 55 20 C 75 5, 85 25, 70 40 C 60 30, 45 15, 55 20 Z" fill="url(#leafGrad)" opacity="0.9" />
+                </svg>
                 <div style="display: flex; flex-direction: column;">
                     <span style="font-weight: 800; font-size: 1.25rem; letter-spacing: 0.5px; background: linear-gradient(to right, #f97316, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">ORANGE APP</span>
                     <div class="status-indicator" style="margin-top: 2px; display: flex; align-items: center; gap: 0.25rem;">
