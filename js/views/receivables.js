@@ -64,6 +64,22 @@ export async function renderReceivables(container) {
     const metricsDiv = container.querySelector('#receivables-metrics');
     const contentDiv = container.querySelector('#receivables-content');
 
+    const backBtn = container.querySelector('#backToDashboardBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            const navHome = document.getElementById('navHome');
+            if (navHome) {
+                navHome.click();
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon && toggleIcon.innerText === '▶') {
+                    document.getElementById('sidebarToggle')?.click();
+                }
+            } else {
+                window.location.hash = '#dashboard';
+            }
+        });
+    }
+
     try {
         let q = query(collection(db, "businesses", businessId, "sales"), where("status", "in", ["credito", "abono"]));
         
@@ -218,22 +234,6 @@ export async function renderReceivables(container) {
                 }
             });
         });
-
-        const backBtn = container.querySelector('#backToDashboardBtn');
-        if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                const navHome = document.getElementById('navHome');
-                if (navHome) {
-                    navHome.click();
-                    const toggleIcon = document.getElementById('toggleIcon');
-                    if (toggleIcon && toggleIcon.innerText === '▶') {
-                        document.getElementById('sidebarToggle')?.click();
-                    }
-                } else {
-                    window.location.hash = '#dashboard';
-                }
-            });
-        }
 
         // Add event listeners for rows
         contentDiv.querySelectorAll('.clickable-row').forEach(row => {

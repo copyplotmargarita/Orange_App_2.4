@@ -460,8 +460,15 @@ export function renderSales(container, preSelectedClient = null) {
         // Event Listeners
         container.querySelector('#backToDashboardBtn')?.addEventListener('click', () => {
             const navHome = document.getElementById('navHome');
-            if (navHome) navHome.click();
-            else window.location.hash = '#dashboard';
+            if (navHome) {
+                navHome.click();
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon && toggleIcon.innerText === '▶') {
+                    document.getElementById('sidebarToggle')?.click();
+                }
+            } else {
+                window.location.hash = '#dashboard';
+            }
         });
 
         container.querySelector('#productSearch').addEventListener('input', (e) => {
