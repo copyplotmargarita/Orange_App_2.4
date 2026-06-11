@@ -2163,14 +2163,20 @@ export function renderPurchases(container) {
 
             if (purchaseUnit && units.includes(purchaseUnit)) {
                 receptionSelect.value = purchaseUnit;
-                if (lblQty) lblQty.textContent = `Cantidad recibida (${purchaseUnit})`;
+                if (lblQty) lblQty.textContent = `CANTIDAD RECIBIDA (${purchaseUnit.toUpperCase()})`;
             } else if (prod.presentationType && units.includes(prod.presentationType)) {
                 receptionSelect.value = prod.presentationType;
-                if (lblQty) lblQty.textContent = `Cantidad recibida`;
+                if (lblQty) lblQty.textContent = `CANTIDAD RECIBIDA`;
             } else {
                 receptionSelect.value = "Unidad";
-                if (lblQty) lblQty.textContent = `Cantidad recibida`;
+                if (lblQty) lblQty.textContent = `CANTIDAD RECIBIDA`;
             }
+
+            receptionSelect.addEventListener('change', (e) => {
+                if (lblQty) {
+                    lblQty.textContent = `CANTIDAD RECIBIDA (${e.target.value === 'Unidad' ? 'UNIDAD (SUELTO)' : e.target.value.toUpperCase()})`;
+                }
+            });
 
             itemQtyInput.value = '';
             itemTotalCostInput.value = '';
@@ -2191,7 +2197,18 @@ export function renderPurchases(container) {
                         return;
                     }
 
-                    const stockQtyReceived = qty * purchaseToStockQty;
+                    const selectedRecType = receptionSelect.value;
+                    let actualPurchaseToStockQty = 1;
+                    
+                    if (selectedRecType === purchaseUnit) {
+                        actualPurchaseToStockQty = purchaseToStockQty;
+                    } else if (selectedRecType === 'Unidad') {
+                        actualPurchaseToStockQty = 1;
+                    } else {
+                        actualPurchaseToStockQty = 1; 
+                    }
+
+                    const stockQtyReceived = qty * actualPurchaseToStockQty;
                     let costPerStockUnitUsd = 0;
                     let costPerStockUnitBs = 0;
 
@@ -2211,8 +2228,8 @@ export function renderPurchases(container) {
                         id: prod.id,
                         name: prod.name,
                         stockUnit,
-                        purchaseUnit,
-                        purchaseToStockQty,
+                        purchaseUnit: selectedRecType,
+                        purchaseToStockQty: actualPurchaseToStockQty,
                         purchaseQty: qty,
                         qty: stockQtyReceived,
                         costPerStockUnitUsd,
