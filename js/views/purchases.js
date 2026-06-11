@@ -1353,7 +1353,7 @@ export function renderPurchases(container) {
                     const savedRate = localStorage.getItem('bcvRate');
                     const savedDate = localStorage.getItem('bcvDate');
                     if (date === savedDate && savedRate) {
-                        pBcvRate.value = fmtNum(parseNum(savedRate));
+                        pBcvRate.value = fmtNum(parseFloat(savedRate));
                     }
                 }
                 calculatePendingBalance();
