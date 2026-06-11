@@ -332,7 +332,7 @@ export function renderProducts(container) {
                             <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 0.75rem; align-items: end;">
                                 <div class="form-group" style="flex: 1;">
                                     <label id="lblPurchaseToStock">CONTENIDO NETO</label>
-                                    <input type="text" inputmode="numeric" id="prodPurchaseToStockQty" class="form-control" required value="${editProduct?.purchaseToStockQty ? editProduct.purchaseToStockQty.toLocaleString('de-DE') : '1'}">
+                                    <input type="text" inputmode="numeric" id="prodPurchaseToStockQty" class="form-control" required value="${editProduct?.purchaseToStockQty !== undefined ? editProduct.purchaseToStockQty.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '1,00'}">
                                 </div>
 
                                 <div class="form-group">
@@ -351,7 +351,7 @@ export function renderProducts(container) {
                             <div id="unitContentRow" style="display: none; grid-template-columns: 1.5fr 1fr; gap: 0.75rem; align-items: end;">
                                 <div class="form-group" style="flex: 1;">
                                     <label>CONTENIDO POR UNIDAD</label>
-                                    <input type="text" inputmode="numeric" id="prodUnitContentQty" class="form-control" value="${editProduct?.unitContentQty ? editProduct.unitContentQty.toLocaleString('de-DE') : '1'}">
+                                    <input type="text" inputmode="numeric" id="prodUnitContentQty" class="form-control" value="${editProduct?.unitContentQty !== undefined ? editProduct.unitContentQty.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '1,00'}">
                                 </div>
 
                                 <div class="form-group">
@@ -908,8 +908,7 @@ export function renderProducts(container) {
             return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock].forEach(applyNumericMask);
-        [prodPurchaseToStockQty, prodUnitContentQty].forEach(applyIntegerMask);
+        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock, prodPurchaseToStockQty, prodUnitContentQty].forEach(applyNumericMask);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {
