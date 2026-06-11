@@ -1,7 +1,7 @@
 import { navigate } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-import { doc, getDoc, collection, getDocs, query, where, addDoc, collectionGroup } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderLogin() {
     const container = document.createElement('div');
@@ -61,22 +61,63 @@ export function renderLogin() {
         try {
             await signInWithEmailAndPassword(auth, email, password);
             
+            // Retardo para asegurar la sincronización del token de Auth con el cliente Firestore
+            await new Promise(resolve => setTimeout(resolve, 350));
+            
             // Verificación estricta de seguridad
             const uid = auth.currentUser.uid;
             
             // 1. ¿Es el dueño principal del negocio?
             let businessDoc = null;
-            try {
-                businessDoc = await getDoc(doc(db, "businesses", uid));
-            } catch (err) {
-                console.warn("Posible restricción de permisos al leer negocio (es empleado).", err);
+            let businessExists = false;
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    businessDoc = await getDoc(doc(db, "businesses", uid));
+                    businessExists = businessDoc.exists();
+                    break; // Éxito, salir del bucle
+                } catch (err) {
+                    console.warn(`Intento ${retryCount + 1} de leer negocio falló:`, err);
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 250)); // Esperar antes de reintentar
+                    } else {
+                        businessExists = false;
+                    }
+                }
+            }
+
+            // AUTO-CREACIÓN DE NEGOCIO (Si no existe en Firestore y se autentica como administrador)
+            if (!businessExists && role === 'admin') {
+                try {
+                    console.log("Iniciando auto-creación de negocio por ausencia en Firestore...");
+                    const defaultBusinessData = {
+                        name: "Mi Negocio",
+                        document: "J-000000000",
+                        country: "Venezuela",
+                        address: "Dirección Principal",
+                        ownerName: "Propietario",
+                        email: email,
+                        status: "active",
+                        createdAt: new Date().toISOString()
+                    };
+                    await setDoc(doc(db, "businesses", uid), defaultBusinessData);
+                    
+                    // Volver a leer para confirmar la existencia
+                    businessDoc = await getDoc(doc(db, "businesses", uid));
+                    businessExists = businessDoc.exists();
+                } catch (createErr) {
+                    console.error("Error al auto-crear negocio default:", createErr);
+                }
             }
 
             let empData = null;
             let businessId = null;
             let cargo = "Administrador";
 
-            if (businessDoc && businessDoc.exists()) {
+            if (businessExists) {
                 // Es el dueño, forzamos su rol a admin
                 businessId = uid;
                 const bData = businessDoc.data();
@@ -85,19 +126,43 @@ export function renderLogin() {
                 localStorage.setItem('businessId', businessId);
                 localStorage.setItem('employeeName', empData.name);
             } else {
-                // 2. Si no es el dueño, debe ser un empleado. Buscamos su cargo en la BD
-                const { collectionGroup } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js");
-                const q = query(collectionGroup(db, "employees"), where("email", "==", email));
-                const empSnap = await getDocs(q);
-                
-                if (!empSnap.empty) {
-                    empData = empSnap.docs[0].data();
-                    businessId = empSnap.docs[0].ref.parent.parent.id;
+                // 1.5 ¿Existe un negocio registrado con este email pero bajo un ID diferente (ej. por respaldos)?
+                try {
+                    const qBus = query(collection(db, "businesses"), where("email", "==", email));
+                    const busSnap = await getDocs(qBus);
+                    if (!busSnap.empty) {
+                        const bDoc = busSnap.docs[0];
+                        businessId = bDoc.id;
+                        const bData = bDoc.data();
+                        empData = { name: bData.name || 'Administrador', role: 'Administrador' };
+                        localStorage.setItem('userRole', 'admin');
+                        localStorage.setItem('businessId', businessId);
+                        localStorage.setItem('employeeName', empData.name);
+                        businessExists = true; // Marcamos como encontrado
+                    }
+                } catch (busErr) {
+                    console.warn("No se pudo buscar negocio por email:", busErr);
+                }
+            }
+
+            if (!businessExists) {
+                // 2. Si no es el dueño, debe ser un empleado. Buscamos su cargo en la BD usando una consulta de grupo de colecciones
+                try {
+                    const q = query(collectionGroup(db, "employees"), where("email", "==", email));
+                    const empSnap = await getDocs(q);
+                    if (!empSnap.empty) {
+                        const empDoc = empSnap.docs[0];
+                        empData = empDoc.data();
+                        businessId = empDoc.ref.parent.parent.id;
+                    }
+                } catch (grpErr) {
+                    console.error("Error al buscar empleado en grupo de colecciones:", grpErr);
+                    throw new Error("No se encontró un negocio activo para esta cuenta. Si borró y recreó su cuenta en la consola, por favor use el enlace 'Regístrate aquí' para volver a vincular su negocio.");
                 }
                 
                 if (!empData) {
                     await signOut(auth);
-                    throw new Error("Usuario no encontrado en la base de datos.");
+                    throw new Error("No se encontró un negocio activo para esta cuenta. Si borró y recreó su cuenta en la consola, por favor use el enlace 'Regístrate aquí' para volver a vincular su negocio.");
                 }
                 
                 // 3. Validar privilegios contra el rol seleccionado en el formulario
