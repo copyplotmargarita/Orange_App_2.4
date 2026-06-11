@@ -31,10 +31,7 @@ export function renderLogin() {
                 </div>
                 
                 <div class="form-group mb-4">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <label style="margin-bottom: 0;">Contraseña</label>
-                        <a href="#" id="forgotPasswordLnk" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 500;">¿Olvidaste tu contraseña?</a>
-                    </div>
+                    <label>Contraseña</label>
                     <input type="password" id="password" class="form-control" placeholder="••••••••" required>
                 </div>
                 
@@ -42,7 +39,8 @@ export function renderLogin() {
             </form>
             
             <div class="text-center">
-                <p class="text-sm">¿No tienes cuenta? <a href="#register" style="color: var(--primary); text-decoration: none; font-weight: 500;">Regístrate aquí</a></p>
+                <p class="text-sm" style="margin-bottom: 0.75rem;">¿No tienes cuenta? <a href="#register" style="color: var(--primary); text-decoration: none; font-weight: 500;">Regístrate aquí</a></p>
+                <p class="text-sm" style="margin-bottom: 0;"><a href="#" id="forgotPasswordLnk" style="color: var(--primary); text-decoration: none; font-weight: 500;">¿Olvidaste tu contraseña?</a></p>
             </div>
         </div>
     `;
