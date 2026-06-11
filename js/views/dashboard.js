@@ -54,11 +54,14 @@ export function renderDashboard() {
     
     container.innerHTML = `
         <aside id="sidebar" class="sidebar">
-            <div class="sidebar-brand" id="navHome">
-                ORANGE APP
-                <div class="status-indicator">
-                    <span class="online-dot"></span>
-                    <span class="status-text">Sesión Activa</span>
+            <div class="sidebar-brand" id="navHome" style="display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 1.5rem; text-decoration: none; cursor: pointer;">
+                <img src="./img/logo.png" alt="Orange App Logo" style="height: 42px; width: auto; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 800; font-size: 1.25rem; letter-spacing: 0.5px; background: linear-gradient(to right, #f97316, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">ORANGE APP</span>
+                    <div class="status-indicator" style="margin-top: 2px; display: flex; align-items: center; gap: 0.25rem;">
+                        <span class="online-dot"></span>
+                        <span class="status-text" style="font-size: 0.75rem; color: var(--text-muted);">Sesión Activa</span>
+                    </div>
                 </div>
             </div>
             
