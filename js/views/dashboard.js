@@ -53,6 +53,8 @@ export function renderDashboard() {
     }
     
     container.innerHTML = `
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-brand" id="navHome" style="display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 1.5rem; text-decoration: none; cursor: pointer;">
                 <svg viewBox="0 0 100 100" style="height: 44px; width: 44px; flex-shrink: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
                     <defs>
                         <!-- 3D spherical gradient for the rind -->
