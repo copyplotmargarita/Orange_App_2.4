@@ -1385,23 +1385,35 @@ export function renderDashboard() {
     }
 
     // Función centralizada para guardar la tasa (reutilizable para manual y automático)
-    // Función centralizada para guardar la tasa (reutilizable para manual y automático)
     async function saveBcvRate(rate, isAutomatic = false) {
         const businessId = localStorage.getItem('businessId');
-        if (!rate || !businessId) return;
+        if (!rate || !businessId) return { success: false, error: "Datos faltantes" };
 
         try {
+            // Asegurar que auth esté listo (útil si la laptop vuelve de suspensión)
+            if (!auth.currentUser) {
+                await new Promise(resolve => {
+                    const unsub = auth.onAuthStateChanged(user => {
+                        unsub();
+                        resolve(user);
+                    });
+                });
+            }
+
+            if (!auth.currentUser) {
+                return { success: false, error: "Sesión expirada o usuario no autenticado" };
+            }
+
             const dateId = new Date().toISOString().split('T')[0];
             
-            // Si es automático, verificar PRIMERO si ya existe en Firebase para no sobreescribir entradas manuales
+            // Si es automático, verificar PRIMERO si ya existe en Firebase
             if (isAutomatic) {
                 const existingSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", dateId));
                 if (existingSnap.exists()) {
                     console.log("BCV: Ya existe una tasa para hoy en Firebase. Omitiendo guardado automático.");
-                    // Sincronizar LocalStorage por si acaso
                     localStorage.setItem('bcvRate', existingSnap.data().rate);
                     localStorage.setItem('bcvDate', dateId);
-                    return true;
+                    return { success: true };
                 }
             }
 
@@ -1432,10 +1444,10 @@ export function renderDashboard() {
             // Recargar para que los precios se actualicen
             const evt = new Event('hashchange');
             window.dispatchEvent(evt);
-            return true;
+            return { success: true };
         } catch (error) {
             console.error("Error guardando tasa BCV:", error);
-            return false;
+            return { success: false, error: error.message };
         }
     }
 
@@ -1448,9 +1460,9 @@ export function renderDashboard() {
         btn.disabled = true;
         btn.textContent = "Guardando...";
         
-        const success = await saveBcvRate(rate);
-        if (!success) {
-            showNotification("Error al guardar en la base de datos.", "error");
+        const result = await saveBcvRate(rate);
+        if (!result.success) {
+            showNotification(`Error: ${result.error}`, "error");
         }
         
         btn.disabled = false;
