@@ -419,7 +419,7 @@ export function renderProducts(container) {
                         <div id="costPriceInputsWrapper" style="${isFromPurchase ? 'display: none;' : 'display: flex; flex-direction: column; gap: 0.35rem;'}">
                             <div class="form-group">
                                 <label id="costLabel">💵 COSTO DE ADQUISICIÓN</label>
-                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
+                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:3, maximumFractionDigits:3}) : '0,000'}" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
                             </div>
 
                             <div class="form-group" id="costPerUnitGroup" style="display: none; background: var(--background); padding: 1rem; border-radius: 12px; border: 1px dashed var(--border);">
@@ -898,55 +898,23 @@ export function renderProducts(container) {
 
         if (editProduct) updateFormUI(); // Init if editing
 
-        // --- Helper: Máscara Numérica ---
-        function applyNumericMask(input) {
+        // --- Helper: Máscara Numérica (Estilo Cajero/ATM) ---
+        function applyNumericMask(input, decimals = 2) {
             input.addEventListener('input', (e) => {
-                let cursorPosition = e.target.selectionStart;
-                let oldValLength = e.target.value.length;
-
-                let val = e.target.value;
-                val = val.replace(/[^0-9,]/g, '');
-                
-                const parts = val.split(',');
-                if (parts.length > 2) {
-                    val = parts[0] + ',' + parts.slice(1).join('');
-                }
-                
-                if (parts[0]) {
-                    let intPart = parts[0].replace(/^0+(?=\d)/, '');
-                    if (intPart === '') intPart = '0';
-                    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                    
-                    if (parts.length > 1) {
-                        val = intPart + ',' + parts[1];
-                    } else {
-                        val = intPart;
-                    }
-                }
-                
-                e.target.value = val;
-                
-                let newValLength = e.target.value.length;
-                cursorPosition = cursorPosition + (newValLength - oldValLength);
-                try { e.target.setSelectionRange(cursorPosition, cursorPosition); } catch(err) {}
-                
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (!value) { e.target.value = ''; return; }
+                let number = parseInt(value, 10);
+                let divisor = Math.pow(10, decimals);
+                e.target.value = (number / divisor).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
                 calculateMath(); 
             });
-
-            input.addEventListener('blur', (e) => { 
-                let val = e.target.value;
-                if (!val) { 
-                    e.target.value = '0,00'; 
-                } else {
-                    let num = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
-                    e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-                }
-                calculateMath();
-            });
-
             input.addEventListener('focus', (e) => { 
-                if (e.target.value === '0,00') {
-                    e.target.value = ''; 
+                let zeroStr = (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+                if (e.target.value === zeroStr) e.target.value = ''; 
+            });
+            input.addEventListener('blur', (e) => { 
+                if (!e.target.value) {
+                    e.target.value = (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); 
                 }
             });
         }
@@ -968,7 +936,8 @@ export function renderProducts(container) {
             return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock, prodPurchaseToStockQty, prodUnitContentQty].forEach(applyNumericMask);
+        [prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock, prodPurchaseToStockQty, prodUnitContentQty].forEach(el => applyNumericMask(el, 2));
+        applyNumericMask(prodCost, 3);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {

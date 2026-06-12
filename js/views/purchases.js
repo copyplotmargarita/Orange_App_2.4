@@ -13,57 +13,34 @@ const fmtNum = (n) => {
     return parseFloat(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-function applyNumericMask(input, callback) {
+function applyNumericMask(input, callback, decimals = 2) {
     if (!input) return;
     
     input.addEventListener('input', (e) => {
-        let cursorPosition = e.target.selectionStart;
-        let oldValLength = e.target.value.length;
-
-        let val = e.target.value;
-        val = val.replace(/[^0-9,]/g, '');
-        
-        const parts = val.split(',');
-        if (parts.length > 2) {
-            val = parts[0] + ',' + parts.slice(1).join('');
+        let value = e.target.value.replace(/\D/g, ''); 
+        if (!value) { 
+            e.target.value = ''; 
+            if (callback) callback(); 
+            return; 
         }
-        
-        if (parts[0]) {
-            let intPart = parts[0].replace(/^0+(?=\d)/, '');
-            if (intPart === '') intPart = '0';
-            intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-            
-            if (parts.length > 1) {
-                val = intPart + ',' + parts[1];
-            } else {
-                val = intPart;
-            }
-        }
-        
-        e.target.value = val;
-        
-        let newValLength = e.target.value.length;
-        cursorPosition = cursorPosition + (newValLength - oldValLength);
-        try { e.target.setSelectionRange(cursorPosition, cursorPosition); } catch(err) {}
-        
-        if (callback) callback();
-    });
-
-    input.addEventListener('blur', (e) => { 
-        let val = e.target.value;
-        if (!val) { 
-            e.target.value = '0,00'; 
-        } else {
-            let num = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
-            e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-        }
+        let number = parseInt(value, 10);
+        let divisor = Math.pow(10, decimals);
+        e.target.value = (number / divisor).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
         if (callback) callback();
     });
 
     input.addEventListener('focus', (e) => { 
-        if (e.target.value === '0,00') {
+        let zeroStr = (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        if (e.target.value === zeroStr) {
             e.target.value = ''; 
         }
+    });
+
+    input.addEventListener('blur', (e) => { 
+        if (!e.target.value) { 
+            e.target.value = (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); 
+        }
+        if (callback) callback();
     });
 }
 
