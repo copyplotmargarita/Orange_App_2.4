@@ -1,4 +1,5 @@
 import { auth, db } from '../services/firebase.js';
+import { formatDateToDDMMYYYY } from '../utils.js';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderStoreReceive(container) {
@@ -119,7 +120,7 @@ export function renderStoreReceive(container) {
                 <button class="btn btn-outline" id="backToListBtn" style="width:auto;">← Atrás</button>
                 <div>
                     <h2 style="margin:0;">📋 Detalle de Orden</h2>
-                    <p class="text-muted" style="margin:0.2rem 0 0;font-size:0.9rem;">Enviado el ${order.date} por ${order.createdBy}</p>
+                    <p class="text-muted" style="margin:0.2rem 0 0;font-size:0.9rem;">Enviado el ${formatDateToDDMMYYYY(order.date)} por ${order.createdBy}</p>
                 </div>
             </div>
 

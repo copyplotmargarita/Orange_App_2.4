@@ -19,21 +19,24 @@ export function renderMaintenance(container) {
     }
 
     container.innerHTML = `
-        <div style="max-width: 600px; margin: 2rem auto; padding: 2rem;" class="card">
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">⚙️</div>
-                <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">Mantenimiento del Sistema</h2>
-                <p class="text-muted">Limpieza profunda de datos de prueba</p>
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+            <h2 style="color: var(--danger); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">⚙️ Mantenimiento</h2>
+        </div>
+
+        <div style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--danger); display: flex; flex-direction: column; gap: 0.35rem;" class="card">
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <p class="text-muted" style="margin-top: 0;">Limpieza profunda de datos de prueba</p>
             </div>
 
-            <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
+            <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
                 <h3 style="color: var(--danger); font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem; text-transform: uppercase;">⚠️ Zona de Peligro</h3>
-                <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
                     Esta acción eliminará permanentemente todos los registros seleccionados. Use esta herramienta solo para limpiar datos de prueba antes de iniciar operaciones reales.
                 </p>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
                 <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
                     <input type="checkbox" class="reset-check" value="products" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
                     <div>
@@ -65,9 +68,41 @@ export function renderMaintenance(container) {
                         <small class="text-muted">Elimina envíos entre tiendas e historial del BCV.</small>
                     </div>
                 </label>
+
+                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
+                    <input type="checkbox" class="reset-check" value="clients" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
+                    <div>
+                        <span style="display: block; font-weight: 700;">👥 Clientes</span>
+                        <small class="text-muted">Elimina la base de datos de clientes.</small>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
+                    <input type="checkbox" class="reset-check" value="suppliers" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
+                    <div>
+                        <span style="display: block; font-weight: 700;">🏭 Proveedores</span>
+                        <small class="text-muted">Elimina el registro de proveedores.</small>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
+                    <input type="checkbox" class="reset-check" value="employees" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
+                    <div>
+                        <span style="display: block; font-weight: 700;">👨‍💼 Empleados y Permisos</span>
+                        <small class="text-muted">Elimina empleados (excepto el admin actual).</small>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
+                    <input type="checkbox" class="reset-check" value="stores" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
+                    <div>
+                        <span style="display: block; font-weight: 700;">🏪 Tiendas y Cajas</span>
+                        <small class="text-muted">Elimina sucursales adicionales.</small>
+                    </div>
+                </label>
             </div>
 
-            <div style="margin-bottom: 2rem;">
+            <div style="margin-bottom: 1.5rem;" class="form-group">
                 <label style="display: block; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Escriba "BORRAR TODO" para confirmar</label>
                 <input type="text" id="confirmInput" class="form-control" placeholder="Escriba aquí..." style="text-align: center; height: 50px; font-weight: 900; letter-spacing: 2px;">
             </div>
@@ -98,6 +133,22 @@ export function renderMaintenance(container) {
     const btnReset = container.querySelector('#btnResetSystem');
     const progressEl = container.querySelector('#resetProgress');
 
+    const backBtn = container.querySelector('#backToDashboardBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            const navHome = document.getElementById('navHome');
+            if (navHome) {
+                navHome.click();
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon && toggleIcon.innerText === '▶') {
+                    document.getElementById('sidebarToggle')?.click();
+                }
+            } else {
+                window.location.hash = '#dashboard';
+            }
+        });
+    }
+
     confirmInput.addEventListener('input', (e) => {
         btnReset.disabled = e.target.value !== 'BORRAR TODO';
     });
@@ -122,6 +173,10 @@ export function renderMaintenance(container) {
             if (selected.includes('sales')) collectionsToWipe.push('sales', 'payments');
             if (selected.includes('purchases')) collectionsToWipe.push('purchases');
             if (selected.includes('transfers')) collectionsToWipe.push('storeTransfers', 'bcv_history');
+            if (selected.includes('clients')) collectionsToWipe.push('clients');
+            if (selected.includes('suppliers')) collectionsToWipe.push('suppliers');
+            if (selected.includes('employees')) collectionsToWipe.push('employees');
+            if (selected.includes('stores')) collectionsToWipe.push('stores');
 
             for (const colName of collectionsToWipe) {
                 progressEl.textContent = `🧹 Limpiando ${colName}...`;
@@ -147,20 +202,30 @@ export function renderMaintenance(container) {
 
 async function deleteCollection(colName, businessId) {
     const colRef = collection(db, "businesses", businessId, colName);
+    const userEmail = localStorage.getItem('userEmail');
     
-    // Firestore no permite borrar colecciones completas desde el cliente de un golpe.
-    // Hay que hacerlo por lotes (batches).
-    let docsSnap = await getDocs(query(colRef, limit(500)));
+    const docsSnap = await getDocs(colRef);
+    const docs = docsSnap.docs;
     
-    while (docsSnap.size > 0) {
+    let i = 0;
+    while (i < docs.length) {
         const batch = writeBatch(db);
-        docsSnap.forEach((d) => {
-            batch.delete(d.ref);
-        });
-        await batch.commit();
-        console.log(`Borrados ${docsSnap.size} documentos de ${colName}`);
+        let currentBatchCount = 0;
         
-        // Siguiente lote
-        docsSnap = await getDocs(query(colRef, limit(500)));
+        while (currentBatchCount < 500 && i < docs.length) {
+            const d = docs[i];
+            if (colName === 'employees' && d.data().email === userEmail) {
+                // Omitir el usuario/admin actual para que no se auto-elimine
+            } else {
+                batch.delete(d.ref);
+                currentBatchCount++;
+            }
+            i++;
+        }
+        
+        if (currentBatchCount > 0) {
+            await batch.commit();
+            console.log(`Borrados ${currentBatchCount} documentos de ${colName}`);
+        }
     }
 }

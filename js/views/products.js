@@ -79,7 +79,10 @@ export function renderProducts(container) {
 
                 if (prod.category !== 'SERVICIOS') {
                     const sUnit = prod.stockUnit || 'ud';
-                    const minStock = prod.minStock || 0;
+                    let minStock = prod.minStock || 0;
+                    if (prod.minStockUnit && prod.purchaseUnit && prod.minStockUnit === prod.purchaseUnit && prod.minStockUnit !== sUnit) {
+                        minStock = minStock * (prod.purchaseToStockQty || 1);
+                    }
                     if (stock <= 0) {
                         stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: var(--danger); color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">SIN STOCK</span>`;
                     } else if (stock <= minStock) {
@@ -273,7 +276,23 @@ export function renderProducts(container) {
 
                                 <div class="form-group">
                                     <label>📉 STOCK MÍNIMO (ALERTA)</label>
-                                    <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5" value="${editProduct?.minStock || '0'}" style="border-color: #f59e0b; font-weight: bold;">
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <input type="text" inputmode="numeric" id="prodMinStock" class="form-control" placeholder="Ej. 5,50" value="${(editProduct?.minStock != null) ? editProduct.minStock.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00'}" style="border-color: #f59e0b; font-weight: bold; flex: 1;">
+                                        <select id="prodMinStockUnit" class="form-control" style="width: auto; border-color: #f59e0b; font-weight: bold;">
+                                            <option value="Unidad" ${(editProduct?.minStockUnit || 'Unidad') === 'Unidad' ? 'selected' : ''}>Unidad</option>
+                                            <option value="Caja" ${(editProduct?.minStockUnit === 'Caja') ? 'selected' : ''}>Caja</option>
+                                            <option value="Bulto" ${(editProduct?.minStockUnit === 'Bulto') ? 'selected' : ''}>Bulto</option>
+                                            <option value="Saco" ${(editProduct?.minStockUnit === 'Saco') ? 'selected' : ''}>Saco</option>
+                                            <option value="Paquete" ${(editProduct?.minStockUnit === 'Paquete') ? 'selected' : ''}>Paquete</option>
+                                            <option value="Kilo" ${(editProduct?.minStockUnit === 'Kilo') ? 'selected' : ''}>Kilo</option>
+                                            <option value="Litro" ${(editProduct?.minStockUnit === 'Litro') ? 'selected' : ''}>Litro</option>
+                                            <option value="Gramo" ${(editProduct?.minStockUnit === 'Gramo') ? 'selected' : ''}>Gramo</option>
+                                            <option value="Mililitro" ${(editProduct?.minStockUnit === 'Mililitro') ? 'selected' : ''}>Mililitro</option>
+                                        </select>
+                                    </div>
+                                    <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">
+                                        Stock Actual: <strong style="color: ${(editProduct ? (editProduct.stockGeneral ?? editProduct.stock ?? 0) : 0) <= (editProduct?.minStock || 0) ? '#f59e0b' : 'var(--text-main)'}">${editProduct ? (editProduct.stockGeneral ?? editProduct.stock ?? 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + (editProduct.stockUnit || 'Unidad') : '0,00 Unidad'}</strong>
+                                    </small>
                                 </div>
 
                                 <div class="form-group" id="supplierGroup" style="display: none;">
@@ -332,7 +351,7 @@ export function renderProducts(container) {
                             <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 0.75rem; align-items: end;">
                                 <div class="form-group" style="flex: 1;">
                                     <label id="lblPurchaseToStock">CONTENIDO NETO</label>
-                                    <input type="text" inputmode="numeric" id="prodPurchaseToStockQty" class="form-control" required value="${editProduct?.purchaseToStockQty ? editProduct.purchaseToStockQty.toLocaleString('de-DE') : '1'}">
+                                    <input type="text" inputmode="numeric" id="prodPurchaseToStockQty" class="form-control" required value="${(editProduct?.purchaseToStockQty != null) ? editProduct.purchaseToStockQty.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '1,00'}">
                                 </div>
 
                                 <div class="form-group">
@@ -351,7 +370,7 @@ export function renderProducts(container) {
                             <div id="unitContentRow" style="display: none; grid-template-columns: 1.5fr 1fr; gap: 0.75rem; align-items: end;">
                                 <div class="form-group" style="flex: 1;">
                                     <label>CONTENIDO POR UNIDAD</label>
-                                    <input type="text" inputmode="numeric" id="prodUnitContentQty" class="form-control" value="${editProduct?.unitContentQty ? editProduct.unitContentQty.toLocaleString('de-DE') : '1'}">
+                                    <input type="text" inputmode="numeric" id="prodUnitContentQty" class="form-control" value="${(editProduct?.unitContentQty != null) ? editProduct.unitContentQty.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '1,00'}">
                                 </div>
 
                                 <div class="form-group">
@@ -640,7 +659,8 @@ export function renderProducts(container) {
                     name: container.querySelector('#prodName')?.value || '',
                     barcode: container.querySelector('#prodBarcode')?.value || '',
                     category: container.querySelector('#prodCategory')?.value || '',
-                    minStock: container.querySelector('#prodMinStock')?.value || '0',
+                    minStock: container.querySelector('#prodMinStock')?.value || '0,00',
+                    minStockUnit: container.querySelector('#prodMinStockUnit')?.value || 'Unidad',
                     selectedSupplierIds: [...selectedSupplierIds],
                     newSupplierId: null,
                 };
@@ -656,6 +676,7 @@ export function renderProducts(container) {
             if (restoredState.name) container.querySelector('#prodName').value = restoredState.name;
             if (restoredState.barcode) container.querySelector('#prodBarcode').value = restoredState.barcode;
             if (restoredState.minStock) container.querySelector('#prodMinStock').value = restoredState.minStock;
+            if (restoredState.minStockUnit) container.querySelector('#prodMinStockUnit').value = restoredState.minStockUnit;
             if (restoredState.category) {
                 container.querySelector('#prodCategory').value = restoredState.category;
                 container.querySelector('#prodCategory').dispatchEvent(new Event('change'));
@@ -877,18 +898,57 @@ export function renderProducts(container) {
 
         if (editProduct) updateFormUI(); // Init if editing
 
-        // --- Helper: Máscara Numérica (Calculadora POS) ---
+        // --- Helper: Máscara Numérica ---
         function applyNumericMask(input) {
             input.addEventListener('input', (e) => {
-                let value = e.target.value.replace(/\D/g, ''); 
-                if (!value) { e.target.value = ''; return; }
-                let number = parseInt(value, 10);
-                e.target.value = (number / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                calculateMath(); // Trigger math update
+                let cursorPosition = e.target.selectionStart;
+                let oldValLength = e.target.value.length;
+
+                let val = e.target.value;
+                val = val.replace(/[^0-9,]/g, '');
+                
+                const parts = val.split(',');
+                if (parts.length > 2) {
+                    val = parts[0] + ',' + parts.slice(1).join('');
+                }
+                
+                if (parts[0]) {
+                    let intPart = parts[0].replace(/^0+(?=\d)/, '');
+                    if (intPart === '') intPart = '0';
+                    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                    
+                    if (parts.length > 1) {
+                        val = intPart + ',' + parts[1];
+                    } else {
+                        val = intPart;
+                    }
+                }
+                
+                e.target.value = val;
+                
+                let newValLength = e.target.value.length;
+                cursorPosition = cursorPosition + (newValLength - oldValLength);
+                try { e.target.setSelectionRange(cursorPosition, cursorPosition); } catch(err) {}
+                
+                calculateMath(); 
             });
-            // Focus events to help the user
-            input.addEventListener('focus', (e) => { if (e.target.value === '0,00') e.target.value = ''; });
-            input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '0,00'; });
+
+            input.addEventListener('blur', (e) => { 
+                let val = e.target.value;
+                if (!val) { 
+                    e.target.value = '0,00'; 
+                } else {
+                    let num = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+                    e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                }
+                calculateMath();
+            });
+
+            input.addEventListener('focus', (e) => { 
+                if (e.target.value === '0,00') {
+                    e.target.value = ''; 
+                }
+            });
         }
 
         function applyIntegerMask(input) {
@@ -908,8 +968,7 @@ export function renderProducts(container) {
             return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield].forEach(applyNumericMask);
-        [prodPurchaseToStockQty, prodUnitContentQty, prodMinStock].forEach(applyIntegerMask);
+        [prodCost, prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock, prodPurchaseToStockQty, prodUnitContentQty].forEach(applyNumericMask);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {
@@ -958,7 +1017,7 @@ export function renderProducts(container) {
 
                 if (recipeUnitDisplay) recipeUnitDisplay.textContent = recipeUnit;
                 
-                const purchaseQty = parseFloat(prodPurchaseToStockQty.value) || 1;
+                const purchaseQty = parseNum(prodPurchaseToStockQty.value) || 1;
                 const totalFactor = purchaseQty * factor;
 
                 if (stockToRecipeFactorDisplay) {
@@ -966,7 +1025,12 @@ export function renderProducts(container) {
                         `1 ${prodPurchaseUnit.value} = ${totalFactor.toLocaleString()} ${recipeUnit}${totalFactor > 1 ? 's' : ''}`;
                 }
                 // Costo por unidad de receta
-                const costPerRecipeUnit = factor > 0 ? cost / factor : 0;
+                let costPerRecipeUnit;
+                if (prodStockUnit.value === 'Unidad' && prodUnitContentUnit.value === 'Unidad') {
+                    costPerRecipeUnit = cost;
+                } else {
+                    costPerRecipeUnit = factor > 0 ? cost / factor : 0;
+                }
                 prodCostPerUnit.value = costPerRecipeUnit.toFixed(6);
                 window.lastCpru = costPerRecipeUnit;
                 window.lastRecipeUnit = recipeUnit;
@@ -985,10 +1049,16 @@ export function renderProducts(container) {
             if (document.activeElement === prodCost || !prodPriceDetal.value || cat === 'RECETA') {
                 let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
                 if (cat === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
-                const roundTo05 = (n) => Math.round(n * 20) / 20;
-                prodPriceDetal.value  = roundTo05(cost * mDetal).toFixed(2);
-                prodPriceMayor.value  = roundTo05(cost * mMayor).toFixed(2);
-                prodPriceSpecial.value = roundTo05(cost * mSpecial).toFixed(2);
+                const formatPriceStr = (cost, margin) => {
+                    const n = cost * margin;
+                    if (n < 1) {
+                        return n.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 4});
+                    }
+                    return (Math.round(n * 20) / 20).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                };
+                prodPriceDetal.value  = formatPriceStr(cost, mDetal);
+                prodPriceMayor.value  = formatPriceStr(cost, mMayor);
+                prodPriceSpecial.value = formatPriceStr(cost, mSpecial);
             }
         }
 
@@ -1031,7 +1101,7 @@ export function renderProducts(container) {
         const catalogSearch = container.querySelector('#catalogSearch');
 
         function openRecipeBuilder() {
-            const yieldVal = parseFloat(prodYield.value);
+            const yieldVal = parseNum(prodYield.value);
             if (!yieldVal || yieldVal <= 0) {
                 showNotification("Por favor indique primero las Unidades por Receta antes de construirla.");
                 prodYield.focus();
@@ -1120,7 +1190,7 @@ export function renderProducts(container) {
         }
 
         const confirmQty = () => {
-            const qty = parseFloat(rqmQtyInput.value);
+            const qty = parseNum(rqmQtyInput.value);
             if (!isNaN(qty) && qty > 0) {
                 addIngredientToRecipe(currentSelectedProduct, qty, currentSelectedCost, currentSelectedUnitLabel);
                 recipeQtyModal.style.display = 'none';
@@ -1188,7 +1258,7 @@ export function renderProducts(container) {
                 rbTableBody.appendChild(tr);
             });
 
-            const yieldVal = parseFloat(prodYield.value) || 1;
+            const yieldVal = parseNum(prodYield.value) || 1;
             rbTotalCostDisplay.textContent = `$ ${totalCost.toFixed(4)}`;
             rbUnitCostDisplay.textContent = `$ ${(totalCost / yieldVal).toFixed(4)}`;
         }
@@ -1229,6 +1299,7 @@ export function renderProducts(container) {
             const barcode = container.querySelector('#prodBarcode').value.trim() || null;
             const name = toTitleCase(container.querySelector('#prodName').value.trim());
             const minStock = parseNum(container.querySelector('#prodMinStock').value) || 0;
+            const minStockUnit = container.querySelector('#prodMinStockUnit')?.value || 'Unidad';
             const isSaleable = prodIsSaleable.value === 'true';
             const supplierIds = selectedSupplierIds;
             const supplierId = selectedSupplierIds.length > 0 ? selectedSupplierIds[0] : null;
@@ -1256,7 +1327,12 @@ export function renderProducts(container) {
             const pYield = parseNum(prodYield.value) || null;
             const cost = parseNum(prodCost.value) || 0;
             const costPerStockUnit = cost; // cost IS per stockUnit
-            const costPerRecipeUnit = stockToRecipeFactor > 0 ? cost / stockToRecipeFactor : 0;
+            let costPerRecipeUnit;
+            if (stockUnit === 'Unidad' && unitContentUnit === 'Unidad') {
+                costPerRecipeUnit = cost;
+            } else {
+                costPerRecipeUnit = stockToRecipeFactor > 0 ? cost / stockToRecipeFactor : 0;
+            }
             const priceDetal = parseNum(prodPriceDetal.value) || 0;
             const priceMayor = parseNum(prodPriceMayor.value) || 0;
             const priceSpecial = parseNum(prodPriceSpecial.value) || 0;
@@ -1270,6 +1346,7 @@ export function renderProducts(container) {
                     category,
                     subCategory,
                     minStock,
+                    minStockUnit,
                     isSaleable,
                     supplierIds,
                     supplierId,
@@ -1310,6 +1387,7 @@ export function renderProducts(container) {
                 }
 
                 if (window.tempPurchaseState) {
+                    window.openCreatePurchase = true;
                     // Navigate back to purchases
                     document.getElementById('navCompras').click();
                     return;

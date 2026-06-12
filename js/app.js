@@ -8,6 +8,7 @@ import { renderInventory } from './views/inventory.js';
 import { renderClients } from './views/clients.js';
 import { renderSuppliers } from './views/suppliers.js';
 import { renderSales } from './views/sales.js';
+import { renderResetPassword } from './views/reset_password.js';
 
 const routes = {
     '': renderLogin,
@@ -28,6 +29,18 @@ function router() {
         const app = document.getElementById('app');
         if (!app) return;
         
+        // INTERCEPTOR PARA RECUPERACIÓN DE CONTRASEÑA FIREBASE
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        if (mode === 'resetPassword') {
+            app.innerHTML = ''; // Limpiar
+            const view = renderResetPassword(app);
+            if (view && view !== app) {
+                app.appendChild(view);
+            }
+            return; // Detener router normal
+        }
+
         let hash = window.location.hash || '#entrar';
         
         // Protección de rutas (Route Guards)

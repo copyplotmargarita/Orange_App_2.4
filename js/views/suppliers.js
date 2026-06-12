@@ -236,6 +236,7 @@ export function renderSuppliers(container) {
                 
                 if (window.tempPurchaseState) {
                     window.tempPurchaseState.supplierId = documentId;
+                    window.openCreatePurchase = true;
                     document.getElementById('navCompras').click();
                     return;
                 }

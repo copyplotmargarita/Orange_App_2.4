@@ -1,6 +1,21 @@
 export function toTitleCase(str) {
     if (!str) return '';
+    
+    const upperExceptions = ['c.a.', 's.a.', 'f.p.', 's.r.l.', 'e.i.r.l.', 's.c.', 'c.a', 's.a', 'f.p', 's.r.l', 'e.i.r.l', 's.c', 'srl', 'eirl'];
+    
     return str.toLowerCase().split(' ').map(word => {
+        let cleanWord = word;
+        let punctuation = '';
+        
+        if (word.endsWith(',')) {
+            cleanWord = word.slice(0, -1);
+            punctuation = ',';
+        }
+        
+        if (upperExceptions.includes(cleanWord)) {
+            return cleanWord.toUpperCase() + punctuation;
+        }
+        
         return word.charAt(0).toUpperCase() + word.slice(1);
     }).join(' ');
 }
@@ -104,12 +119,12 @@ export function navigate(hash) {
 /**
  * Muestra un modal de confirmación con estilo premium
  */
-export function showConfirmModal(title, msg, onConfirm, confirmText = "Confirmar", cancelText = "Volver") {
+export function showConfirmModal(title, msg, onConfirm, confirmText = "Confirmar", cancelText = "Volver", icon = "🧾") {
     const modal = document.createElement('div');
     modal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;';
     modal.innerHTML = `
         <div class="card" style="width: 90%; max-width: 400px; padding: 2rem; text-align: center; animation: modalIn 0.3s ease-out;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">🧾</div>
+            <div style="font-size: 3rem; margin-bottom: 1rem;">${icon}</div>
             <h3 style="margin-bottom: 0.5rem;">${title}</h3>
             <p style="color: var(--text-muted); margin-bottom: 2rem;">${msg}</p>
             <div style="display: flex; gap: 1rem;">
@@ -138,4 +153,69 @@ export function showConfirmModal(title, msg, onConfirm, confirmText = "Confirmar
         modal.remove();
         onConfirm();
     };
+}
+
+/**
+ * Muestra un modal de prompt con estilo premium
+ */
+export function showPromptModal(title, msg, defaultValue, onConfirm, confirmText = "Confirmar", cancelText = "Cancelar", icon = "✍️") {
+    const modal = document.createElement('div');
+    modal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+    modal.innerHTML = `
+        <div class="card" style="width: 90%; max-width: 400px; padding: 2rem; text-align: center; animation: modalIn 0.3s ease-out;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">${icon}</div>
+            <h3 style="margin-bottom: 0.5rem; color: var(--text-main);">${title}</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">${msg}</p>
+            <input type="text" id="promptInput" class="form-control" value="${defaultValue || ''}" style="margin-bottom: 2rem; text-align: center;">
+            <div style="display: flex; gap: 1rem;">
+                <button id="cancelPromptBtn" class="btn btn-outline" style="flex: 1;">${cancelText}</button>
+                <button id="confirmPromptBtn" class="btn btn-primary" style="flex: 1;">${confirmText}</button>
+            </div>
+        </div>
+    `;
+    
+    if (!document.getElementById('modal-animations')) {
+        const style = document.createElement('style');
+        style.id = 'modal-animations';
+        style.textContent = `
+            @keyframes modalIn {
+                from { transform: scale(0.9); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(modal);
+    
+    const input = modal.querySelector('#promptInput');
+    input.focus();
+    input.select();
+
+    modal.querySelector('#cancelPromptBtn').onclick = () => modal.remove();
+    modal.querySelector('#confirmPromptBtn').onclick = () => {
+        const val = input.value.trim();
+        modal.remove();
+        onConfirm(val);
+    };
+}
+
+/**
+ * Formatea una fecha al estándar de la interfaz de usuario: dd/mm/yyyy
+ * @param {string|Date} dateString - Puede ser un string 'yyyy-mm-dd' o un objeto Date
+ * @returns {string} Fecha en formato dd/mm/yyyy
+ */
+export function formatDateToDDMMYYYY(dateString) {
+    if (!dateString) return '';
+    // Si viene como yyyy-mm-dd (formato Firestore / input)
+    if (typeof dateString === 'string' && dateString.includes('-')) {
+        const parts = dateString.split('T')[0].split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
+    // Fallback: tratar de parsear la fecha
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }

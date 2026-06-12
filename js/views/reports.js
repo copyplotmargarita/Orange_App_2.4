@@ -1,5 +1,5 @@
 import { auth, db } from '../services/firebase.js';
-import { showConfirmModal, showNotification } from '../utils.js';
+import { showConfirmModal, showNotification, formatDateToDDMMYYYY } from '../utils.js';
 import { 
     collection, 
     query, 
@@ -166,7 +166,7 @@ export function renderReports(container) {
                             <tbody>
                                 ${sales.map(s => `
                                     <tr style="border-bottom: 1px solid var(--border);">
-                                        <td style="padding: 1rem; text-align: center;">${s.date}</td>
+                                        <td style="padding: 1rem; text-align: center;">${formatDateToDDMMYYYY(s.date)}</td>
                                         <td style="padding: 1rem; text-align: center;">${s.clientName}</td>
                                         <td style="padding: 1rem; text-align: center; font-weight: bold; color: var(--primary);">$ ${s.totalUSD.toFixed(2)}</td>
                                         <td style="padding: 1rem; text-align: center;">

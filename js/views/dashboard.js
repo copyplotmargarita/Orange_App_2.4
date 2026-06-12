@@ -1,4 +1,4 @@
-import { navigate, showNotification, isVenezuelaHoliday, getNextBusinessDay } from '../utils.js';
+import { navigate, showNotification, isVenezuelaHoliday, getNextBusinessDay, formatDateToDDMMYYYY } from '../utils.js';
 import { renderStores } from './stores.js';
 import { renderEmployees } from './employees.js';
 import { renderClients } from './clients.js';
@@ -54,11 +54,83 @@ export function renderDashboard() {
     
     container.innerHTML = `
         <aside id="sidebar" class="sidebar">
-            <div class="sidebar-brand" id="navHome">
-                ORANGE APP
-                <div class="status-indicator">
-                    <span class="online-dot"></span>
-                    <span class="status-text">Sesión Activa</span>
+            <div class="sidebar-brand" id="navHome" style="display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 1.5rem; text-decoration: none; cursor: pointer;">
+                <svg viewBox="0 0 100 100" style="height: 44px; width: 44px; flex-shrink: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
+                    <defs>
+                        <!-- 3D spherical gradient for the rind -->
+                        <radialGradient id="rindGrad" cx="35%" cy="30%" r="70%">
+                            <stop offset="0%" stop-color="#ffedd5" />
+                            <stop offset="15%" stop-color="#ffb703" />
+                            <stop offset="55%" stop-color="#f97316" />
+                            <stop offset="85%" stop-color="#c2410c" />
+                            <stop offset="100%" stop-color="#7c2d12" />
+                        </radialGradient>
+                        
+                        <!-- Bright inner flesh gradient -->
+                        <radialGradient id="fleshGrad" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#fef08a" />
+                            <stop offset="35%" stop-color="#f59e0b" />
+                            <stop offset="85%" stop-color="#ea580c" />
+                            <stop offset="100%" stop-color="#9a3412" />
+                        </radialGradient>
+
+                        <!-- Leaf gradient with 3D effect -->
+                        <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#a3e635" />
+                            <stop offset="50%" stop-color="#65a30d" />
+                            <stop offset="100%" stop-color="#3f6212" />
+                        </linearGradient>
+
+                        <!-- Leaf highlight for glossy look -->
+                        <linearGradient id="leafHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#d9f99d" stop-opacity="0.7"/>
+                            <stop offset="100%" stop-color="#65a30d" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Back Leaf -->
+                    <path d="M 45 18 C 20 2, 8 35, 25 50 C 45 40, 60 18, 45 18 Z" fill="url(#leafGrad)" />
+                    <path d="M 45 18 C 20 2, 8 35, 25 50 C 45 40, 60 18, 45 18 Z" fill="url(#leafHighlight)" />
+                    <path d="M 21 40 C 30 28, 40 21, 45 18" stroke="#3f6212" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+                    <!-- Main Orange Rind (3D Sphere) -->
+                    <circle cx="50" cy="56" r="40" fill="url(#rindGrad)" />
+                    
+                    <!-- Pith (White spongy part) -->
+                    <circle cx="50" cy="56" r="35" fill="#fffbeb" opacity="0.95" />
+                    
+                    <!-- Flesh background -->
+                    <circle cx="50" cy="56" r="32" fill="url(#fleshGrad)" />
+
+                    <!-- Segments (High detail) -->
+                    <g stroke="#fffbeb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+                        <path d="M 50 56 L 50 25" />
+                        <path d="M 50 56 L 73 36" />
+                        <path d="M 50 56 L 80 56" />
+                        <path d="M 50 56 L 73 77" />
+                        <path d="M 50 56 L 50 87" />
+                        <path d="M 50 56 L 27 77" />
+                        <path d="M 50 56 L 20 56" />
+                        <path d="M 50 56 L 27 36" />
+                    </g>
+
+                    <!-- Center pith dot -->
+                    <circle cx="50" cy="56" r="4.5" fill="#fffbeb" />
+
+                    <!-- Front Leaf -->
+                    <path d="M 56 12 C 85 -5, 98 25, 78 45 C 65 32, 48 18, 56 12 Z" fill="url(#leafGrad)" />
+                    <path d="M 56 12 C 85 -5, 98 25, 78 45 C 65 32, 48 18, 56 12 Z" fill="url(#leafHighlight)" />
+                    <path d="M 83 34 C 68 22, 60 16, 56 12" stroke="#3f6212" stroke-width="1.5" fill="none" opacity="0.5"/>
+                    
+                    <!-- Front leaf stem -->
+                    <path d="M 50 20 L 53 10 C 53 8, 55 6, 58 5" stroke="#4d2c10" stroke-width="2.5" stroke-linecap="round" fill="none" />
+                </svg>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 800; font-size: 1.25rem; letter-spacing: 0.5px; background: linear-gradient(to right, #f97316, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">ORANGE APP</span>
+                    <div class="status-indicator" style="margin-top: 2px; display: flex; align-items: center; gap: 0.25rem;">
+                        <span class="online-dot"></span>
+                        <span class="status-text" style="font-size: 0.75rem; color: var(--text-muted);">Sesión Activa</span>
+                    </div>
                 </div>
             </div>
             
@@ -1074,7 +1146,7 @@ export function renderDashboard() {
         const dateEl = container.querySelector('#currentDate');
         if (timeEl && dateEl) {
             timeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            dateEl.textContent = now.toLocaleDateString();
+            dateEl.textContent = formatDateToDDMMYYYY(now);
         }
     };
     setInterval(updateTime, 1000);
