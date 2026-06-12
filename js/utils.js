@@ -199,3 +199,23 @@ export function showPromptModal(title, msg, defaultValue, onConfirm, confirmText
         onConfirm(val);
     };
 }
+
+/**
+ * Formatea una fecha al estándar de la interfaz de usuario: dd/mm/yyyy
+ * @param {string|Date} dateString - Puede ser un string 'yyyy-mm-dd' o un objeto Date
+ * @returns {string} Fecha en formato dd/mm/yyyy
+ */
+export function formatDateToDDMMYYYY(dateString) {
+    if (!dateString) return '';
+    // Si viene como yyyy-mm-dd (formato Firestore / input)
+    if (typeof dateString === 'string' && dateString.includes('-')) {
+        const parts = dateString.split('T')[0].split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
+    // Fallback: tratar de parsear la fecha
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}

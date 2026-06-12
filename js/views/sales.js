@@ -1,5 +1,5 @@
 import { auth, db } from '../services/firebase.js';
-import { toTitleCase, showNotification } from '../utils.js';
+import { toTitleCase, showNotification, formatDateToDDMMYYYY } from '../utils.js';
 import { doc, setDoc, getDocs, getDoc, updateDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { renderClients } from './clients.js';
 
@@ -1769,7 +1769,7 @@ export function renderSales(container, preSelectedClient = null) {
                 <h2 style="margin: 0.5rem 0;">
                     ${isBudget ? 'Presupuesto:' : 'Factura:'} ${sale.id.slice(-6).toUpperCase()}
                 </h2>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleString() : sale.date}</div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleString('es-VE') : formatDateToDDMMYYYY(sale.date)}</div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">

@@ -1,5 +1,5 @@
 import { db, auth } from '../services/firebase.js';
-import { doc, getDoc, updateDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, setDoc, getDoc, updateDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 import { showNotification, toTitleCase } from '../utils.js';
 import { FinanceService } from '../services/financeService.js';
@@ -13,11 +13,11 @@ export async function renderSettings(mainContentArea) {
     let businessData = {}; // Para guardar el estado actual
 
     mainContentArea.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+            <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">⚙️ Ajustes del Sistema</h2>
+        </div>
         <div class="settings-stack">
-            <div class="settings-header text-center">
-                <h2>⚙️ Ajustes del Sistema</h2>
-                <p>Configura tu identidad y preferencias</p>
-            </div>
 
             <!-- 1. PERFIL DEL NEGOCIO -->
             <div class="card compact-card mb-3">
@@ -69,7 +69,6 @@ export async function renderSettings(mainContentArea) {
                     <button type="submit" class="btn btn-primary btn-sm w-100 mt-3" id="saveBusinessBtn">💾 Actualizar Perfil</button>
                 </form>
             </div>
-
             <!-- 2. CUENTAS BANCARIAS -->
             <div class="card compact-card mb-3">
                 <div class="card-header-custom">🏦 Cuentas Bancarias</div>
@@ -146,7 +145,7 @@ export async function renderSettings(mainContentArea) {
 
         <style>
             .settings-stack { max-width: 500px; margin: 0 auto; animation: fadeIn 0.3s ease; }
-            .compact-card { padding: 1.25rem !important; border-radius: 16px !important; background: var(--surface); border: 1px solid var(--border); }
+            .compact-card { padding: 1.25rem !important; border-radius: 16px !important; background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--primary); margin-bottom: 1.5rem; }
             .card-header-custom { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem; }
             .form-control.sm { padding: 0.5rem; border-radius: 8px; background: var(--background); border: 1px solid var(--border); color: var(--text-main); width: 100%; }
             .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -452,13 +451,24 @@ export async function renderSettings(mainContentArea) {
             root.style.setProperty('--background', t.bg); 
             root.style.setProperty('--surface', t.surf); 
             root.style.setProperty('--border', t.bord);
-            
             localStorage.setItem('accentTheme', k);
             mainContentArea.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active')); 
             dot.classList.add('active');
             showNotification(`Atmósfera aplicada`, 'info');
         };
     });
+
+    // Lógica botón volver
+    const backBtn = mainContentArea.querySelector('#backToDashboardBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            document.getElementById('navHome')?.click();
+            const toggleIcon = document.getElementById('toggleIcon');
+            if (toggleIcon && toggleIcon.innerText === '▶') {
+                document.getElementById('sidebarToggle')?.click();
+            }
+        });
+    }
 
     // Lógica para el botón de Modo Claro/Oscuro en Ajustes
     const settingsThemeToggle = mainContentArea.querySelector('#settingsThemeToggle');

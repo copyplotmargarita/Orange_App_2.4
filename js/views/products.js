@@ -898,18 +898,57 @@ export function renderProducts(container) {
 
         if (editProduct) updateFormUI(); // Init if editing
 
-        // --- Helper: Máscara Numérica (Calculadora POS) ---
+        // --- Helper: Máscara Numérica ---
         function applyNumericMask(input) {
             input.addEventListener('input', (e) => {
-                let value = e.target.value.replace(/\D/g, ''); 
-                if (!value) { e.target.value = ''; return; }
-                let number = parseInt(value, 10);
-                e.target.value = (number / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                calculateMath(); // Trigger math update
+                let cursorPosition = e.target.selectionStart;
+                let oldValLength = e.target.value.length;
+
+                let val = e.target.value;
+                val = val.replace(/[^0-9,]/g, '');
+                
+                const parts = val.split(',');
+                if (parts.length > 2) {
+                    val = parts[0] + ',' + parts.slice(1).join('');
+                }
+                
+                if (parts[0]) {
+                    let intPart = parts[0].replace(/^0+(?=\d)/, '');
+                    if (intPart === '') intPart = '0';
+                    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                    
+                    if (parts.length > 1) {
+                        val = intPart + ',' + parts[1];
+                    } else {
+                        val = intPart;
+                    }
+                }
+                
+                e.target.value = val;
+                
+                let newValLength = e.target.value.length;
+                cursorPosition = cursorPosition + (newValLength - oldValLength);
+                try { e.target.setSelectionRange(cursorPosition, cursorPosition); } catch(err) {}
+                
+                calculateMath(); 
             });
-            // Focus events to help the user
-            input.addEventListener('focus', (e) => { if (e.target.value === '0,00') e.target.value = ''; });
-            input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '0,00'; });
+
+            input.addEventListener('blur', (e) => { 
+                let val = e.target.value;
+                if (!val) { 
+                    e.target.value = '0,00'; 
+                } else {
+                    let num = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+                    e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                }
+                calculateMath();
+            });
+
+            input.addEventListener('focus', (e) => { 
+                if (e.target.value === '0,00') {
+                    e.target.value = ''; 
+                }
+            });
         }
 
         function applyIntegerMask(input) {
@@ -978,7 +1017,7 @@ export function renderProducts(container) {
 
                 if (recipeUnitDisplay) recipeUnitDisplay.textContent = recipeUnit;
                 
-                const purchaseQty = parseFloat(prodPurchaseToStockQty.value) || 1;
+                const purchaseQty = parseNum(prodPurchaseToStockQty.value) || 1;
                 const totalFactor = purchaseQty * factor;
 
                 if (stockToRecipeFactorDisplay) {
@@ -986,7 +1025,12 @@ export function renderProducts(container) {
                         `1 ${prodPurchaseUnit.value} = ${totalFactor.toLocaleString()} ${recipeUnit}${totalFactor > 1 ? 's' : ''}`;
                 }
                 // Costo por unidad de receta
-                const costPerRecipeUnit = factor > 0 ? cost / factor : 0;
+                let costPerRecipeUnit;
+                if (prodStockUnit.value === 'Unidad' && prodUnitContentUnit.value === 'Unidad') {
+                    costPerRecipeUnit = cost;
+                } else {
+                    costPerRecipeUnit = factor > 0 ? cost / factor : 0;
+                }
                 prodCostPerUnit.value = costPerRecipeUnit.toFixed(6);
                 window.lastCpru = costPerRecipeUnit;
                 window.lastRecipeUnit = recipeUnit;
@@ -1005,10 +1049,16 @@ export function renderProducts(container) {
             if (document.activeElement === prodCost || !prodPriceDetal.value || cat === 'RECETA') {
                 let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
                 if (cat === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
-                const roundTo05 = (n) => Math.round(n * 20) / 20;
-                prodPriceDetal.value  = roundTo05(cost * mDetal).toFixed(2);
-                prodPriceMayor.value  = roundTo05(cost * mMayor).toFixed(2);
-                prodPriceSpecial.value = roundTo05(cost * mSpecial).toFixed(2);
+                const formatPriceStr = (cost, margin) => {
+                    const n = cost * margin;
+                    if (n < 1) {
+                        return n.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 4});
+                    }
+                    return (Math.round(n * 20) / 20).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                };
+                prodPriceDetal.value  = formatPriceStr(cost, mDetal);
+                prodPriceMayor.value  = formatPriceStr(cost, mMayor);
+                prodPriceSpecial.value = formatPriceStr(cost, mSpecial);
             }
         }
 
@@ -1051,7 +1101,7 @@ export function renderProducts(container) {
         const catalogSearch = container.querySelector('#catalogSearch');
 
         function openRecipeBuilder() {
-            const yieldVal = parseFloat(prodYield.value);
+            const yieldVal = parseNum(prodYield.value);
             if (!yieldVal || yieldVal <= 0) {
                 showNotification("Por favor indique primero las Unidades por Receta antes de construirla.");
                 prodYield.focus();
@@ -1140,7 +1190,7 @@ export function renderProducts(container) {
         }
 
         const confirmQty = () => {
-            const qty = parseFloat(rqmQtyInput.value);
+            const qty = parseNum(rqmQtyInput.value);
             if (!isNaN(qty) && qty > 0) {
                 addIngredientToRecipe(currentSelectedProduct, qty, currentSelectedCost, currentSelectedUnitLabel);
                 recipeQtyModal.style.display = 'none';
@@ -1208,7 +1258,7 @@ export function renderProducts(container) {
                 rbTableBody.appendChild(tr);
             });
 
-            const yieldVal = parseFloat(prodYield.value) || 1;
+            const yieldVal = parseNum(prodYield.value) || 1;
             rbTotalCostDisplay.textContent = `$ ${totalCost.toFixed(4)}`;
             rbUnitCostDisplay.textContent = `$ ${(totalCost / yieldVal).toFixed(4)}`;
         }
@@ -1277,7 +1327,12 @@ export function renderProducts(container) {
             const pYield = parseNum(prodYield.value) || null;
             const cost = parseNum(prodCost.value) || 0;
             const costPerStockUnit = cost; // cost IS per stockUnit
-            const costPerRecipeUnit = stockToRecipeFactor > 0 ? cost / stockToRecipeFactor : 0;
+            let costPerRecipeUnit;
+            if (stockUnit === 'Unidad' && unitContentUnit === 'Unidad') {
+                costPerRecipeUnit = cost;
+            } else {
+                costPerRecipeUnit = stockToRecipeFactor > 0 ? cost / stockToRecipeFactor : 0;
+            }
             const priceDetal = parseNum(prodPriceDetal.value) || 0;
             const priceMayor = parseNum(prodPriceMayor.value) || 0;
             const priceSpecial = parseNum(prodPriceSpecial.value) || 0;

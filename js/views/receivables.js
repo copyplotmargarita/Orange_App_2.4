@@ -1,4 +1,5 @@
 import { db } from '../services/firebase.js';
+import { formatDateToDDMMYYYY } from '../utils.js';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export async function renderReceivables(container) {
@@ -212,8 +213,8 @@ export async function renderReceivables(container) {
                             <td style="text-align: center; color: #ffffff;">${client.invoiceCount}</td>
                             <td style="text-align: right; font-weight: bold; color: #e53e3e;">$ ${fmt(client.totalDebt)}</td>
                             <td style="text-align: right; font-weight: bold; color: #e53e3e;">Bs. ${fmt(client.totalDebtBs)}</td>
-                            <td style="text-align: center; color: #ffffff;">${client.oldestDate}</td>
-                            <td style="text-align: center; color: #ffffff;">${client.newestDate}</td>
+                            <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.oldestDate)}</td>
+                            <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.newestDate)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -317,7 +318,7 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                 ${clientData.sales.map(sale => `
                     <tr class="sale-row" data-sale-id="${sale.id}">
                         <td style="font-family: monospace; font-weight: bold; color: #63b3ed;">${sale.correlative || sale.id.slice(-6).toUpperCase()}</td>
-                        <td style="color: #e2e8f0;">${sale.date}</td>
+                        <td style="color: #e2e8f0;">${formatDateToDDMMYYYY(sale.date)}</td>
                         <td style="text-align: right; font-weight: bold; color: #e2e8f0;">$ ${fmt(sale.remainingUSD || 0)}</td>
                         <td style="text-align: right; color: #a0aec0;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</td>
                         <td style="text-align: center;">
@@ -856,7 +857,7 @@ async function showSaleDetail(sale) {
                 <h2 style="margin: 0.5rem 0; color: #ffffff;">
                     ${sale.correlative || sale.id.slice(-6).toUpperCase()}
                 </h2>
-                <div style="font-size: 0.85rem; color: #a0aec0;">${sale.date}</div>
+                <div style="font-size: 0.85rem; color: #a0aec0;">${formatDateToDDMMYYYY(sale.date)}</div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">

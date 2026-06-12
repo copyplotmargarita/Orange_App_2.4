@@ -110,7 +110,8 @@ Orange_App_2.4/
 
 - Todo texto visible al usuario va en **español**
 - Formato de números: locale `de-DE` (coma como separador decimal) — ej: `1.234,56`
-- Formato de fechas: strings ISO divididos en `T` para claves de Firestore
+- Formato de fechas (UI): Absolutamente todas las fechas mostradas al usuario en la interfaz deben tener el formato `dd/mm/yyyy`. Usar `formatDateToDDMMYYYY` de `utils.js`.
+- Formato de fechas (DB/Inputs): Strings ISO divididos en `T` para claves de Firestore y `<input type="date">`.
 - Imports de Firebase usan URLs de CDN, no npm
 - Notificaciones siempre via `showNotification(msg, type)` de `utils.js`
 - Tema: `localStorage.getItem('theme')` → aplica `data-theme` en `<html>`

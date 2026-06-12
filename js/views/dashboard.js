@@ -1,4 +1,4 @@
-import { navigate, showNotification, isVenezuelaHoliday, getNextBusinessDay } from '../utils.js';
+import { navigate, showNotification, isVenezuelaHoliday, getNextBusinessDay, formatDateToDDMMYYYY } from '../utils.js';
 import { renderStores } from './stores.js';
 import { renderEmployees } from './employees.js';
 import { renderClients } from './clients.js';
@@ -1146,7 +1146,7 @@ export function renderDashboard() {
         const dateEl = container.querySelector('#currentDate');
         if (timeEl && dateEl) {
             timeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            dateEl.textContent = now.toLocaleDateString();
+            dateEl.textContent = formatDateToDDMMYYYY(now);
         }
     };
     setInterval(updateTime, 1000);
