@@ -404,28 +404,28 @@ export function renderSales(container, preSelectedClient = null) {
 
                             <!-- Metrics Row (4 columns) -->
                             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: auto;">
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--primary);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Items</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0;">${totalItems}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--primary);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Items</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">${totalItems}</p>
                                 </div>
                                 ${taxConfig.enabled ? `
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} ${taxConfig.rate}%</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--warning, #f59e0b);">$${fmt(taxAmountUSD)}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">${taxConfig.name} ${taxConfig.rate}%</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(taxAmountUSD)}</p>
                                 </div>
                                 ` : `
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total $</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--success);">$${fmt(grandTotalUSD)}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--success);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Total $</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(grandTotalUSD)}</p>
                                 </div>
                                 `}
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: ${taxConfig.enabled ? 'var(--success)' : '#3b82f6'};">${taxConfig.enabled ? `$${fmt(grandTotalUSD)}` : fmt(totalBs)}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--success);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">${taxConfig.enabled ? `$ ${fmt(grandTotalUSD)}` : `Bs. ${fmt(totalBs)}`}</p>
                                 </div>
-                                <div id="pullDebtBtn" class="card" style="padding: 0.5rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Deuda</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--danger);">$${fmt(clientDebt)}</p>
+                                <div id="pullDebtBtn" class="card" style="padding: 0.85rem 0.75rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Deuda</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(clientDebt)}</p>
                                 </div>
                             </div>
                         </div>
@@ -572,10 +572,8 @@ export function renderSales(container, preSelectedClient = null) {
             // Regla Estricta para Ventas:
             // 1. Debe estar marcado como disponible para venta
             const canSell = p.isSaleable !== false;
-            // 2. No debe ser de la categoría INSUMO
-            const isNotInsumo = p.category !== 'INSUMO' && p.category !== 'insumo';
             
-            return isMatch && canSell && isNotInsumo;
+            return isMatch && canSell;
         });
 
         if (filtered.length === 0) return '<p class="text-muted" style="grid-column: 1/-1; text-align: center; padding: 2rem;">No se encontraron productos.</p>';
@@ -637,43 +635,88 @@ export function renderSales(container, preSelectedClient = null) {
 
     function promptAddToCart(prod) {
         const stock = prod.stockGeneral ?? prod.stock ?? 0;
-        showQuantityModal(prod.name, (qty) => {
-            const existing = cart.find(item => item.id === prod.id);
+        showQuantityModal(prod.name, (qty, sellUnit, multiplier) => {
+            const existing = cart.find(item => item.id === prod.id && (item.sellUnit || item.stockUnit || 'ud') === sellUnit);
             const price = getPrice(prod);
             if (existing) {
-                existing.qty += qty;
+                existing.originalQty = (existing.originalQty || existing.qty) + qty;
+                existing.qty = existing.originalQty * existing.multiplier;
                 existing.total = existing.qty * existing.price;
             } else {
                 cart.push({
                     id: prod.id,
                     name: prod.name,
-                    qty: qty,
+                    originalQty: qty,
+                    qty: qty * multiplier,
+                    sellUnit: sellUnit,
+                    multiplier: multiplier,
                     price: price,
-                    total: price * qty,
+                    total: price * (qty * multiplier),
                     stockUnit: prod.stockUnit || 'ud'
                 });
             }
             render();
-        }, "", stock);
+        }, "", stock, prod);
     }
 
-    function showQuantityModal(title, onConfirm, defaultValue = "", stock = null) {
+    function showQuantityModal(title, onConfirm, defaultValue = "", stock = null, prod = null, currentUnit = null) {
         const modal = document.createElement('div');
         modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
+        
+        let hasDualUnit = false;
+        let dualUnitName = '';
+        let dualMultiplier = 1;
+        let baseUnitName = 'ud';
+
+        if (prod) {
+            baseUnitName = prod.stockUnit || 'ud';
+            if (prod.purchaseToStockQty > 1 && prod.purchaseUnit && prod.purchaseUnit !== prod.stockUnit) {
+                hasDualUnit = true;
+                dualUnitName = prod.purchaseUnit;
+                dualMultiplier = prod.purchaseToStockQty;
+            } else if (prod.unitContentQty > 1 && prod.purchaseUnit && prod.purchaseUnit !== prod.stockUnit) {
+                hasDualUnit = true;
+                dualUnitName = prod.purchaseUnit;
+                dualMultiplier = prod.unitContentQty;
+            } else if (prod.unitContentQty > 1 && prod.stockUnit && prod.unitContentUnit && prod.stockUnit !== prod.unitContentUnit) {
+                hasDualUnit = true;
+                dualUnitName = prod.stockUnit;
+                dualMultiplier = prod.unitContentQty;
+                baseUnitName = prod.unitContentUnit;
+            }
+        }
+
+        let unitDropdownHTML = '';
+        if (hasDualUnit) {
+            const isDualSelected = currentUnit === dualUnitName;
+            unitDropdownHTML = `
+                <select id="modalUnitSelect" class="form-control" style="width: auto; font-size: 1rem; font-weight: bold; background-color: var(--surface); color: var(--primary);">
+                    <option value="${baseUnitName}" data-mult="1" ${!isDualSelected ? 'selected' : ''}>${baseUnitName}</option>
+                    <option value="${dualUnitName}" data-mult="${dualMultiplier}" ${isDualSelected ? 'selected' : ''}>${dualUnitName}</option>
+                </select>
+            `;
+        } else {
+            unitDropdownHTML = `
+                <span style="font-weight: bold; color: var(--text-muted); font-size: 1rem; display: flex; align-items: center; padding: 0 0.5rem;">
+                    ${baseUnitName}
+                </span>
+            `;
+        }
+
         modal.innerHTML = `
             <div class="card" style="width: 100%; max-width: 350px; border-top: 4px solid var(--primary); animation: fadeInScale 0.2s ease-out;">
                 <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Cantidad para:</h3>
-                <p style="font-weight: bold; color: var(--primary); margin-bottom: 1rem;">${title}</p>
+                <p style="font-weight: bold; color: var(--primary); margin-bottom: 1rem; line-height: 1.2;">${title}</p>
                 
-                <div class="form-group mb-3">
-                    <input type="number" id="modalQtyInput" class="form-control" step="any" placeholder="0.00" style="font-size: 1.5rem; text-align: center; font-weight: bold;" value="${defaultValue}">
+                <div class="form-group mb-3" style="display: flex; gap: 0.5rem;">
+                    <input type="text" inputmode="numeric" id="modalQtyInput" class="form-control" placeholder="0,00" style="flex: 1; font-size: 1.5rem; text-align: center; font-weight: bold;" value="${defaultValue}">
+                    ${unitDropdownHTML}
                 </div>
 
                 <div id="stockWarning" style="display: none; background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; padding: 0.5rem; border-radius: 8px; margin-bottom: 1rem; animation: shake 0.3s ease;">
-                    <p style="color: #f59e0b; font-size: 0.75rem; font-weight: bold; margin: 0; text-align: center;">
-                        ⚠️ Solo hay ${stock} unidades en stock
-                    </p>
+                    <p id="stockWarningText" style="color: #f59e0b; font-size: 0.75rem; font-weight: bold; margin: 0; text-align: center;"></p>
                 </div>
+
                 
                 <div style="display: flex; gap: 1rem;">
                     <button id="modalCancelBtn" class="btn btn-outline">Cancelar</button>
@@ -701,39 +744,92 @@ export function renderSales(container, preSelectedClient = null) {
         document.body.appendChild(modal);
         
         const input = modal.querySelector('#modalQtyInput');
+        const unitSelect = modal.querySelector('#modalUnitSelect');
         const warning = modal.querySelector('#stockWarning');
-        input.focus();
-        if (defaultValue) input.select();
+        const warningText = modal.querySelector('#stockWarningText');
+        const confirmBtn = modal.querySelector('#modalConfirmBtn');
+        
+        function parseNum(val) {
+            if (!val) return 0;
+            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
 
-        const checkStock = () => {
-            const val = parseFloat(input.value);
-            if (stock !== null && val > stock) {
+        function formatNum(num) {
+            return parseFloat(num).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        if (defaultValue) {
+            input.value = formatNum(defaultValue);
+        }
+
+        input.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, ''); 
+            if (!value) { e.target.value = ''; return; }
+            let number = parseInt(value, 10);
+            let divisor = Math.pow(10, 2);
+            e.target.value = (number / divisor).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            checkStock(); 
+        });
+        
+        input.addEventListener('focus', (e) => { 
+            let zeroStr = (0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (e.target.value === zeroStr) e.target.value = ''; 
+        });
+
+        input.addEventListener('blur', (e) => { 
+            if (!e.target.value) {
+                e.target.value = (0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); 
+            }
+        });
+
+        input.focus();
+        if (input.value) input.select();
+
+        function checkStock() {
+            if (stock === null) return;
+            const qty = parseNum(input.value);
+            const multiplier = unitSelect ? parseInt(unitSelect.options[unitSelect.selectedIndex].dataset.mult) : 1;
+            const totalQty = qty * multiplier;
+            
+            if (totalQty > stock) {
                 warning.style.display = 'block';
+                confirmBtn.style.opacity = '0.5';
+                confirmBtn.style.pointerEvents = 'none';
+                warningText.textContent = `⚠️ Solo hay ${stock} ${prod ? prod.stockUnit : 'unidades'} en stock`;
             } else {
                 warning.style.display = 'none';
+                confirmBtn.style.opacity = '1';
+                confirmBtn.style.pointerEvents = 'auto';
             }
-        };
+        }
 
-        input.oninput = checkStock;
-        checkStock(); // Check initial value
+        if (unitSelect) unitSelect.addEventListener('change', checkStock);
+        
+        checkStock();
 
-        const confirm = () => {
-            const val = parseFloat(input.value);
-            if (!isNaN(val) && val > 0) {
-                onConfirm(val);
-                modal.remove();
-            } else {
+        modal.querySelector('#modalCancelBtn').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            const qty = parseNum(input.value);
+            if (!qty || qty <= 0) {
                 input.style.borderColor = 'var(--danger)';
                 input.animate([{ transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }], { duration: 100, iterations: 3 });
+                return;
             }
-        };
+            
+            const selectedUnit = unitSelect ? unitSelect.value : (prod ? prod.stockUnit : 'ud');
+            const multiplier = unitSelect ? parseInt(unitSelect.options[unitSelect.selectedIndex].dataset.mult) : 1;
+            
+            modal.remove();
+            onConfirm(qty, selectedUnit, multiplier);
+        });
 
-        modal.querySelector('#modalConfirmBtn').onclick = confirm;
-        modal.querySelector('#modalCancelBtn').onclick = () => modal.remove();
-        input.onkeydown = (e) => {
-            if (e.key === 'Enter') confirm();
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') confirmBtn.click();
             if (e.key === 'Escape') modal.remove();
-        };
+        });
     }
 
     async function renderPaymentView() {
