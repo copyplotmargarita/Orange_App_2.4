@@ -404,28 +404,28 @@ export function renderSales(container, preSelectedClient = null) {
 
                             <!-- Metrics Row (4 columns) -->
                             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: auto;">
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--primary);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Items</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0;">${totalItems}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--primary);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Items</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">${totalItems}</p>
                                 </div>
                                 ${taxConfig.enabled ? `
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} ${taxConfig.rate}%</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--warning, #f59e0b);">$${fmt(taxAmountUSD)}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">${taxConfig.name} ${taxConfig.rate}%</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(taxAmountUSD)}</p>
                                 </div>
                                 ` : `
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total $</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--success);">$${fmt(grandTotalUSD)}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--success);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Total $</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(grandTotalUSD)}</p>
                                 </div>
                                 `}
-                                <div class="card" style="padding: 0.5rem; background: var(--background); border-left: 3px solid var(--success);">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: ${taxConfig.enabled ? 'var(--success)' : '#3b82f6'};">${taxConfig.enabled ? `$${fmt(grandTotalUSD)}` : fmt(totalBs)}</p>
+                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--success);">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">${taxConfig.enabled ? `$ ${fmt(grandTotalUSD)}` : `Bs. ${fmt(totalBs)}`}</p>
                                 </div>
-                                <div id="pullDebtBtn" class="card" style="padding: 0.5rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
-                                    <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Deuda</p>
-                                    <p style="font-size: 0.9rem; font-weight: 800; margin: 0; color: var(--danger);">$${fmt(clientDebt)}</p>
+                                <div id="pullDebtBtn" class="card" style="padding: 0.85rem 0.75rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
+                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Deuda</p>
+                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(clientDebt)}</p>
                                 </div>
                             </div>
                         </div>
@@ -572,10 +572,8 @@ export function renderSales(container, preSelectedClient = null) {
             // Regla Estricta para Ventas:
             // 1. Debe estar marcado como disponible para venta
             const canSell = p.isSaleable !== false;
-            // 2. No debe ser de la categoría INSUMO
-            const isNotInsumo = p.category !== 'INSUMO' && p.category !== 'insumo';
             
-            return isMatch && canSell && isNotInsumo;
+            return isMatch && canSell;
         });
 
         if (filtered.length === 0) return '<p class="text-muted" style="grid-column: 1/-1; text-align: center; padding: 2rem;">No se encontraron productos.</p>';

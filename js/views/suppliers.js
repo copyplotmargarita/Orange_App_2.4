@@ -10,9 +10,10 @@ export function renderSuppliers(container) {
         const businessId = localStorage.getItem('businessId');
         if (!businessId) return;
         try {
-            const q = query(collection(db, "businesses", businessId, "suppliers"), orderBy("createdAt", "desc"));
+            const q = query(collection(db, "businesses", businessId, "suppliers"));
             const snapshot = await getDocs(q);
             suppliers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            suppliers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             renderList();
             
             if (window.openCreateSupplierForPurchase) {

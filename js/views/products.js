@@ -242,7 +242,7 @@ export function renderProducts(container) {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                 <div class="form-group">
                                     <label>🏷️ CATEGORÍA</label>
-                                    <select id="prodCategory" class="form-control" required ${editProduct ? 'disabled' : ''}>
+                                    <select id="prodCategory" class="form-control" required>
                                         <option value="">Seleccione...</option>
                                         <option value="NEW" style="font-weight: bold; color: var(--primary);">+ CREAR CATEGORIA</option>
                                         <option value="INSUMO" ${editProduct?.category === 'INSUMO' ? 'selected' : ''}>INSUMO</option>
@@ -269,7 +269,7 @@ export function renderProducts(container) {
                                         <div id="btnSaleableYes" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--background); color: var(--text-main); font-weight: 800; font-size: 0.8rem;">SÍ</div>
                                         <div id="btnSaleableNo" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--primary); color: white; font-weight: 800; font-size: 0.8rem;">NO</div>
                                     </div>
-                                    <input type="hidden" id="prodIsSaleable" value="${editProduct?.isSaleable ? 'true' : 'false'}">
+                                    <input type="hidden" id="prodIsSaleable" value="${editProduct ? (editProduct.isSaleable ? 'true' : 'false') : 'true'}">
                                 </div>
 
                                 </div>
@@ -786,8 +786,7 @@ export function renderProducts(container) {
                 unitSection.style.display = 'block';
                 costPerUnitGroup.style.display = 'none';
                 unitSummaryCard.style.display = 'none';
-                saleableGroup.style.display = 'none';
-                prodIsSaleable.value = 'true'; // Por defecto a la venta
+                saleableGroup.style.display = 'block';
             }
 
             // Sync Saleable UI

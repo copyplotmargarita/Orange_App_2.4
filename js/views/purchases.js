@@ -136,6 +136,13 @@ export function renderPurchases(container) {
     let currentFilterSupplier = '';
     let currentFilterStatus = '';
     let currentFilterType = 'TODOS';
+    
+    // Rango de fechas por defecto: últimos 7 días
+    const initialEndDateObj = new Date();
+    const initialStartDateObj = new Date();
+    initialStartDateObj.setDate(initialEndDateObj.getDate() - 7);
+    let currentFilterStartDate = initialStartDateObj.toISOString().split('T')[0];
+    let currentFilterEndDate = initialEndDateObj.toISOString().split('T')[0];
 
     function renderDeck() {
         let filteredPurchases = purchases;
@@ -179,6 +186,25 @@ export function renderPurchases(container) {
             </div>
             ` : ''}
         `;
+
+        // Banner de Compra Pausada
+        const pausedStr = localStorage.getItem('pausedPurchaseState');
+        if (pausedStr) {
+            html += `
+                <div style="display: flex; margin-bottom: 1.5rem;">
+                    <div class="card" style="padding: 1rem; border-left: 4px solid var(--info, #3b82f6); background: var(--surface); width: 100%; max-width: 350px; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <h3 style="margin: 0 0 0.25rem 0; font-size: 0.9rem; font-weight: 800; color: var(--info, #3b82f6);">⏸️ Compra en Progreso</h3>
+                            <p style="margin: 0 0 0.75rem 0; font-size: 0.75rem; color: var(--text-muted);">Tienes una compra que pusiste en espera.</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-sm" id="resumePausedBtn" style="flex: 1; padding: 0.4rem; font-size: 0.75rem; font-weight: 700; background: var(--info, #3b82f6); color: white; border: none; border-radius: 8px;">Recuperar</button>
+                            <button class="btn btn-sm btn-outline" id="discardPausedBtn" style="flex: 1; padding: 0.4rem; font-size: 0.75rem; border-color: var(--danger); color: var(--danger); border-radius: 8px;">Descartar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         // Banner de Gastos Recurrentes
         const today = new Date();
@@ -258,7 +284,15 @@ export function renderPurchases(container) {
 
         // Tabla de Historial de Compras
         html += `
-            <h3 style="margin-bottom: 1rem;">Historial de Compras</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <h3 style="margin: 0;">Historial de Compras</h3>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Desde:</label>
+                    <input type="date" id="filterStartDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterStartDate}">
+                    <label style="font-size: 0.85rem; color: var(--text-muted); margin: 0; margin-left: 0.5rem;">Hasta:</label>
+                    <input type="date" id="filterEndDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterEndDate}">
+                </div>
+            </div>
             <div class="card" style="padding: 0; overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
                     <thead>
@@ -277,11 +311,25 @@ export function renderPurchases(container) {
                     <tbody>
         `;
 
-        if (filteredPurchases.length === 0) {
-            html += `<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron compras con los filtros seleccionados.</td></tr>`;
+        let tablePurchases = filteredPurchases;
+        if (currentFilterStartDate) {
+            tablePurchases = tablePurchases.filter(p => {
+                const pDate = p.receptionDate || p.emissionDate || (p.createdAt ? p.createdAt.split('T')[0] : '');
+                return pDate >= currentFilterStartDate;
+            });
+        }
+        if (currentFilterEndDate) {
+            tablePurchases = tablePurchases.filter(p => {
+                const pDate = p.receptionDate || p.emissionDate || (p.createdAt ? p.createdAt.split('T')[0] : '');
+                return pDate <= currentFilterEndDate;
+            });
+        }
+
+        if (tablePurchases.length === 0) {
+            html += `<tr><td colspan="9" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron compras con los filtros seleccionados.</td></tr>`;
         } else {
             // Sort by receptionDate asc (oldest to newest)
-            [...filteredPurchases].sort((a, b) => new Date(a.receptionDate || a.createdAt) - new Date(b.receptionDate || b.createdAt)).forEach(p => {
+            [...tablePurchases].sort((a, b) => new Date(b.receptionDate || b.createdAt) - new Date(a.receptionDate || a.createdAt)).forEach(p => {
                 let supName = 'Desconocido';
                 if (p.purchaseType === 'GASTO_SERVICIO') {
                     const credObj = creditors.find(c => c.id === p.creditorId);
@@ -354,6 +402,21 @@ export function renderPurchases(container) {
             renderDeck();
         });
 
+        const filterStart = container.querySelector('#filterStartDate');
+        const filterEnd = container.querySelector('#filterEndDate');
+        if (filterStart) {
+            filterStart.addEventListener('change', () => {
+                currentFilterStartDate = filterStart.value;
+                renderDeck();
+            });
+        }
+        if (filterEnd) {
+            filterEnd.addEventListener('change', () => {
+                currentFilterEndDate = filterEnd.value;
+                renderDeck();
+            });
+        }
+
         container.querySelectorAll('.template-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const templateId = e.currentTarget.dataset.id;
@@ -378,6 +441,31 @@ export function renderPurchases(container) {
         if (viewEqBtn) {
             viewEqBtn.addEventListener('click', () => {
                 renderEquipmentInventory();
+            });
+        }
+        
+        const resumePausedBtn = container.querySelector('#resumePausedBtn');
+        if (resumePausedBtn) {
+            resumePausedBtn.addEventListener('click', () => {
+                const dataStr = localStorage.getItem('pausedPurchaseState');
+                if (dataStr) {
+                    try {
+                        const data = JSON.parse(dataStr);
+                        localStorage.removeItem('pausedPurchaseState');
+                        window.tempPurchaseState = data;
+                        renderForm(data.purchaseType || 'PRODUCTO');
+                    } catch (e) {
+                        console.error('Error parsing paused state', e);
+                    }
+                }
+            });
+        }
+
+        const discardPausedBtn = container.querySelector('#discardPausedBtn');
+        if (discardPausedBtn) {
+            discardPausedBtn.addEventListener('click', () => {
+                localStorage.removeItem('pausedPurchaseState');
+                renderDeck();
             });
         }
         
@@ -1314,6 +1402,7 @@ export function renderPurchases(container) {
                 </div>
 
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" id="pausePurchaseBtn" style="flex: 1; height: 50px; font-weight: 700; border-color: var(--info, #3b82f6); color: var(--info, #3b82f6);">PAUSAR COMPRA</button>
                     <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
                     <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="flex: 1; height: 50px; font-weight: 800;">CREAR COMPRA</button>
                 </div>
@@ -1439,13 +1528,41 @@ export function renderPurchases(container) {
         // Restore state if returning from Product Creation
         if (window.tempPurchaseState) {
             const st = window.tempPurchaseState;
-            pSupplier.value = st.supplierId || '';
-            pBcvRate.value = st.bcvRate || '';
-            pEmissionDate.value = st.emissionDate || todayStr;
-            pReceptionDate.value = st.receptionDate || todayStr;
-            pDocType.value = st.docType || '';
-            pDocNumber.value = st.docNumber || '';
-            pStatus.value = st.status || '';
+            
+            if (st.products && st.products.length > 0) {
+                currentPurchaseProducts = st.products;
+            }
+            if (st.equipmentItems && st.equipmentItems.length > 0) {
+                window.currentEquipmentItems = st.equipmentItems;
+            }
+            
+            if (pSupplier) pSupplier.value = st.supplierId || '';
+            if (pCreditor) pCreditor.value = st.creditorId || '';
+            
+            const pCategory = container.querySelector('#pCategory');
+            if (pCategory) pCategory.value = st.categoryId || '';
+            
+            const pDescription = container.querySelector('#pDescription');
+            if (pDescription) pDescription.value = st.description || '';
+            
+            const pExpenseBcvRate = container.querySelector('#pExpenseBcvRate');
+            if (pExpenseBcvRate && st.bcvRate) pExpenseBcvRate.value = st.bcvRate;
+            
+            const pExpenseDate = container.querySelector('#pExpenseDate');
+            if (pExpenseDate && st.emissionDate) pExpenseDate.value = st.emissionDate;
+            
+            const pExpenseStatus = container.querySelector('#pExpenseStatus');
+            if (pExpenseStatus && st.status) pExpenseStatus.value = st.status;
+            
+            const pExpenseCurrency = container.querySelector('#pExpenseCurrency');
+            if (pExpenseCurrency && st.currency) pExpenseCurrency.value = st.currency;
+
+            if (pBcvRate) pBcvRate.value = st.bcvRate || '';
+            if (pEmissionDate) pEmissionDate.value = st.emissionDate || todayStr;
+            if (pReceptionDate) pReceptionDate.value = st.receptionDate || todayStr;
+            if (pDocType) pDocType.value = st.docType || '';
+            if (pDocNumber) pDocNumber.value = st.docNumber || '';
+            if (pStatus) pStatus.value = st.status || '';
             if (pCurrency) pCurrency.value = st.currency || 'BS';
             if (pPaymentDate) pPaymentDate.value = st.paymentDate || todayStr;
             if (pPaymentMethod) pPaymentMethod.value = st.paymentMethod || '';
@@ -1472,6 +1589,37 @@ export function renderPurchases(container) {
         // Navigation
         container.querySelector('#backToTypeSelectorBtn').addEventListener('click', renderTypeSelector);
         container.querySelector('#cancelFormBtn').addEventListener('click', renderDeck);
+
+        // Save Paused State
+        window.savePurchaseStateAndExit = function(overrideProducts = null) {
+            let stateData = {
+                purchaseType: purchaseType,
+                supplierId: pSupplier ? pSupplier.value : null,
+                creditorId: pCreditor ? pCreditor.value : null,
+                categoryId: container.querySelector('#pCategory') ? container.querySelector('#pCategory').value : null,
+                description: container.querySelector('#pDescription') ? container.querySelector('#pDescription').value : null,
+                bcvRate: parseNum((pBcvRate && pBcvRate.value) ? pBcvRate.value : (container.querySelector('#pExpenseBcvRate') ? container.querySelector('#pExpenseBcvRate').value : 1)),
+                emissionDate: (pEmissionDate && pEmissionDate.value) ? pEmissionDate.value : (container.querySelector('#pExpenseDate') ? container.querySelector('#pExpenseDate').value : todayStr),
+                receptionDate: (pReceptionDate && pReceptionDate.value) ? pReceptionDate.value : todayStr,
+                docType: pDocType ? pDocType.value : null,
+                docNumber: pDocNumber ? pDocNumber.value : null,
+                status: (pStatus && pStatus.value) ? pStatus.value : (container.querySelector('#pExpenseStatus') ? container.querySelector('#pExpenseStatus').value : ''),
+                currency: (pCurrency && pCurrency.value) ? pCurrency.value : (container.querySelector('#pExpenseCurrency') ? container.querySelector('#pExpenseCurrency').value : 'BS'),
+                paymentDate: pPaymentDate ? pPaymentDate.value : null,
+                paymentMethod: pPaymentMethod ? pPaymentMethod.value : null,
+                receivedBs: pReceivedBs ? pReceivedBs.value : null,
+                receivedUsd: pReceivedUsd ? pReceivedUsd.value : null,
+                reference: container.querySelector('#pReference') ? container.querySelector('#pReference').value : null,
+                products: overrideProducts !== null ? overrideProducts : (currentPurchaseProducts || []),
+                equipmentItems: window.currentEquipmentItems || []
+            };
+            localStorage.setItem('pausedPurchaseState', JSON.stringify(stateData));
+            showToast('Compra en espera guardada.', 'info');
+            renderDeck();
+        };
+
+        const pauseFormBtn = container.querySelector('#pausePurchaseBtn');
+        if (pauseFormBtn) pauseFormBtn.addEventListener('click', window.savePurchaseStateAndExit);
 
         const updatePayments = () => {
             if (typeof calculatePendingBalance === 'function') {
@@ -1553,6 +1701,9 @@ export function renderPurchases(container) {
 
         if (pEmissionDate) {
             pEmissionDate.addEventListener('change', () => {
+                if (pReceptionDate) {
+                    pReceptionDate.value = pEmissionDate.value;
+                }
                 if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
                     const pPaymentDate = container.querySelector('#pPaymentDate');
                     if (pPaymentDate) pPaymentDate.value = pEmissionDate.value;
@@ -1812,8 +1963,7 @@ export function renderPurchases(container) {
 
             const renderEquipmentList = () => {
                 equipmentList.innerHTML = equipmentItems.map((item, index) => `
-                    <div class="card" style="padding: 1rem; background: var(--surface); border: 1px solid var(--border); position: relative;">
-                        <button type="button" class="btn btn-outline eq-remove-btn" data-index="${index}" style="position: absolute; top: 0.5rem; right: 0.5rem; width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; border-color: var(--danger); color: var(--danger); border-radius: 50%;">X</button>
+                    <div style="margin-bottom: 1.5rem;">
                         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
                             <div class="form-group">
                                 <label>Nombre del Equipo <span class="text-danger">*</span></label>
@@ -1824,25 +1974,29 @@ export function renderPurchases(container) {
                                 <input type="text" class="form-control eq-serial" data-index="${index}" value="${item.serial}">
                             </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
-                            <div class="form-group">
-                                <label>Descripción breve</label>
-                                <input type="text" class="form-control eq-desc" data-index="${index}" value="${item.description}">
-                            </div>
-                            <div class="form-group">
+                        
+                        <div class="form-group" style="margin-top: 0.5rem;">
+                            <label>Descripción breve</label>
+                            <input type="text" class="form-control eq-desc" data-index="${index}" value="${item.description}">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 40px; gap: 1rem; margin-top: 0.5rem; align-items: flex-end;">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label>Cantidad <span class="text-danger">*</span></label>
                                 <input type="text" inputmode="numeric" class="form-control eq-qty" data-index="${index}" value="${fmtNum(item.qty)}" required>
                             </div>
-                            <div class="form-group">
-                                <label>Costo Unid. <span class="text-danger">*</span></label>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <select class="form-control eq-currency" data-index="${index}" style="width: 80px; padding: 0 0.5rem;">
-                                        <option value="USD" ${item.currency === 'USD' ? 'selected' : ''}>$</option>
-                                        <option value="BS" ${item.currency === 'BS' ? 'selected' : ''}>Bs</option>
-                                    </select>
-                                    <input type="text" inputmode="numeric" class="form-control eq-cost" data-index="${index}" value="${fmtNum(item.cost)}" required>
-                                </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Moneda <span class="text-danger">*</span></label>
+                                <select class="form-control eq-currency" data-index="${index}">
+                                    <option value="USD" ${item.currency === 'USD' ? 'selected' : ''}>USD ($)</option>
+                                    <option value="BS" ${item.currency === 'BS' ? 'selected' : ''}>VES (Bs)</option>
+                                </select>
                             </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Costo Unid. <span class="text-danger">*</span></label>
+                                <input type="text" inputmode="numeric" class="form-control eq-cost" data-index="${index}" value="${fmtNum(item.cost)}" required>
+                            </div>
+                            <button type="button" class="btn btn-outline eq-remove-btn" title="Eliminar Ítem" data-index="${index}" style="width: 40px; height: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: bold; border-color: var(--danger); color: var(--danger); border-radius: 8px; margin-bottom: 0;">&times;</button>
                         </div>
                     </div>
                 `).join('');
@@ -2295,6 +2449,7 @@ export function renderPurchases(container) {
                     <h2 style="margin: 0; color: var(--primary); font-size: 1.5rem; font-weight: 800; white-space: nowrap;">📦 Seleccionar Productos</h2>
                 </div>
                 <div style="display: flex; gap: 0.75rem;">
+                    <button type="button" class="btn btn-outline" id="pbPauseBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px; color: var(--info, #3b82f6); border-color: var(--info, #3b82f6);">PAUSAR</button>
                     <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px;">DESCARTAR</button>
                     <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 42px; font-weight: 800; padding: 0 1.5rem; border-radius: 12px;">PROCESAR</button>
                 </div>
@@ -2636,6 +2791,13 @@ export function renderPurchases(container) {
             };
             window.openCreateProductForPurchase = true;
             document.getElementById('navProductos').click();
+        });
+
+        modal.querySelector('#pbPauseBtn').addEventListener('click', () => {
+            if (typeof window.savePurchaseStateAndExit === 'function') {
+                window.savePurchaseStateAndExit(tempProducts);
+            }
+            modal.style.display = 'none';
         });
 
         modal.querySelector('#pbCancelBtn').addEventListener('click', () => {
