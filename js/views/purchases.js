@@ -13,57 +13,34 @@ const fmtNum = (n) => {
     return parseFloat(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-function applyNumericMask(input, callback) {
+function applyNumericMask(input, callback, decimals = 2) {
     if (!input) return;
     
     input.addEventListener('input', (e) => {
-        let cursorPosition = e.target.selectionStart;
-        let oldValLength = e.target.value.length;
-
-        let val = e.target.value;
-        val = val.replace(/[^0-9,]/g, '');
-        
-        const parts = val.split(',');
-        if (parts.length > 2) {
-            val = parts[0] + ',' + parts.slice(1).join('');
+        let value = e.target.value.replace(/\D/g, ''); 
+        if (!value) { 
+            e.target.value = ''; 
+            if (callback) callback(); 
+            return; 
         }
-        
-        if (parts[0]) {
-            let intPart = parts[0].replace(/^0+(?=\d)/, '');
-            if (intPart === '') intPart = '0';
-            intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-            
-            if (parts.length > 1) {
-                val = intPart + ',' + parts[1];
-            } else {
-                val = intPart;
-            }
-        }
-        
-        e.target.value = val;
-        
-        let newValLength = e.target.value.length;
-        cursorPosition = cursorPosition + (newValLength - oldValLength);
-        try { e.target.setSelectionRange(cursorPosition, cursorPosition); } catch(err) {}
-        
-        if (callback) callback();
-    });
-
-    input.addEventListener('blur', (e) => { 
-        let val = e.target.value;
-        if (!val) { 
-            e.target.value = '0,00'; 
-        } else {
-            let num = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
-            e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-        }
+        let number = parseInt(value, 10);
+        let divisor = Math.pow(10, decimals);
+        e.target.value = (number / divisor).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
         if (callback) callback();
     });
 
     input.addEventListener('focus', (e) => { 
-        if (e.target.value === '0,00') {
+        let zeroStr = (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        if (e.target.value === zeroStr) {
             e.target.value = ''; 
         }
+    });
+
+    input.addEventListener('blur', (e) => { 
+        if (!e.target.value) { 
+            e.target.value = (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); 
+        }
+        if (callback) callback();
     });
 }
 
@@ -1469,13 +1446,13 @@ export function renderPurchases(container) {
             pDocType.value = st.docType || '';
             pDocNumber.value = st.docNumber || '';
             pStatus.value = st.status || '';
-            pCurrency.value = st.currency || 'BS';
-            pPaymentDate.value = st.paymentDate || todayStr;
-            pPaymentMethod.value = st.paymentMethod || '';
-            pReceivedBs.value = st.receivedBs || '';
-            pReceivedUsd.value = st.receivedUsd || '';
+            if (pCurrency) pCurrency.value = st.currency || 'BS';
+            if (pPaymentDate) pPaymentDate.value = st.paymentDate || todayStr;
+            if (pPaymentMethod) pPaymentMethod.value = st.paymentMethod || '';
+            if (pReceivedBs) pReceivedBs.value = st.receivedBs || '';
+            if (pReceivedUsd) pReceivedUsd.value = st.receivedUsd || '';
             
-            if (st.currency === 'USD') {
+            if (st.currency === 'USD' && btnCurrencyUsd && btnCurrencyBs) {
                 btnCurrencyUsd.style.background = 'var(--primary)';
                 btnCurrencyUsd.style.color = 'white';
                 btnCurrencyBs.style.background = 'var(--background)';
@@ -1497,20 +1474,10 @@ export function renderPurchases(container) {
         container.querySelector('#cancelFormBtn').addEventListener('click', renderDeck);
 
         const updatePayments = () => {
-            const bcv = parseNum(pBcvRate.value);
-            const totalUsdStr = container.querySelector('#pTotalUsd').textContent.replace('$', '').trim();
-            const totalUsd = parseNum(totalUsdStr);
-            const receivedBs = parseNum(pReceivedBs.value);
-            const receivedUsd = parseNum(pReceivedUsd.value);
-            
-            const eqUsd = bcv > 0 ? receivedBs / bcv : 0;
-            if (pEquivalentUsd) pEquivalentUsd.value = fmtNum(eqUsd);
-            
-            const totalReceived = receivedUsd + eqUsd;
-            const pending = totalUsd - totalReceived;
-            if (pPendingBalance) pPendingBalance.value = fmtNum(Math.max(0, pending));
+            if (typeof calculatePendingBalance === 'function') {
+                calculatePendingBalance();
+            }
         };
-
 
         const bcvWarning = container.querySelector('#bcvWarning');
 
@@ -1526,22 +1493,26 @@ export function renderPurchases(container) {
                 
                 if (docSnap.exists()) {
                     const rate = docSnap.data().rate;
-                    pBcvRate.value = fmtNum(rate);
-                    bcvWarning.style.display = 'none';
-                    pBcvRate.classList.remove('input-warning');
+                    if (pBcvRate) pBcvRate.value = fmtNum(rate);
+                    if (bcvWarning) bcvWarning.style.display = 'none';
+                    if (pBcvRate) pBcvRate.classList.remove('input-warning');
                 } else {
                     const savedRate = localStorage.getItem('bcvRate');
                     const savedDate = localStorage.getItem('bcvDate');
                     
                     if (date === savedDate && savedRate) {
-                        pBcvRate.value = fmtNum(parseFloat(savedRate));
-                        bcvWarning.style.display = 'none';
-                        pBcvRate.classList.remove('input-warning');
+                        if (pBcvRate) pBcvRate.value = fmtNum(parseFloat(savedRate));
+                        if (bcvWarning) bcvWarning.style.display = 'none';
+                        if (pBcvRate) pBcvRate.classList.remove('input-warning');
                     } else {
-                        bcvWarning.innerHTML = '⚠️ No hay tasa cargada para la Fecha de Emisión.';
-                        bcvWarning.style.display = 'block';
-                        pBcvRate.classList.add('input-warning');
-                        pBcvRate.value = '';
+                        if (bcvWarning) {
+                            bcvWarning.innerHTML = '⚠️ No hay tasa cargada para la Fecha de Emisión.';
+                            bcvWarning.style.display = 'block';
+                        }
+                        if (pBcvRate) {
+                            pBcvRate.classList.add('input-warning');
+                            pBcvRate.value = '';
+                        }
                     }
                 }
                 calculatePendingBalance();
@@ -1550,63 +1521,71 @@ export function renderPurchases(container) {
             }
         };
 
-        pEmissionDate.addEventListener('change', (e) => fetchRateByDate(e.target.value));
+        if (pEmissionDate) pEmissionDate.addEventListener('change', (e) => fetchRateByDate(e.target.value));
         // Ejecutar una vez al inicio
-        fetchRateByDate(pEmissionDate.value);
+        if (pEmissionDate) fetchRateByDate(pEmissionDate.value);
 
         // Guardar la tasa inmediatamente cuando el usuario la ingresa/edita
-        pBcvRate.addEventListener('change', async (e) => {
-            const enteredRate = parseNum(e.target.value);
-            const selectedDate = pEmissionDate.value;
-            const businessId = localStorage.getItem('businessId');
-            if (enteredRate > 0 && selectedDate && businessId) {
-                try {
-                    const safeDate = selectedDate.replace(/\//g, '-');
-                    const bcvRef = doc(db, "businesses", businessId, "bcv_history", safeDate);
-                    await setDoc(bcvRef, { rate: enteredRate, updatedAt: new Date().toISOString() }, { merge: true });
-                    // Ocultar la advertencia ya que ahora existe
-                    bcvWarning.style.display = 'none';
-                    pBcvRate.classList.remove('input-warning');
-                    // Actualizar localStorage si es hoy
-                    if (selectedDate === localStorage.getItem('bcvDate') || !localStorage.getItem('bcvDate')) {
-                        localStorage.setItem('bcvRate', enteredRate);
-                        localStorage.setItem('bcvDate', selectedDate);
+        if (pBcvRate) {
+            pBcvRate.addEventListener('change', async (e) => {
+                const enteredRate = parseNum(e.target.value);
+                const selectedDate = pEmissionDate ? pEmissionDate.value : null;
+                const businessId = localStorage.getItem('businessId');
+                if (enteredRate > 0 && selectedDate && businessId) {
+                    try {
+                        const safeDate = selectedDate.replace(/\//g, '-');
+                        const bcvRef = doc(db, "businesses", businessId, "bcv_history", safeDate);
+                        await setDoc(bcvRef, { rate: enteredRate, updatedAt: new Date().toISOString() }, { merge: true });
+                        // Ocultar la advertencia ya que ahora existe
+                        if (bcvWarning) bcvWarning.style.display = 'none';
+                        if (pBcvRate) pBcvRate.classList.remove('input-warning');
+                        // Actualizar localStorage si es hoy
+                        if (selectedDate === localStorage.getItem('bcvDate') || !localStorage.getItem('bcvDate')) {
+                            localStorage.setItem('bcvRate', enteredRate);
+                            localStorage.setItem('bcvDate', selectedDate);
+                        }
+                    } catch (err) {
+                        console.error("Error saving rate instantly:", err);
                     }
-                } catch (err) {
-                    console.error("Error saving rate instantly:", err);
                 }
-            }
-        });
+            });
+        }
 
-        pEmissionDate.addEventListener('change', () => {
-            if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
-                const pPaymentDate = container.querySelector('#pPaymentDate');
-                if (pPaymentDate) pPaymentDate.value = pEmissionDate.value;
-            }
-        });
+        if (pEmissionDate) {
+            pEmissionDate.addEventListener('change', () => {
+                if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
+                    const pPaymentDate = container.querySelector('#pPaymentDate');
+                    if (pPaymentDate) pPaymentDate.value = pEmissionDate.value;
+                }
+            });
+        }
 
-        [pBcvRate, pReceivedBs, pReceivedUsd].forEach(inp => applyNumericMask(inp, updatePayments));
+        [pBcvRate, pReceivedBs, pReceivedUsd].forEach(inp => {
+            if (inp) applyNumericMask(inp, updatePayments);
+        });
         
         const itemQtyInput = container.querySelector('#itemQtyInput');
         const itemTotalCostInput = container.querySelector('#itemTotalCostInput');
-        [itemQtyInput, itemTotalCostInput].forEach(inp => applyNumericMask(inp));
+        [itemQtyInput, itemTotalCostInput].forEach(inp => {
+            if (inp) applyNumericMask(inp);
+        });
 
         pSupplier?.addEventListener('change', () => {
             if (pSupplier.value === 'CREATE_NEW') {
                 window.tempPurchaseState = {
                     purchaseType: purchaseType,
                     supplierId: '', 
-                    bcvRate: pBcvRate.value,
-                    emissionDate: pEmissionDate.value,
-                    receptionDate: pReceptionDate.value,
-                    docType: pDocType.value,
-                    docNumber: pDocNumber.value,
-                    status: pStatus.value,
-                    currency: pCurrency.value,
-                    paymentDate: pPaymentDate.value,
-                    paymentMethod: pPaymentMethod.value,
-                    receivedBs: pReceivedBs.value,
-                    receivedUsd: pReceivedUsd.value,
+                    bcvRate: pBcvRate ? pBcvRate.value : '',
+                    emissionDate: pEmissionDate ? pEmissionDate.value : '',
+                    receptionDate: pReceptionDate ? pReceptionDate.value : '',
+                    docType: pDocType ? pDocType.value : '',
+                    docNumber: pDocNumber ? pDocNumber.value : '',
+                    status: pStatus ? pStatus.value : '',
+                    currency: pCurrency?.value || '',
+                    paymentDate: pPaymentDate?.value || '',
+                    paymentMethod: pPaymentMethod?.value || '',
+                    receivedBs: pReceivedBs?.value || '',
+                    receivedUsd: pReceivedUsd?.value || '',
                     products: currentPurchaseProducts
                 };
                 window.openCreateSupplierForPurchase = true;
@@ -1622,17 +1601,19 @@ export function renderPurchases(container) {
 
         pCreditor?.addEventListener('change', () => {
             if (pCreditor.value === 'CREATE_NEW') {
-                creditorModal.style.display = 'flex';
-                setTimeout(() => newCreditorName.focus(), 50);
+                if (creditorModal) creditorModal.style.display = 'flex';
+                if (newCreditorName) {
+                    newCreditorName.value = '';
+                    newCreditorName.focus();
+                }
+                if (newCreditorRif) newCreditorRif.value = '';
+                pCreditor.value = ''; 
             }
         });
 
-        cancelCreditorBtn?.addEventListener('click', () => {
-            creditorModal.style.display = 'none';
-            pCreditor.value = '';
-        });
+        if (cancelCreditorBtn) cancelCreditorBtn.addEventListener('click', () => creditorModal.style.display = 'none');
 
-        saveCreditorBtn?.addEventListener('click', async () => {
+        if (saveCreditorBtn) saveCreditorBtn.addEventListener('click', async () => {
             const name = newCreditorName.value.trim();
             if (!name) {
                 showToast("El nombre del acreedor es requerido.", "error");
@@ -1773,34 +1754,34 @@ export function renderPurchases(container) {
 
         // Calculations
         function calculatePendingBalance() {
-            const docRate = parseNum(pBcvRate.value) || 1;
+            const docRate = pBcvRate ? (parseNum(pBcvRate.value) || 1) : 1;
             let paidUsd = 0;
 
-            if (pStatus.value === 'PAGADO') {
+            if (pStatus && pStatus.value === 'PAGADO') {
                 paidUsd = totalPurchaseUsd;
-            } else if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
-                const method = pPaymentMethod.value;
+            } else if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
+                const method = pPaymentMethod ? pPaymentMethod.value : '';
                 const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Transferencia', 'Tarjeta de Débito', 'BioPago'];
                 
                 if (bsMethods.includes(method)) {
-                    const recBs = parseNum(pReceivedBs.value) || 0;
+                    const recBs = pReceivedBs ? parseNum(pReceivedBs.value) : 0;
                     paidUsd = recBs / docRate; 
-                    pEquivalentUsd.value = fmtNum(paidUsd);
+                    if (pEquivalentUsd) pEquivalentUsd.value = fmtNum(paidUsd);
                 } else {
-                    paidUsd = parseNum(pReceivedUsd.value) || 0;
+                    paidUsd = pReceivedUsd ? parseNum(pReceivedUsd.value) : 0;
                 }
             }
 
             let pending = totalPurchaseUsd - paidUsd;
             if (pending < 0) pending = 0;
-            if (pStatus.value === 'CREDITO') pending = totalPurchaseUsd;
+            if (pStatus && pStatus.value === 'CREDITO') pending = totalPurchaseUsd;
 
-            pPendingBalance.value = fmtNum(pending);
+            if (pPendingBalance) pPendingBalance.value = fmtNum(pending);
         }
 
-        pReceivedBs.addEventListener('input', calculatePendingBalance);
-        pReceivedUsd.addEventListener('input', calculatePendingBalance);
-        pBcvRate.addEventListener('input', calculatePendingBalance);
+        if (pReceivedBs) pReceivedBs.addEventListener('input', calculatePendingBalance);
+        if (pReceivedUsd) pReceivedUsd.addEventListener('input', calculatePendingBalance);
+        if (pBcvRate) pBcvRate.addEventListener('input', calculatePendingBalance);
 
         // Equipment Builder logic
         if (purchaseType === 'EQUIPO_UTENSILIO') {
@@ -1811,8 +1792,11 @@ export function renderPurchases(container) {
             let equipmentItems = [];
             
             const updateEqTotals = () => {
-                totalPurchaseUsd = equipmentItems.reduce((sum, item) => sum + (item.costUsd * item.qty), 0);
                 const bcv = parseNum(pBcvRate.value) || 1;
+                totalPurchaseUsd = equipmentItems.reduce((sum, item) => {
+                    const itemCostUsd = item.currency === 'BS' ? (bcv > 0 ? item.cost / bcv : 0) : item.cost;
+                    return sum + (itemCostUsd * item.qty);
+                }, 0);
                 totalPurchaseBs = totalPurchaseUsd * bcv;
                 if (eqTotalUsd) eqTotalUsd.textContent = `$ ${totalPurchaseUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 calculatePendingBalance();
@@ -1821,7 +1805,7 @@ export function renderPurchases(container) {
             if (addEqBtn) {
                 addEqBtn.addEventListener('click', () => {
                     const id = Date.now().toString();
-                    equipmentItems.push({ id, name: '', description: '', serial: '', qty: 1, costUsd: 0 });
+                    equipmentItems.push({ id, name: '', description: '', serial: '', qty: 1, cost: 0, currency: 'USD' });
                     renderEquipmentList();
                 });
             }
@@ -1847,11 +1831,17 @@ export function renderPurchases(container) {
                             </div>
                             <div class="form-group">
                                 <label>Cantidad <span class="text-danger">*</span></label>
-                                <input type="number" step="1" min="1" class="form-control eq-qty" data-index="${index}" value="${item.qty}" required>
+                                <input type="text" inputmode="numeric" class="form-control eq-qty" data-index="${index}" value="${fmtNum(item.qty)}" required>
                             </div>
                             <div class="form-group">
-                                <label>Costo Unid. $ <span class="text-danger">*</span></label>
-                                <input type="text" inputmode="numeric" class="form-control eq-cost" data-index="${index}" value="${item.costUsd}" required>
+                                <label>Costo Unid. <span class="text-danger">*</span></label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <select class="form-control eq-currency" data-index="${index}" style="width: 80px; padding: 0 0.5rem;">
+                                        <option value="USD" ${item.currency === 'USD' ? 'selected' : ''}>$</option>
+                                        <option value="BS" ${item.currency === 'BS' ? 'selected' : ''}>Bs</option>
+                                    </select>
+                                    <input type="text" inputmode="numeric" class="form-control eq-cost" data-index="${index}" value="${fmtNum(item.cost)}" required>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1860,18 +1850,28 @@ export function renderPurchases(container) {
                 equipmentList.querySelectorAll('.eq-name').forEach(inp => inp.addEventListener('input', (e) => equipmentItems[e.target.dataset.index].name = e.target.value));
                 equipmentList.querySelectorAll('.eq-serial').forEach(inp => inp.addEventListener('input', (e) => equipmentItems[e.target.dataset.index].serial = e.target.value));
                 equipmentList.querySelectorAll('.eq-desc').forEach(inp => inp.addEventListener('input', (e) => equipmentItems[e.target.dataset.index].description = e.target.value));
-                equipmentList.querySelectorAll('.eq-qty').forEach(inp => {
-                    inp.addEventListener('input', (e) => {
-                        equipmentItems[e.target.dataset.index].qty = parseInt(e.target.value) || 0;
+                
+                equipmentList.querySelectorAll('.eq-currency').forEach(sel => {
+                    sel.addEventListener('change', (e) => {
+                        equipmentItems[e.target.dataset.index].currency = e.target.value;
                         updateEqTotals();
                     });
                 });
+
+                equipmentList.querySelectorAll('.eq-qty').forEach(inp => {
+                    applyNumericMask(inp, () => {
+                        equipmentItems[inp.dataset.index].qty = parseNum(inp.value) || 0;
+                        updateEqTotals();
+                    });
+                });
+
                 equipmentList.querySelectorAll('.eq-cost').forEach(inp => {
                     applyNumericMask(inp, () => {
-                        equipmentItems[inp.dataset.index].costUsd = parseNum(inp.value) || 0;
+                        equipmentItems[inp.dataset.index].cost = parseNum(inp.value) || 0;
                         updateEqTotals();
                     });
                 });
+
                 equipmentList.querySelectorAll('.eq-remove-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         equipmentItems.splice(e.target.dataset.index, 1);

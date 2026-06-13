@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase, showNotification } from '../utils.js';
-import { doc, setDoc, getDocs, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderSuppliers(container) {
     let suppliers = [];
@@ -45,8 +45,11 @@ export function renderSuppliers(container) {
         } else {
             suppliers.forEach(supplier => {
                 html += `
-                    <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--warning);">
-                        <div style="margin-bottom: 0.5rem;">
+                    <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--warning); position: relative;">
+                        <button class="delete-supplier-btn" data-id="${supplier.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; background: transparent; border: none; cursor: pointer; font-size: 1.2rem; color: var(--danger); transition: transform 0.2s; z-index: 2;" title="Eliminar proveedor">
+                            🗑️
+                        </button>
+                        <div style="margin-bottom: 0.5rem; padding-right: 2rem;">
                             <h3 style="font-size: 1rem; margin-bottom: 0; color: var(--warning); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${supplier.name}">${supplier.name}</h3>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.25rem;">
@@ -79,13 +82,59 @@ export function renderSuppliers(container) {
         }
         
         container.querySelectorAll('.supplier-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-supplier-btn')) return; // Ignore click if delete button is clicked
                 const supplier = suppliers.find(s => s.id === card.dataset.id);
                 if (supplier) renderDetail(supplier);
             });
             card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
             card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
         });
+
+        container.querySelectorAll('.delete-supplier-btn').forEach(btn => {
+            btn.addEventListener('mouseover', () => btn.style.transform = 'scale(1.2)');
+            btn.addEventListener('mouseout', () => btn.style.transform = 'scale(1)');
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // Prevenir abrir el detalle
+                const supplierId = btn.dataset.id;
+                const supplier = suppliers.find(s => s.id === supplierId);
+                
+                if (window.Swal) {
+                    const result = await Swal.fire({
+                        title: '¿Eliminar proveedor?',
+                        text: `Se eliminará el proveedor "${supplier.name}". Esta acción no se puede deshacer.`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ef4444',
+                        cancelButtonColor: '#6b7280',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar',
+                        background: 'var(--surface)',
+                        color: 'var(--text-main)'
+                    });
+                    
+                    if (result.isConfirmed) {
+                        deleteSupplierDoc(supplierId);
+                    }
+                } else {
+                    if (confirm(`¿Estás seguro de que deseas eliminar al proveedor "${supplier.name}"?`)) {
+                        deleteSupplierDoc(supplierId);
+                    }
+                }
+            });
+        });
+
+        async function deleteSupplierDoc(id) {
+            try {
+                const businessId = localStorage.getItem('businessId');
+                await deleteDoc(doc(db, "businesses", businessId, "suppliers", id));
+                showNotification("Proveedor eliminado", "success");
+                loadSuppliers(); // Recargar la lista
+            } catch (error) {
+                console.error("Error al eliminar proveedor: ", error);
+                showNotification("Error al eliminar proveedor", "error");
+            }
+        }
     }
 
     function renderForm() {
