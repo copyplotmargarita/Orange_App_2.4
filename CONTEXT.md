@@ -302,10 +302,15 @@ git add -A
 git commit -m "módulo: descripción breve"
 git push
 
-# Al terminar una funcionalidad
-git checkout main
-git merge feature/mi-rama
-git push origin main
+# Al finalizar el día o terminar una funcionalidad
+# 1. Empujar la rama al repositorio remoto
+git push origin feature/mi-rama
+
+# 2. Crear un Pull Request usando GitHub CLI (o desde la web de GitHub)
+# Asegúrate de agregar a Dasaev como revisor
+gh pr create --title "Funcionalidad o resumen" --body "Detalle de los commits" --reviewer Dasaev
+
+# NOTA: NO hacer merge local a main. El merge lo realizará Dasaev o el Administrador de forma manual tras la revisión.
 ```
 
 ### Formato de commits
