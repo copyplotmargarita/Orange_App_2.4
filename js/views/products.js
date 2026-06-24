@@ -62,7 +62,7 @@ export function renderProducts(container) {
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                 <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
-                ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Producto</button>` : ''}
+                ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>` : ''}
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem;">
         `;
@@ -83,30 +83,29 @@ export function renderProducts(container) {
                     if (prod.minStockUnit && prod.purchaseUnit && prod.minStockUnit === prod.purchaseUnit && prod.minStockUnit !== sUnit) {
                         minStock = minStock * (prod.purchaseToStockQty || 1);
                     }
-                    if (stock <= 0) {
-                        stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: var(--danger); color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">SIN STOCK</span>`;
-                    } else if (stock <= minStock) {
-                        stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: #f59e0b; color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">STOCK BAJO: ${stock}</span>`;
-                    } else {
-                        stockBadge = `<span style="position: absolute; bottom: 0.25rem; right: 0.25rem; background: var(--success); color: white; padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.6rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">STOCK: ${stock} ${sUnit}</span>`;
-                    }
                 }
-
-                const imageHtml = prod.image 
-                    ? `<div style="width: 100%; height: 130px; background: white; display: flex; align-items: center; justify-content: center; position: relative;"><img src="${prod.image}" alt="${prod.name}" style="max-width: 100%; max-height: 100%; object-fit: contain;">${stockBadge}</div>`
-                    : `<div style="width: 100%; height: 130px; background: var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-muted); position: relative;">Sin Imagen${stockBadge}</div>`;
+                const sUnit = prod.stockUnit || 'ud';
+                let minStock = prod.minStock || 0;
 
                 html += `
-                    <div class="card product-card" data-id="${prod.id}" style="padding: 0; overflow: hidden; position: relative; cursor: ${role !== 'employee' ? 'pointer' : 'default'};">
+                    <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative" data-id="${prod.id}">
                         ${role !== 'employee' ? `<button class="delete-product-btn" data-id="${prod.id}" style="position: absolute; top: 0.5rem; left: 0.5rem; background: rgba(239, 68, 68, 0.9); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; z-index: 10; font-weight: bold; border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">×</button>` : ''}
-                        ${imageHtml}
-                        <div style="padding: 0.75rem;">
-                            <h3 style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${prod.name}">${prod.name}</h3>
-                            <div style="margin-bottom: 0.5rem;">
-                                <p style="font-weight: bold; font-size: 1rem; color: var(--text-main);">$ ${formatCurrency(prod.priceDetal)}</p>
-                                <p style="font-weight: bold; font-size: 1rem; color: var(--text-main);">Bs. ${formatCurrency(priceBsNum)}</p>
+                        ${stock <= 0 ? '<div class="absolute top-sm right-sm bg-error text-on-error px-xs py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm z-10">Agotado</div>' : ''}
+                        <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
+                            ${prod.image ? `<img src="${prod.image}" alt="${prod.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
+                        </div>
+                        <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest">
+                            <div>
+                                <h4 class="text-body-sm font-semibold text-on-surface truncate leading-tight group-hover:text-primary transition-colors" title="${prod.name}">${prod.name}</h4>
+                                <p class="text-label-sm text-outline mt-xs font-mono truncate">${prod.barcode || '---'}</p>
+                            </div>
+                            <div class="flex flex-col items-end mt-auto pt-2 gap-1">
+                                <span class="text-body-sm font-bold ${stock > minStock ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${sUnit}</span>
+                                <span class="text-body-md font-bold text-white leading-none">$ ${formatCurrency(prod.priceDetal)}</span>
+                                <span class="text-body-md font-bold text-white leading-none">Bs. ${formatCurrency(priceBsNum)}</span>
                             </div>
                         </div>
+                        <div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors pointer-events-none"></div>
                     </div>
                 `;
             });

@@ -216,9 +216,9 @@ export function renderDashboard() {
                 <div class="card text-center" style="max-width: 400px; padding: 2rem;">
                     <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
                     <h3 class="mb-2 text-danger">CARGAR TASA BCV DEL DÍA</h3>
-                    <p class="text-muted mb-4">Debe cargar la tasa del Banco Central de Venezuela correspondiente al día de hoy (${todayStr}) antes de registrar operaciones.</p>
+                    <p class="text-muted mb-4">Debe cargar la tasa del Banco Central de Venezuela correspondiente al día de hoy (${todayStr.split('-').reverse().join('/')}) antes de registrar operaciones.</p>
                     <form id="bcvForm">
-                        <input type="number" step="0.01" class="form-control mb-4" placeholder="Ej. 36.45" required id="bcvInput">
+                        <input type="text" inputmode="numeric" class="form-control mb-4" placeholder="Ej. 36,45" required id="bcvInput">
                         <button type="submit" class="btn btn-primary">Guardar Tasa</button>
                     </form>
                 </div>
@@ -1451,9 +1451,20 @@ export function renderDashboard() {
         }
     }
 
+    const bcvInputEl = container.querySelector('#bcvInput');
+    if (bcvInputEl) {
+        bcvInputEl.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value === '') { e.target.value = ''; return; }
+            let floatValue = parseFloat(value) / 100;
+            e.target.value = floatValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        });
+    }
+
     bcvForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const rate = container.querySelector('#bcvInput').value;
+        const rateStr = bcvInputEl.value;
+        const rate = parseFloat(rateStr.replace(/\./g, '').replace(',', '.'));
         const btn = bcvForm.querySelector('button');
         const originalText = btn.textContent;
         
@@ -1562,8 +1573,8 @@ export function renderDashboard() {
 
         if (bestRate) {
             const cleanRate = bestRate.toFixed(2);
-            bcvInput.value = cleanRate;
-            bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${parseFloat(cleanRate).toLocaleString('es-VE')}</strong> obtenida correctamente.`;
+            bcvInput.value = parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> obtenida correctamente.`;
             bcvStatusMsg.style.color = "var(--success)";
             if (autoSave) {
                 setTimeout(() => saveBcvRate(cleanRate, true), 800);

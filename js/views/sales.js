@@ -173,6 +173,12 @@ export function renderSales(container, preSelectedClient = null) {
         const snap = await getDocs(q);
         const allSales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+        const todayStart = new Date();
+        todayStart.setHours(0,0,0,0);
+        let pq = query(collection(db, "businesses", businessId, "payments"), where("createdAt", ">=", todayStart));
+        const pSnap = await getDocs(pq);
+        const allPayments = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
         const activeStoreId = role === 'admin' ? 'general' : (localStorage.getItem('storeId') || 'general');
 
         dailySales = allSales.filter(sale => {
@@ -182,6 +188,20 @@ export function renderSales(container, preSelectedClient = null) {
                 // Admin sees ONLY "Almacén General" in this view as requested
                 return (sale.storeId === 'general') || (!sale.storeId) || (sale.storeName === 'Almacén General');
             }
+        }).map(sale => {
+            const salePayments = allPayments.filter(p => p.saleId === sale.id);
+            const methods = [...new Set(salePayments.map(p => {
+                let m = p.method || 'Efectivo';
+                if (m.includes('EFECTIVO')) return 'Efectivo';
+                if (m === 'PAGO_MOVIL') return 'Pago Móvil';
+                if (m === 'TRANSFERENCIA') return 'Transferencia';
+                if (m === 'PUNTO') return 'Punto';
+                return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+            }))];
+            let paymentMethodStr = methods.length === 0 ? '--' : (methods.length > 1 ? 'Múltiple' : methods[0]);
+            if (sale.status === 'presupuesto') paymentMethodStr = '--';
+
+            return { ...sale, paymentMethodStr };
         });
 
         dailySales.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -452,6 +472,10 @@ export function renderSales(container, preSelectedClient = null) {
                                     <span class="material-symbols-outlined" style="font-size: 16px;">calendar_today</span>
                                     Ventas del Día
                                 </button>
+                                <button id="viewBudgetsBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">request_quote</span>
+                                    Presupuestos
+                                </button>
                                 <button id="viewOrdersBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">package</span>
                                     Pedidos
@@ -662,6 +686,13 @@ export function renderSales(container, preSelectedClient = null) {
         container.querySelector('#backToDashboardBtn2')?.addEventListener('click', navHomeLogic);
 
         container.querySelector('#viewHistoryBtn')?.addEventListener('click', () => {
+            historyFilter = 'ventas';
+            currentView = 'history';
+            render();
+        });
+
+        container.querySelector('#viewBudgetsBtn')?.addEventListener('click', () => {
+            historyFilter = 'presupuestos';
             currentView = 'history';
             render();
         });
@@ -1716,20 +1747,18 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function renderHistoryView() {
+        let title = "📅 Ventas del Día";
+        if (historyFilter === 'presupuestos') title = "📝 Presupuestos";
+
         container.innerHTML = `
             <div style="display: flex; flex-direction: column; height: 100%; gap: 4px;">
                 <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
                     <div class="flex items-center flex-stack-mobile" style="gap: 1rem;">
                         <button id="backToCartBtn" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem;">← Volver</button>
-                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0;">📅 Ventas del Día</h2>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0;">${title}</h2>
                     </div>
                     
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <select id="historyFilterSelect" class="btn btn-outline" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; height: auto;">
-                            <option value="todos" ${historyFilter === 'todos' ? 'selected' : ''}>📁 Todos</option>
-                            <option value="ventas" ${historyFilter === 'ventas' ? 'selected' : ''}>💰 Solo Ventas</option>
-                            <option value="presupuestos" ${historyFilter === 'presupuestos' ? 'selected' : ''}>📝 Solo Presupuestos</option>
-                        </select>
                         <button id="refreshHistoryBtn" class="btn btn-outline" style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.8rem;">🔄 Actualizar</button>
                     </div>
                 </div>
@@ -1749,6 +1778,7 @@ export function renderSales(container, preSelectedClient = null) {
                                     <th style="padding: 0.45rem 0.75rem; text-align: right;">Total $</th>
                                     <th style="padding: 0.45rem 0.75rem; text-align: right;">Total Bs</th>
                                     <th style="padding: 0.45rem 0.75rem; text-align: right;">Ganancia $</th>
+                                    <th style="padding: 0.45rem 0.75rem; text-align: center;">Método</th>
                                     <th style="padding: 0.45rem 0.75rem; text-align: center;">Estado</th>
                                     <th style="padding: 0.45rem 0.75rem;"></th>
                                 </tr>
@@ -1777,6 +1807,11 @@ export function renderSales(container, preSelectedClient = null) {
                                         <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: bold;">$ ${fmt(sale.totalUSD)}</td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: bold; color: white;">Bs ${fmt(sale.totalBs)}</td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: bold; color: white;">$ ${fmt(sale.profitUSD || 0)}</td>
+                                        <td style="padding: 0.45rem 0.75rem; text-align: center;">
+                                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-main); background: var(--surface-variant); padding: 0.2rem 0.5rem; border-radius: 4px;">
+                                                ${sale.paymentMethodStr || '--'}
+                                            </span>
+                                        </td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: center;">
                                             <span style="font-size: 0.7rem; font-weight: 800; color: ${statusColor}; border: 1px solid ${statusColor}40; padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase;">
                                                 ${sale.status}
@@ -1819,16 +1854,11 @@ export function renderSales(container, preSelectedClient = null) {
             render();
         });
 
-        container.querySelector('#refreshHistoryBtn').addEventListener('click', async () => {
+        container.querySelector('#refreshHistoryBtn')?.addEventListener('click', async () => {
             const btn = container.querySelector('#refreshHistoryBtn');
             btn.disabled = true;
             btn.textContent = '⏳...';
             await loadDailySales();
-            render();
-        });
-
-        container.querySelector('#historyFilterSelect').addEventListener('change', (e) => {
-            historyFilter = e.target.value;
             render();
         });
 
