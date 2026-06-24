@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <!-- Main CSS -->
     <link rel="stylesheet" href="css/style.css">
     <!-- Leaflet CSS & JS -->
@@ -16,6 +17,111 @@
     <!-- Intl Tel Input CSS & JS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
+    
+    <!-- Flatpickr for Date Inputs -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    
+    <!-- Tailwind CSS (for new POS module) -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#2d3449",
+                        "on-error": "#690005",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-bright": "#31394d",
+                        "surface": "#0b1326",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#004395",
+                        "surface-dim": "#0b1326",
+                        "secondary-fixed-dim": "#4ae176",
+                        "surface-container-highest": "#2d3449",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-tertiary-fixed-variant": "#92002a",
+                        "primary": "#3b82f6",
+                        "surface-container": "#171f33",
+                        "surface-container-low": "#131b2e",
+                        "surface-container-high": "#222a3d",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-primary-container": "#ffffff",
+                        "on-secondary-fixed-variant": "#005321",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#ff516a",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#1d4ed8",
+                        "secondary-fixed": "#6bff8f",
+                        "surface-container-lowest": "#060e20",
+                        "tertiary-fixed": "#ffdadb",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary": "#67001b",
+                        "on-tertiary-fixed": "#40000d",
+                        "on-tertiary-container": "#5b0017",
+                        "background": "#0b1326",
+                        "inverse-surface": "#dae2fd",
+                        "on-secondary-container": "#004119",
+                        "secondary-container": "#00b954",
+                        "on-secondary": "#003915",
+                        "on-surface": "#dae2fd",
+                        "on-background": "#dae2fd",
+                        "outline-variant": "#424754",
+                        "on-secondary-fixed": "#002109",
+                        "tertiary": "#ffb2b7",
+                        "outline": "#8c909f",
+                        "on-primary-fixed": "#001a42",
+                        "secondary": "#4ae176",
+                        "inverse-on-surface": "#283044",
+                        "inverse-primary": "#005ac2",
+                        "tertiary-fixed-dim": "#ffb2b7",
+                        "surface-tint": "#3b82f6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-sm": "0.5rem",
+                        "stack-md": "1rem",
+                        "card-padding": "1rem",
+                        "gutter": "1rem",
+                        "container-margin": "1.5rem",
+                        "touch-target-min": "2.75rem",
+                        "md": "16px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "price-display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-metrics": ["Inter"],
+                        "label-bold": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "500"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "price-display": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-metrics": ["40px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
     <script>
         // Aplicar tema oscuro por defecto de forma inmediata
         const savedTheme = localStorage.getItem('theme') || 'dark';

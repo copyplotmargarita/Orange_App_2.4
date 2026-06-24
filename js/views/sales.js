@@ -16,6 +16,7 @@ export function renderSales(container, preSelectedClient = null) {
     }
     let activeMobileTab = 'products'; // 'products' or 'cart'
     let includeOldDebt = false;
+
     
     // Attempt to restore state if returning from client creation or history
     const savedState = sessionStorage.getItem('sales_temp_state');
@@ -65,7 +66,17 @@ export function renderSales(container, preSelectedClient = null) {
     let clientDebt = 0;
     let searchProductTerm = '';
     let activePayCurrency = 'BS';
+    let tmr = new Date();
+    tmr.setDate(tmr.getDate() + 1);
+    let deliveryDate = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`;
+    
     let dailySales = [];
+    let allPedidos = [];
+    
+    let today = new Date();
+    let selectedPedidoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    let selectedOrderStatusFilter = 'Todos';
+
     let stores = [];
     const businessId = localStorage.getItem('businessId');
     const role = localStorage.getItem('userRole');
@@ -140,6 +151,7 @@ export function renderSales(container, preSelectedClient = null) {
             // Load daily sales
             try {
                 await loadDailySales();
+                await loadPedidos(selectedPedidoDate);
             } catch(e) { throw new Error("sales: " + e.message); }
 
             render();
@@ -173,6 +185,27 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         dailySales.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    }
+
+    async function loadPedidos(dateStr) {
+        const businessId = localStorage.getItem('businessId');
+        if (!businessId) return;
+        try {
+            let q = query(collection(db, "businesses", businessId, "sales"), where("deliveryDate", "==", dateStr));
+            const snap = await getDocs(q);
+            let orders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (role !== 'admin') {
+                orders = orders.filter(sale => sale.employeeEmail === userEmail);
+            }
+            allPedidos = orders;
+        } catch (e) {
+            console.error("Error loading pedidos (might need index): ", e);
+            let qFallback = query(collection(db, "businesses", businessId, "sales"), where("isOrder", "==", true));
+            const snap = await getDocs(qFallback);
+            let orders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            allPedidos = orders.filter(o => o.deliveryDate === dateStr);
+        }
     }
 
     async function loadHistorySummary(summaryContainer) {
@@ -273,572 +306,127 @@ export function renderSales(container, preSelectedClient = null) {
         }
     }
 
+    // refactor_sales.js
     function render() {
-        if (currentView === 'cart') {
-            renderCartView();
-        } else if (currentView === 'payment') {
-            renderPaymentView();
-        } else {
+        if (currentView === 'history') {
             renderHistoryView();
+        } else if (currentView === 'orders') {
+            renderOrdersView();
+        } else {
+            renderSingleView();
         }
     }
 
-    function renderCartView() {
-        const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
-        const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
-        const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
-        const grandTotalUSD = includeOldDebt ? baseWithTaxUSD + clientDebt : baseWithTaxUSD;
-        const totalBs = grandTotalUSD * bcvRate;
-        const totalItems = cart.length;
-
-        container.innerHTML = `
-            <div style="width: 100%; height: calc(100vh - 4.5rem); display: flex; flex-direction: column; gap: 1rem; overflow: hidden; padding-bottom: 1.5rem;">
-                <!-- Header / Settings -->
-                <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: none;" class="sales-header-grid">
-                    <!-- Left Header: Product Controls -->
-                    <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; min-width: 0;">
-                            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.3rem 0.6rem; height: 36px; font-size: 0.85rem;">← Volver</button>
-                            <h2 style="margin: 0; font-size: 1rem; white-space: nowrap; flex: none;">🛒 Ventas</h2>
-                            
-                            <!-- Search Bar -->
-                            <div style="flex: 1; min-width: 120px;">
-                                <input type="text" id="productSearch" class="form-control" placeholder="🔍 Buscar..." value="${searchProductTerm}" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; width: 100%; height: 36px;">
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 0.35rem; flex: none;" class="hide-mobile mobile-visible">
-                            <select id="saleType" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
-                                <option value="venta" ${settings.type === 'venta' ? 'selected' : ''}>Venta</option>
-                                <option value="presupuesto" ${settings.type === 'presupuesto' ? 'selected' : ''}>Presupuesto</option>
-                            </select>
-                            <select id="saleTarget" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
-                                <option value="detal" ${settings.target === 'detal' ? 'selected' : ''}>Detal</option>
-                                <option value="mayor" ${settings.target === 'mayor' ? 'selected' : ''}>Mayor</option>
-                            </select>
-                            <select id="priceType" class="form-control" style="width: auto; padding: 0 0.4rem; font-size: 0.8rem; height: 36px;">
-                                <option value="precioDetal" ${settings.priceType === 'precioDetal' ? 'selected' : ''}>P. Detal</option>
-                                <option value="precioMayor" ${settings.priceType === 'precioMayor' ? 'selected' : ''}>P. Mayor</option>
-                                <option value="precioSpecial" ${settings.priceType === 'precioSpecial' ? 'selected' : ''}>P. Especial</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Right Header: Actions & Info -->
-                    <div class="card" style="padding: 0.5rem 1rem; display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end;">
-                        <button id="viewHistoryBtn" class="btn btn-outline" style="width: auto; padding: 0 0.75rem; font-size: 0.8rem; height: 36px;">📅 Ventas del Día</button>
-                        
-                        <button id="continueBtn" class="btn btn-primary" style="width: auto; padding: 0 1rem; font-size: 0.85rem; font-weight: 800; height: 36px; white-space: nowrap; box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2);" ${cart.length === 0 ? 'disabled' : ''}>
-                            CONTINUAR →
-                        </button>
-
-                        <div class="text-muted hide-mobile" style="font-weight: 600; font-size: 0.8rem; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; margin-left: 0.5rem;">
-                            <span>🏪</span> ${storeName}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Mobile Tabs Navigation -->
-                <div class="show-mobile" style="display:none; gap:0.5rem; margin-bottom:1rem; flex:none;">
-                    <button id="tabProductsBtn" class="btn ${activeMobileTab==='products'?'btn-primary':'btn-outline'}" style="flex:1; font-size:0.85rem; height:42px;">
-                        📦 Catálogo
-                    </button>
-                    <button id="tabCartBtn" class="btn ${activeMobileTab==='cart'?'btn-primary':'btn-outline'}" style="flex:1; font-size:0.85rem; height:42px; position:relative;">
-                        🛒 Carrito
-                        ${totalItems > 0 ? `<span style="position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold; border:2px solid var(--surface);">${totalItems}</span>` : ''}
-                    </button>
-                </div>
-
-                <!-- Main Content Grid -->
-                <div style="width: 100%; flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 0; overflow: hidden;" class="sales-main-grid">
-                    <!-- Left Column: Products (Scrollable) -->
-                    <div id="colProducts" style="width: 100%; height: 100%; overflow-y: auto; padding-right: 0.5rem;">
-                        <div id="productList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; width: 100%;">
-                            ${renderProductList()}
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Cart (Stationary) -->
-                    <div id="colCart" style="width: 100%; height: 100%; overflow: hidden;">
-                        <div class="card" style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 1rem 1.25rem; overflow: hidden;">
-                            <!-- Items list in Cart -->
-                            
-                            <!-- Items list in Cart -->
-                            <div style="flex: 1; overflow-y: auto; margin-bottom: 1rem;">
-                                ${cart.length === 0 
-                                    ? '<div style="text-align: center; padding: 3rem 0; color: var(--text-muted);">El carrito está vacío</div>'
-                                    : `
-                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                                        <thead>
-                                            <tr style="border-bottom: 2px solid var(--border); text-align: left;">
-                                                <th style="padding: 0.5rem 0;">Producto</th>
-                                                <th style="padding: 0.5rem 0; text-align: center;">Cant.</th>
-                                                <th style="padding: 0.5rem 0; text-align: right;">Precio</th>
-                                                <th style="padding: 0.5rem 0; text-align: right;">Total</th>
-                                                <th style="padding: 0.5rem 0;"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${cart.map((item, index) => `
-                                                <tr style="border-bottom: 1px solid var(--border);">
-                                                    <td style="padding: 0.75rem 0;">
-                                                        <div style="font-weight: 600;">${item.name}</div>
-                                                    </td>
-                                                    <td style="padding: 0.75rem 0; text-align: center;">
-                                                        <span class="edit-qty" data-index="${index}" style="cursor: pointer; background: var(--background); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: bold; border: 1px solid var(--border);">
-                                                            ${item.qty}
-                                                        </span>
-                                                    </td>
-                                                    <td style="padding: 0.75rem 0; text-align: right;">$${fmt(item.price)}</td>
-                                                    <td style="padding: 0.75rem 0; text-align: right; font-weight: bold;">$${fmt(item.total)}</td>
-                                                    <td style="padding: 0.75rem 0; text-align: right;">
-                                                        <button class="btn-remove" data-index="${index}" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.1rem; padding: 0.2rem;">✕</button>
-                                                    </td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                    `
-                                }
-                            </div>
-
-                            <!-- Metrics Row (4 columns) -->
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: auto;">
-                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--primary);">
-                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Items</p>
-                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">${totalItems}</p>
-                                </div>
-                                ${taxConfig.enabled ? `
-                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--warning, #f59e0b);">
-                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">${taxConfig.name} ${taxConfig.rate}%</p>
-                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(taxAmountUSD)}</p>
-                                </div>
-                                ` : `
-                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--success);">
-                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Total $</p>
-                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(grandTotalUSD)}</p>
-                                </div>
-                                `}
-                                <div class="card" style="padding: 0.85rem 0.75rem; background: var(--background); border-left: 3px solid var(--success);">
-                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">${taxConfig.enabled ? `Total c/${taxConfig.name}` : 'Total Bs'}</p>
-                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">${taxConfig.enabled ? `$ ${fmt(grandTotalUSD)}` : `Bs. ${fmt(totalBs)}`}</p>
-                                </div>
-                                <div id="pullDebtBtn" class="card" style="padding: 0.85rem 0.75rem; background: ${clientDebt > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); cursor: ${clientDebt > 0 ? 'pointer' : 'default'};">
-                                    <p style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); margin: 0; margin-bottom: 0.2rem;">Deuda</p>
-                                    <p style="font-size: 1.2rem; font-weight: 800; margin: 0;">$ ${fmt(clientDebt)}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <style>
-                    @media (max-width: 768px) {
-                        .sales-header-grid { grid-template-columns: 1fr !important; gap: 0.5rem !important; }
-                        .sales-main-grid { grid-template-columns: 1fr !important; }
-                        
-                        #colProducts { display: ${activeMobileTab === 'products' ? 'block' : 'none'} !important; }
-                        #colCart { display: ${activeMobileTab === 'cart' ? 'block' : 'none'} !important; }
-                        
-                        .show-mobile { display: flex !important; }
-                        
-                        /* Re-enable dropdowns on mobile but wrap them */
-                        .hide-mobile.mobile-visible { 
-                            display: flex !important; 
-                            flex-wrap: wrap;
-                            gap: 0.25rem;
-                            width: 100%;
-                            justify-content: center;
-                        }
-                        
-                        .mobile-full-width { width: 100% !important; }
-                    }
-                </style>
-            </div>
-        `;
-
-        // Event Listeners
-        container.querySelector('#backToDashboardBtn')?.addEventListener('click', () => {
-            const navHome = document.getElementById('navHome');
-            if (navHome) {
-                navHome.click();
-                const toggleIcon = document.getElementById('toggleIcon');
-                if (toggleIcon && toggleIcon.innerText === '▶') {
-                    document.getElementById('sidebarToggle')?.click();
-                }
-            } else {
-                window.location.hash = '#dashboard';
-            }
-        });
-
-        container.querySelector('#productSearch').addEventListener('input', (e) => {
-            searchProductTerm = e.target.value.toLowerCase();
-            container.querySelector('#productList').innerHTML = renderProductList();
-            attachProductClickEvents();
-        });
-
-        container.querySelector('#viewHistoryBtn').addEventListener('click', () => {
-            currentView = 'history';
-            render();
-        });
-
-        container.querySelector('#tabProductsBtn')?.addEventListener('click', () => {
-            activeMobileTab = 'products';
-            render();
-        });
-
-        container.querySelector('#tabCartBtn')?.addEventListener('click', () => {
-            activeMobileTab = 'cart';
-            render();
-        });
-
-        container.querySelector('#saleType').addEventListener('change', (e) => { settings.type = e.target.value; });
-        container.querySelector('#saleTarget').addEventListener('change', (e) => { settings.target = e.target.value; });
-        container.querySelector('#priceType').addEventListener('change', (e) => {
-            settings.priceType = e.target.value;
-            // Update cart prices if needed? User didn't specify, but usually yes.
-            cart = cart.map(item => {
-                const prod = products.find(p => p.id === item.id);
-                const newPrice = getPrice(prod);
-                return { ...item, price: newPrice, total: newPrice * item.qty };
-            });
-            render();
-        });
-
-        container.querySelector('#pullDebtBtn')?.addEventListener('click', () => {
-            if (clientDebt > 0 && !includeOldDebt) {
-                showConfirmModal("Cargar Deuda Previa", `¿Desea agregar la deuda de $${fmt(clientDebt)} a esta cuenta?`, () => {
-                    includeOldDebt = true;
-                    render();
-                }, "Sí, Cargar", "Cancelar");
-            }
-        });
-
-        attachProductClickEvents();
-
-        container.querySelectorAll('.btn-remove').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const index = parseInt(btn.dataset.index);
-                cart.splice(index, 1);
-                render();
-            });
-        });
-
-        container.querySelectorAll('.edit-qty').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const index = parseInt(btn.dataset.index);
-                const item = cart[index];
-                const prod = products.find(p => p.id === item.id);
-                const stock = prod ? (prod.stockGeneral ?? prod.stock ?? 0) : 999999;
-
-                showQuantityModal(item.name, (newQty) => {
-                    item.qty = parseFloat(newQty);
-                    item.total = item.qty * item.price;
-                    render();
-                }, item.qty, stock);
-            });
-        });
-
-        container.querySelector('#continueBtn').addEventListener('click', () => {
-            currentView = 'payment';
-            render();
-        });
-
-        container.querySelector('#cancelCartBtn')?.addEventListener('click', () => {
-            showConfirmModal("Cancelar Venta", "¿Está seguro que desea cancelar esta venta y vaciar el carrito?", () => {
-                // Limpiar todo el estado
-                cart = [];
-                payments = [];
-                selectedClient = null;
-                sessionStorage.removeItem('sales_temp_state');
-                
-                // Intentar navegar al dashboard principal
-                const navHome = document.getElementById('navHome');
-                if (navHome) {
-                    navHome.click();
-                } else {
-                    // Fallback directo si el sidebar no es accesible
-                    navigate('#dashboard');
-                }
-            }, "Sí, Cancelar", "No, Volver");
-        });
+    function getPrice(product) {
+        if (!product) return 0;
+        let type = settings.priceType || 'precioDetal';
+        if (type === 'precioDetal') type = 'priceDetal';
+        if (type === 'precioMayor') type = 'priceMayor';
+        if (type === 'precioSpecial') type = 'priceSpecial';
+        return product[type] || product.priceDetal || 0;
     }
 
     function renderProductList() {
-        const filtered = products.filter(p => {
-            const isMatch = p.name.toLowerCase().includes(searchProductTerm) || 
-                            (p.barcode && p.barcode.includes(searchProductTerm));
-            
-            // Regla Estricta para Ventas:
-            // 1. Debe estar marcado como disponible para venta
-            const canSell = p.isSaleable !== false;
-            
-            return isMatch && canSell;
-        });
+        const term = searchProductTerm.trim().toLowerCase();
+        let filtered = products.filter(p => !(p.category === 'INSUMO' && p.isSaleable === false));
+        
+        if (term) {
+            filtered = filtered.filter(p => (p.name && p.name.toLowerCase().includes(term)) || (p.barcode && p.barcode.includes(term)));
+        }
 
-        if (filtered.length === 0) return '<p class="text-muted" style="grid-column: 1/-1; text-align: center; padding: 2rem;">No se encontraron productos.</p>';
-
-        return filtered.map(prod => {
-            const stock = prod.stockGeneral ?? prod.stock ?? 0;
-            const price = getPrice(prod);
-            const priceBs = price * bcvRate;
-
-            let stockBadge = '';
-            if (prod.category !== 'SERVICIOS') {
-                const sUnit = prod.stockUnit || 'ud';
-                if (stock < 0) {
-                    const absStock = Math.abs(stock);
-                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: #ef4444; color: white; padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.55rem; font-weight: 900; box-shadow: 0 1px 4px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); animation: pulse 2s infinite;">⚠️ FALTAN: ${absStock}</span>`;
-                } else if (stock === 0) {
-                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: #4b5563; color: white; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.5rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">SIN STOCK</span>`;
-                } else {
-                    stockBadge = `<span style="position: absolute; bottom: 0.2rem; right: 0.2rem; background: var(--success); color: white; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.5rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">STOCK: ${stock}</span>`;
-                }
-            }
-
-            const imageHtml = prod.image 
-                ? `<div style="width: 100%; height: 75px; background: white; display: flex; align-items: center; justify-content: center; position: relative;"><img src="${prod.image}" alt="${prod.name}" style="max-width: 100%; max-height: 100%; object-fit: contain;">${stockBadge}</div>`
-                : `<div style="width: 100%; height: 75px; background: var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-muted); position: relative; font-size: 0.5rem;">Sin Imagen${stockBadge}</div>`;
-
+        if (filtered.length === 0) {
             return `
-                <div class="card product-card" data-id="${prod.id}" style="padding: 0; overflow: hidden; cursor: pointer; transition: transform 0.2s;">
-                    ${imageHtml}
-                    <div style="padding: 0.5rem;">
-                        <h3 style="color: var(--primary); margin-bottom: 0.35rem; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${prod.name}">${prod.name}</h3>
-                        <div style="margin-bottom: 0.25rem;">
-                            <p style="font-weight: bold; font-size: 0.8rem; color: var(--text-main); margin: 0;">$ ${fmt(price)}</p>
-                            <p style="font-weight: bold; font-size: 0.8rem; color: var(--text-main); margin: 0;">Bs. ${fmt(priceBs)}</p>
-                        </div>
+            <div class="col-span-full py-12 flex flex-col items-center justify-center text-outline">
+                <span class="material-symbols-outlined text-[48px] mb-sm opacity-50">inventory_2</span>
+                <p class="text-body-lg">No se encontraron productos</p>
+            </div>`;
+        }
+
+        return filtered.map(p => {
+            const price = getPrice(p);
+            const stock = p.stockGeneral ?? p.stock ?? 0;
+            return `
+            <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative" data-id="${p.id}">
+                ${stock <= 0 ? '<div class="absolute top-sm right-sm bg-error text-on-error px-xs py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm z-10">Agotado</div>' : ''}
+                <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
+                    ${p.image ? `<img src="${p.image}" alt="${p.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors">inventory_2</span>`}
+                </div>
+                <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest">
+                    <div>
+                        <h4 class="text-body-sm font-semibold text-on-surface truncate leading-tight group-hover:text-primary transition-colors" title="${p.name}">${p.name}</h4>
+                        <p class="text-label-sm text-outline mt-xs font-mono truncate">${p.barcode || '---'}</p>
+                    </div>
+                    <div class="flex flex-col items-end mt-auto pt-2 gap-1">
+                        <span class="text-body-sm font-bold ${stock > 10 ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${p.stockUnit || 'ud'}</span>
+                        <span class="text-body-md font-bold text-white leading-none">$ ${fmt(price)}</span>
+                        <span class="text-body-md font-bold text-white leading-none">Bs. ${fmt(price * bcvRate)}</span>
                     </div>
                 </div>
-            `;
+                <div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors pointer-events-none"></div>
+            </div>`;
         }).join('');
     }
 
     function attachProductClickEvents() {
         container.querySelectorAll('.product-card').forEach(card => {
             card.addEventListener('click', () => {
-                const prod = products.find(p => p.id === card.dataset.id);
-                if (prod) promptAddToCart(prod);
+                const id = card.dataset.id;
+                const p = products.find(prod => prod.id === id);
+                if (!p) return;
+                const stock = p.stockGeneral ?? p.stock ?? 0;
+                if (stock <= 0) {
+                    showToast("Atención: Producto sin stock (Inventario Negativo)", true);
+                }
+                
+                showProductSaleModal(p, (qty, unit, extras) => {
+                    const price = getPrice(p);
+                    const isBox = (unit === p.purchaseUnit && unit !== p.stockUnit);
+                    const unitContent = isBox ? (parseFloat(p.purchaseToStockQty) || 1) : 1;
+                    const realQty = qty * unitContent;
+
+                    const extraTotal = (extras || []).reduce((sum, e) => sum + e.price, 0);
+                    const totalUnitPrice = price + extraTotal;
+
+                    const existing = cart.find(i => i.id === id && i.sellUnit === unit && JSON.stringify(i.extras || []) === JSON.stringify(extras || []));
+                    if (existing) {
+                        if ((existing.realQty || existing.qty) + realQty > stock) {
+                            showToast("Atención: Stock insuficiente (Inventario Negativo)", true);
+                        }
+                        existing.qty += qty;
+                        existing.realQty = (existing.realQty || existing.qty) + realQty;
+                        existing.total = existing.realQty * totalUnitPrice;
+                        render();
+                    } else {
+                        if (realQty > stock) {
+                            showToast("Atención: Stock insuficiente (Inventario Negativo)", true);
+                        }
+                        cart.push({ 
+                            id: p.id, 
+                            name: p.name, 
+                            price: price, 
+                            qty: qty, 
+                            unitContent: unitContent,
+                            realQty: realQty,
+                            total: totalUnitPrice * realQty, 
+                            sellUnit: unit,
+                            baseUnit: p.stockUnit || 'Unidad',
+                            baseCostUSD: p.costPerUnit || p.cost || 0,
+                            extras: extras || []
+                        });
+                        render();
+                    }
+                }, 1, p.stockUnit || 'Unidad');
             });
-            card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
-            card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
         });
     }
 
-    function getPrice(prod) {
-        if (!prod) return 0;
-        if (settings.priceType === 'precioMayor') return prod.priceMayor || prod.priceDetal || 0;
-        if (settings.priceType === 'precioSpecial') return prod.priceSpecial || prod.priceDetal || 0;
-        return prod.priceDetal || 0;
-    }
-
-    function promptAddToCart(prod) {
-        const stock = prod.stockGeneral ?? prod.stock ?? 0;
-        showQuantityModal(prod.name, (qty, sellUnit, multiplier) => {
-            const existing = cart.find(item => item.id === prod.id && (item.sellUnit || item.stockUnit || 'ud') === sellUnit);
-            const price = getPrice(prod);
-            if (existing) {
-                existing.originalQty = (existing.originalQty || existing.qty) + qty;
-                existing.qty = existing.originalQty * existing.multiplier;
-                existing.total = existing.qty * existing.price;
-            } else {
-                cart.push({
-                    id: prod.id,
-                    name: prod.name,
-                    originalQty: qty,
-                    qty: qty * multiplier,
-                    sellUnit: sellUnit,
-                    multiplier: multiplier,
-                    price: price,
-                    total: price * (qty * multiplier),
-                    stockUnit: prod.stockUnit || 'ud'
-                });
-            }
-            render();
-        }, "", stock, prod);
-    }
-
-    function showQuantityModal(title, onConfirm, defaultValue = "", stock = null, prod = null, currentUnit = null) {
-        const modal = document.createElement('div');
-        modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
-        
-        let hasDualUnit = false;
-        let dualUnitName = '';
-        let dualMultiplier = 1;
-        let baseUnitName = 'ud';
-
-        if (prod) {
-            baseUnitName = prod.stockUnit || 'ud';
-            if (prod.purchaseToStockQty > 1 && prod.purchaseUnit && prod.purchaseUnit !== prod.stockUnit) {
-                hasDualUnit = true;
-                dualUnitName = prod.purchaseUnit;
-                dualMultiplier = prod.purchaseToStockQty;
-            } else if (prod.unitContentQty > 1 && prod.purchaseUnit && prod.purchaseUnit !== prod.stockUnit) {
-                hasDualUnit = true;
-                dualUnitName = prod.purchaseUnit;
-                dualMultiplier = prod.unitContentQty;
-            } else if (prod.unitContentQty > 1 && prod.stockUnit && prod.unitContentUnit && prod.stockUnit !== prod.unitContentUnit) {
-                hasDualUnit = true;
-                dualUnitName = prod.stockUnit;
-                dualMultiplier = prod.unitContentQty;
-                baseUnitName = prod.unitContentUnit;
-            }
-        }
-
-        let unitDropdownHTML = '';
-        if (hasDualUnit) {
-            const isDualSelected = currentUnit === dualUnitName;
-            unitDropdownHTML = `
-                <select id="modalUnitSelect" class="form-control" style="width: auto; font-size: 1rem; font-weight: bold; background-color: var(--surface); color: var(--primary);">
-                    <option value="${baseUnitName}" data-mult="1" ${!isDualSelected ? 'selected' : ''}>${baseUnitName}</option>
-                    <option value="${dualUnitName}" data-mult="${dualMultiplier}" ${isDualSelected ? 'selected' : ''}>${dualUnitName}</option>
-                </select>
-            `;
-        } else {
-            unitDropdownHTML = `
-                <span style="font-weight: bold; color: var(--text-muted); font-size: 1rem; display: flex; align-items: center; padding: 0 0.5rem;">
-                    ${baseUnitName}
-                </span>
-            `;
-        }
-
-        modal.innerHTML = `
-            <div class="card" style="width: 100%; max-width: 350px; border-top: 4px solid var(--primary); animation: fadeInScale 0.2s ease-out;">
-                <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Cantidad para:</h3>
-                <p style="font-weight: bold; color: var(--primary); margin-bottom: 1rem; line-height: 1.2;">${title}</p>
-                
-                <div class="form-group mb-3" style="display: flex; gap: 0.5rem;">
-                    <input type="text" inputmode="numeric" id="modalQtyInput" class="form-control" placeholder="0,00" style="flex: 1; font-size: 1.5rem; text-align: center; font-weight: bold;" value="${defaultValue}">
-                    ${unitDropdownHTML}
-                </div>
-
-                <div id="stockWarning" style="display: none; background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; padding: 0.5rem; border-radius: 8px; margin-bottom: 1rem; animation: shake 0.3s ease;">
-                    <p id="stockWarningText" style="color: #f59e0b; font-size: 0.75rem; font-weight: bold; margin: 0; text-align: center;"></p>
-                </div>
-
-                
-                <div style="display: flex; gap: 1rem;">
-                    <button id="modalCancelBtn" class="btn btn-outline">Cancelar</button>
-                    <button id="modalConfirmBtn" class="btn btn-primary">Agregar</button>
-                </div>
-                
-                <style>
-                    @keyframes fadeInScale {
-                        from { opacity: 0; transform: scale(0.95); }
-                        to { opacity: 1; transform: scale(1); }
-                    }
-                    @keyframes shake {
-                        0%, 100% { transform: translateX(0); }
-                        25% { transform: translateX(-5px); }
-                        75% { transform: translateX(5px); }
-                    }
-                    #modalQtyInput::-webkit-outer-spin-button,
-                    #modalQtyInput::-webkit-inner-spin-button {
-                        -webkit-appearance: none;
-                        margin: 0;
-                    }
-                </style>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        
-        const input = modal.querySelector('#modalQtyInput');
-        const unitSelect = modal.querySelector('#modalUnitSelect');
-        const warning = modal.querySelector('#stockWarning');
-        const warningText = modal.querySelector('#stockWarningText');
-        const confirmBtn = modal.querySelector('#modalConfirmBtn');
-        
-        function parseNum(val) {
-            if (!val) return 0;
-            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
-        }
-
-        function formatNum(num) {
-            return parseFloat(num).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        if (defaultValue) {
-            input.value = formatNum(defaultValue);
-        }
-
-        input.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/\D/g, ''); 
-            if (!value) { e.target.value = ''; return; }
-            let number = parseInt(value, 10);
-            let divisor = Math.pow(10, 2);
-            e.target.value = (number / divisor).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            checkStock(); 
-        });
-        
-        input.addEventListener('focus', (e) => { 
-            let zeroStr = (0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            if (e.target.value === zeroStr) e.target.value = ''; 
-        });
-
-        input.addEventListener('blur', (e) => { 
-            if (!e.target.value) {
-                e.target.value = (0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); 
-            }
-        });
-
-        input.focus();
-        if (input.value) input.select();
-
-        function checkStock() {
-            if (stock === null) return;
-            const qty = parseNum(input.value);
-            const multiplier = unitSelect ? parseInt(unitSelect.options[unitSelect.selectedIndex].dataset.mult) : 1;
-            const totalQty = qty * multiplier;
-            
-            if (totalQty > stock) {
-                warning.style.display = 'block';
-                confirmBtn.style.opacity = '0.5';
-                confirmBtn.style.pointerEvents = 'none';
-                warningText.textContent = `⚠️ Solo hay ${stock} ${prod ? prod.stockUnit : 'unidades'} en stock`;
-            } else {
-                warning.style.display = 'none';
-                confirmBtn.style.opacity = '1';
-                confirmBtn.style.pointerEvents = 'auto';
-            }
-        }
-
-        if (unitSelect) unitSelect.addEventListener('change', checkStock);
-        
-        checkStock();
-
-        modal.querySelector('#modalCancelBtn').addEventListener('click', () => {
-            modal.remove();
-        });
-
-        confirmBtn.addEventListener('click', () => {
-            const qty = parseNum(input.value);
-            if (!qty || qty <= 0) {
-                input.style.borderColor = 'var(--danger)';
-                input.animate([{ transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }], { duration: 100, iterations: 3 });
-                return;
-            }
-            
-            const selectedUnit = unitSelect ? unitSelect.value : (prod ? prod.stockUnit : 'ud');
-            const multiplier = unitSelect ? parseInt(unitSelect.options[unitSelect.selectedIndex].dataset.mult) : 1;
-            
-            modal.remove();
-            onConfirm(qty, selectedUnit, multiplier);
-        });
-
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') confirmBtn.click();
-            if (e.key === 'Escape') modal.remove();
-        });
-    }
-
-    async function renderPaymentView() {
+    function renderSingleView() {
         const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
         const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
         const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
-        const totalUSD = includeOldDebt ? (baseWithTaxUSD + clientDebt) : baseWithTaxUSD;
-        const totalBs = totalUSD * bcvRate;
-        const totalItems = cart.length;
+        const effectiveTotalUSD = includeOldDebt ? baseWithTaxUSD + clientDebt : baseWithTaxUSD;
+        const totalBs = effectiveTotalUSD * bcvRate;
+        const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
 
         let paidUSD = 0;
         payments.forEach(p => {
@@ -846,420 +434,290 @@ export function renderSales(container, preSelectedClient = null) {
             else paidUSD += p.amount / p.rate;
         });
 
-        const remainingUSD = totalUSD - paidUSD;
-        const changeUSD = paidUSD > totalUSD ? paidUSD - totalUSD : 0;
-        const saleStatus = payments.length === 0 ? 'contado' : (container.querySelector('#saleStatus')?.value || 'contado');
+        const currentRemainingUSD = Math.max(0, effectiveTotalUSD - paidUSD);
+        const currentChangeUSD = Math.max(0, paidUSD - effectiveTotalUSD);
+        const saleStatus = container.querySelector('#saleStatus')?.value || (payments.length === 0 ? 'contado' : 'abono');
 
         container.innerHTML = `
-            <div style="display: flex; flex-direction: column; height: 100%; gap: 1rem;">
-                <div class="card" style="padding: 0.4rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex: none;">
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <button id="backToCartBtn" class="btn btn-outline" style="width: auto; padding: 0.35rem 0.8rem; font-size: 0.85rem;">← Volver al Carrito</button>
-                        <h3 style="margin: 0; font-size: 1rem; color: var(--text-muted); font-weight: 500;">Checkout</h3>
-                    </div>
-                    <button id="finishBtn" class="btn btn-primary" style="width: auto; padding: 0.45rem 1.5rem; font-size: 0.9rem; font-weight: bold; background: var(--success); border-color: var(--success); box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);">
-                        ${settings.type === 'presupuesto' ? '✅ GENERAR PRESUPUESTO' : '✅ FINALIZAR VENTA'}
-                    </button>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 1rem; flex: 1; overflow: hidden;" class="grid-1-mobile">
-                    <!-- Block 1: Client Selection -->
-                    <div style="display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; min-width: 0;">
-                        <div class="card" style="padding: 1.5rem; flex: 1;">
-                            <h3 style="margin-bottom: 1.25rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <span>1</span> Selección de Cliente
-                            </h3>
-                            <div class="form-group mb-4">
-                                <label style="font-weight: 600; font-size: 0.9rem;">Buscar Cliente (Nombre o Cédula)</label>
-                                <div style="position: relative; margin-top: 0.5rem;">
-                                    <input type="text" id="clientSearch" class="form-control" placeholder="Escriba para buscar..." value="${selectedClient ? selectedClient.fullName : ''}" style="padding: 0.75rem;">
-                                    <div id="clientResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-top: none; z-index: 100; max-height: 250px; overflow-y: auto; box-shadow: var(--shadow-lg); border-radius: 0 0 8px 8px;"></div>
-                                </div>
+        <div class="app-container h-full flex flex-col text-on-surface bg-background" style="font-family: 'Inter', sans-serif;">
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Main Content Area -->
+                <main class="flex-1 overflow-hidden bg-surface-dim flex flex-col">
+                    <section class="flex-1 flex flex-col overflow-hidden">
+                        <div class="flex px-container-margin pt-sm pb-sm mb-sm justify-between items-center shrink-0" style="min-height: 60px;">
+                            <div class="flex items-center flex-stack-mobile" style="gap: 1.5rem; flex: 1;">
+                                <button id="backToDashboardBtn2" class="btn btn-outline flex-shrink-0" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0 1rem; white-space: nowrap;">← Volver</button>
+                                <h2 class="flex-shrink-0" style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0; white-space: nowrap; display: flex; align-items: center; gap: 0.5rem;">🛒 Ventas</h2>
+                                <button id="viewHistoryBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">calendar_today</span>
+                                    Ventas del Día
+                                </button>
+                                <button id="viewOrdersBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">package</span>
+                                    Pedidos
+                                </button>
                             </div>
-
-                            ${selectedClient ? `
-                                <div style="position: relative; background: rgba(59, 130, 246, 0.1); padding: 1.25rem; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.3); animation: fadeIn 0.3s ease;">
-                                    <p style="margin: 0; font-weight: bold; color: var(--primary); font-size: 1.1rem;">${selectedClient.fullName}</p>
-                                    <div style="margin-top: 0.75rem; display: grid; gap: 0.4rem;">
-                                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);"><span style="opacity: 0.7;">ID:</span> ${selectedClient.id}</p>
-                                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);"><span style="opacity: 0.7;">Tel:</span> ${selectedClient.phone || 'No registrado'}</p>
-                                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);"><span style="opacity: 0.7;">Dirección:</span> ${selectedClient.address || 'No registrada'}</p>
-                                    </div>
-                                    <button id="removeClientBtn" style="position: absolute; bottom: 0.75rem; right: 0.75rem; background: var(--danger); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(239, 68, 68, 0.3); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                                        ✕
-                                    </button>
-                                </div>
-                            ` : `
-                                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; text-align: center; border: 2px dashed var(--border); border-radius: 12px; opacity: 0.7;">
-                                    <span style="font-size: 2.5rem; margin-bottom: 1rem;">👤</span>
-                                    <p class="text-danger" style="font-weight: 500;">Debe seleccionar un cliente <span class="text-danger">*</span></p>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    <!-- Block 2: Payment Methods -->
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; min-width: 0; ${settings.type === 'presupuesto' ? 'opacity: 0.5; pointer-events: none; filter: grayscale(0.8);' : ''}">
-                        <div class="card" style="padding: 1.25rem; flex: 1; display: flex; flex-direction: column; position: relative;">
-                            ${settings.type === 'presupuesto' ? '<div style="position: absolute; inset: 0; z-index: 10; cursor: not-allowed;" title="No disponible en modo presupuesto"></div>' : ''}
-                            <h3 style="margin-bottom: 1rem; color: var(--primary); font-size: 1.1rem;">
-                                2. Métodos de Pago
-                            </h3>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-                                <div class="form-group">
-                                    <label style="font-size: 0.8rem; opacity: 0.8;">Moneda</label>
-                                    <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem; height: 35px;">
-                                        <button type="button" class="currency-opt ${activePayCurrency === 'BS' ? 'btn-primary' : 'btn-outline'}" data-value="BS" style="flex: 1; padding: 0; font-size: 0.72rem; font-weight: 800; border-radius: 8px; white-space: nowrap;">BOLÍVARES (BS)</button>
-                                        <button type="button" class="currency-opt ${activePayCurrency === 'USD' ? 'btn-primary' : 'btn-outline'}" data-value="USD" style="flex: 1; padding: 0; font-size: 0.72rem; font-weight: 800; border-radius: 8px; white-space: nowrap;">DÓLARES ($)</button>
-                                    </div>
-                                    <input type="hidden" id="payCurrency" value="${activePayCurrency}">
-                                </div>
-                                <div class="form-group">
-                                    <label style="font-size: 0.8rem; opacity: 0.8;">Método</label>
-                                    <select id="payMethod" class="form-control" style="margin-top: 0.2rem; padding: 0.4rem; height: 35px; font-size: 0.85rem;">
-                                        <!-- Opciones cargadas dinámicamente -->
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label style="font-size: 0.8rem; opacity: 0.8;">Monto</label>
-                                    <input type="text" inputmode="numeric" id="payAmount" class="form-control" placeholder="0,00" style="margin-top: 0.2rem; padding: 0.4rem; height: 35px; font-size: 0.85rem; font-weight: bold;">
-                                </div>
-                                <div class="form-group" id="refGroup" style="display: none;">
-                                    <label style="font-size: 0.8rem; opacity: 0.8;">Referencia</label>
-                                    <input type="text" id="payRef" class="form-control" placeholder="Ej. 1234" style="margin-top: 0.2rem; padding: 0.4rem; height: 35px; font-size: 0.85rem;">
-                                </div>
-                            </div>
-                            <button id="addPaymentBtn" class="btn btn-outline" style="width: 100%; padding: 0.5rem; font-weight: 600; font-size: 0.85rem;">➕ Agregar Pago</button>
-
-                            <!-- Payments List -->
-                            <div style="margin-top: 1rem; flex: 1;">
-                                <h4 style="font-size: 0.85rem; margin-bottom: 0.75rem; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.4rem;">Pagos Recibidos</h4>
-                                ${payments.length === 0 
-                                    ? '<p style="text-align: center; padding: 1rem 0; font-size: 0.8rem; opacity: 0.6;">Sin pagos registrados.</p>'
-                                    : `
-                                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                                        ${payments.map((p, i) => `
-                                            <div class="payment-card" style="background: rgba(var(--primary-rgb), 0.03); padding: 0.5rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); transition: all 0.2s; animation: slideIn 0.2s ease-out;">
-                                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                                                    <div style="font-weight: 900; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; flex: none; color: #fff;">${p.method.replace('_', ' ')}</div>
-                                                    
-                                                    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 1.25rem; min-width: 0; font-weight: 900; font-size: 0.7rem; text-transform: uppercase; color: #fff;">
-                                                        ${p.ref ? `<div style="opacity: 0.7; letter-spacing: 0.02em;">REF: ${p.ref}</div>` : ''}
-                                                        <div style="letter-spacing: 0.02em; white-space: nowrap;">
-                                                            ${p.currency} ${fmt(p.amount)}
-                                                        </div>
-                                                    </div>
-
-                                                    <button class="remove-payment" data-index="${i}" style="background: rgba(239, 68, 68, 0.1); border: none; color: #ef4444; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex: none;">
-                                                        <span style="font-size: 0.7rem; font-weight: bold;">✕</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                    <style>
-                                        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-                                        .payment-card:hover { border-color: var(--primary) !important; background: rgba(var(--primary-rgb), 0.05) !important; }
-                                    </style>
-                                    `
-                                }
+                            <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant md:w-96">
+                                <span class="material-symbols-outlined text-outline">search</span>
+                                <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
                             </div>
                         </div>
-                    </div>
+                        <div id="productList" class="flex-1 overflow-y-auto px-container-margin pb-20">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
+                                ${renderProductList()}
+                            </div>
+                        </div>
+                    </section>
+                </main>
 
-                    <!-- Block 3: Invoice Summary -->
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; min-width: 0; ${settings.type === 'presupuesto' ? 'opacity: 0.8; filter: grayscale(0.5);' : ''}">
-                        <div class="card" style="padding: 1.25rem; flex: 1; display: flex; flex-direction: column; gap: 1rem; position: relative;">
-                            <h3 style="margin-bottom: 0.2rem; color: var(--primary); font-size: 1.1rem;">
-                                3. Resumen de Factura
-                            </h3>
+                <!-- Right Sidebar (Cart) -->
+                <aside class="w-80 lg:w-[400px] xl:w-[450px] bg-surface-container-low border-l border-outline-variant flex flex-col h-full shadow-2xl z-40">
+                    <div class="p-md border-b border-outline-variant">
+                        <h3 class="font-headline-md text-headline-md mb-md text-on-surface">Detalles de Venta</h3>
+                    
+                        <div class="grid grid-cols-2 gap-sm mb-md">
+                            <div class="form-group">
+                                <label class="text-label-bold font-label-bold text-outline uppercase">Operación</label>
+                                <select id="saleType" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
+                                    <option value="venta" ${settings.type === 'venta' ? 'selected' : ''}>Venta</option>
+                                    <option value="presupuesto" ${settings.type === 'presupuesto' ? 'selected' : ''}>Presupuesto</option>
+                                    <option value="pedido" ${settings.type === 'pedido' ? 'selected' : ''}>Pedidos</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="text-label-bold font-label-bold text-outline uppercase">Tipo Precio</label>
+                                <select id="priceType" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
+                                    <option value="precioDetal" ${settings.priceType === 'precioDetal' ? 'selected' : ''}>Detal</option>
+                                    <option value="precioMayor" ${settings.priceType === 'precioMayor' ? 'selected' : ''}>Mayor</option>
+                                    <option value="precioSpecial" ${settings.priceType === 'precioSpecial' ? 'selected' : ''}>Especial</option>
+                                </select>
+                            </div>
+                        </div>
 
-                            <div class="form-group" style="${settings.type === 'presupuesto' ? 'pointer-events: none; opacity: 0.6;' : ''}">
-                                <label style="font-weight: 600; font-size: 0.85rem;">Estado de Venta <span class="text-danger">*</span></label>
-                                <select id="saleStatus" class="form-control" style="font-weight: bold; margin-top: 0.4rem; border-color: var(--primary); height: 42px; padding: 0 0.75rem; font-size: 0.9rem; line-height: 42px;">
-                                    ${settings.type === 'presupuesto' 
-                                        ? '<option value="presupuesto" selected>PRESUPUESTO</option>' 
-                                        : `
-                                        <option value="abono" ${saleStatus === 'abono' ? 'selected' : ''}>ABONO / PARCIAL</option>
-                                        <option value="credito" ${saleStatus === 'credito' ? 'selected' : ''}>A CRÉDITO</option>
-                                        <option value="contado" ${saleStatus === 'contado' ? 'selected' : ''}>CONTADO</option>
+                        <div class="grid grid-cols-2 gap-sm mb-md">
+                            <div class="form-group">
+                                <label class="text-label-bold font-label-bold text-outline uppercase">Estado de Venta</label>
+                                <select id="saleStatus" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" ${settings.type === 'presupuesto' ? 'disabled' : ''}>
+                                    ${settings.type === 'presupuesto' ? '<option value="presupuesto" selected>PRESUPUESTO</option>' : `
+                                    <option value="contado" ${saleStatus === 'contado' ? 'selected' : ''}>Contado</option>
+                                    <option value="abono" ${saleStatus === 'abono' ? 'selected' : ''}>Abono</option>
+                                    <option value="credito" ${saleStatus === 'credito' ? 'selected' : ''}>Crédito</option>
                                     `}
                                 </select>
                             </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                                ${(() => {
-                                    const sub = cart.reduce((sum, item) => sum + item.total, 0);
-                                    const tax = taxConfig.enabled ? sub * taxConfig.rate / 100 : 0;
-                                    const baseWithTax = sub + tax;
-                                    const effectiveTotalUSD = includeOldDebt ? (baseWithTax + clientDebt) : baseWithTax;
-                                    const effectiveTotalBs = effectiveTotalUSD * bcvRate;
-                                    const paymentsTotalUSD = payments.reduce((sum, p) => {
-                                        if (p.currency === 'USD') return sum + p.amount;
-                                        return sum + (p.amount / bcvRate);
-                                    }, 0);
-                                    const currentRemainingUSD = Math.max(0, effectiveTotalUSD - paymentsTotalUSD);
-                                    const currentChangeUSD = Math.max(0, paymentsTotalUSD - effectiveTotalUSD);
-
-                                    return `
-                                    ${taxConfig.enabled ? `
-                                    <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--text-muted); margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Subtotal USD</p>
-                                        <p style="font-size: 1rem; font-weight: 800; margin: 0;">$ ${fmt(sub)}</p>
-                                    </div>
-                                    <div class="card" style="padding: 0.6rem; background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">${taxConfig.name} (${taxConfig.rate}%)</p>
-                                        <p style="font-size: 1rem; font-weight: 800; margin: 0; color: #f59e0b;">$ ${fmt(tax)}</p>
-                                    </div>
-                                    ` : ''}
-                                    <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--primary); margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total USD${taxConfig.enabled ? ` c/${taxConfig.name}` : ''}</p>
-                                        <p style="font-size: 1rem; font-weight: 800; margin: 0;">$ ${fmt(effectiveTotalUSD)}</p>
-                                    </div>
-                                    <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid #3b82f6; margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Total BS</p>
-                                        <p style="font-size: 1rem; font-weight: 800; margin: 0;">Bs. ${fmt(effectiveTotalBs)}</p>
-                                    </div>
-                                    <div id="pullDebtBtn" class="card" style="padding: 0.6rem; background: ${includeOldDebt ? 'rgba(239, 68, 68, 0.1)' : 'var(--background)'}; border-left: 3px solid var(--danger); margin: 0; cursor: ${clientDebt > 0 && !includeOldDebt ? 'pointer' : 'default'}; transition: all 0.2s; position: relative;" onmouseover="${clientDebt > 0 && !includeOldDebt ? "this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" : ''}" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Deuda Cliente</p>
-                                        <p style="font-size: 1rem; font-weight: 800; margin: 0; color: var(--danger);">$ ${fmt(clientDebt)}</p>
-                                        ${clientDebt > 0 && !includeOldDebt ? `
-                                            <div style="position: absolute; top: 2px; right: 5px; font-size: 0.6rem; color: var(--primary); font-weight: bold;">+ CARGAR</div>
-                                        ` : includeOldDebt ? `
-                                            <div style="position: absolute; top: 2px; right: 5px; font-size: 0.6rem; color: var(--success); font-weight: bold;">✓ CARGADA</div>
-                                        ` : ''}
-                                    </div>
-                                    <div class="card" style="padding: 0.6rem; background: var(--background); border-left: 3px solid var(--success); margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); margin: 0;">Pendiente</p>
-                                        <div style="font-size: 1rem; font-weight: 800; line-height: 1.2; margin-top: 0.2rem; color: ${currentRemainingUSD > 0.01 ? 'var(--danger)' : 'var(--success)'};">
-                                            <div>$ ${fmt(currentRemainingUSD)}</div>
-                                            <div>Bs. ${fmt(currentRemainingUSD * bcvRate)}</div>
-                                        </div>
-                                    </div>
-                                    ${currentChangeUSD > 0.01 ? `
-                                    <div class="card" style="padding: 0.6rem; background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); grid-column: span 2; margin: 0;">
-                                        <p style="font-size: 0.6rem; text-transform: uppercase; color: var(--success); margin: 0; font-weight: bold;">Vuelto / Cambio</p>
-                                        <p style="font-size: 1.1rem; font-weight: 800; margin: 0; color: var(--success);">$ ${fmt(currentChangeUSD)} | Bs. ${fmt(currentChangeUSD * bcvRate)}</p>
-                                    </div>` : ''}
-                                    `;
-                                })()}
+                            <div class="form-group">
+                                <label class="text-label-bold font-label-bold text-outline uppercase">Tipo de Venta</label>
+                                <select id="saleTarget" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
+                                    <option value="mayor" ${settings.target === 'mayor' ? 'selected' : ''}>Mayor</option>
+                                    <option value="detal" ${settings.target === 'detal' ? 'selected' : ''}>Detal</option>
+                                </select>
                             </div>
+                        </div>
 
-                            <div style="margin-top: auto; padding: 1rem; background: rgba(var(--primary-rgb), 0.03); border-radius: 12px; border: 1px dashed var(--border);">
-                                <p style="text-align: center; color: var(--text-muted); font-size: 0.75rem; margin: 0; line-height: 1.4;">Verifique los montos y el cliente antes de procesar la factura definitiva.</p>
+                        ${settings.type === 'pedido' ? `
+                        <div class="mb-md relative">
+                            <label class="text-label-bold font-label-bold text-outline uppercase">Fecha de Entrega</label>
+                            <input type="text" id="deliveryDateInput" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="${deliveryDate}">
+                        </div>` : ''}
+
+                        <div class="mb-md relative">
+                            <label class="text-label-bold font-label-bold text-outline uppercase">Cliente</label>
+                            <div class="flex items-center gap-sm mt-xs p-sm bg-surface-container-high rounded-lg border border-outline-variant focus-within:border-primary transition-colors group">
+                                <span class="material-symbols-outlined text-outline group-focus-within:text-primary">person</span>
+                                <div class="flex-1 relative">
+                                    <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-on-surface w-full p-0 outline-none" placeholder="Buscar cliente..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
+                                    ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
+                                    <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-lg shadow-xl mt-1 hidden"></div>
+                                </div>
+                                ${selectedClient ? `
+                                <button id="removeClientBtn" class="material-symbols-outlined text-error cursor-pointer hover:bg-error/10 rounded-full p-1 transition-colors" title="Remover cliente">close</button>
+                                ` : `
+                                <button id="createNewClientBtn" class="material-symbols-outlined text-primary cursor-pointer hover:bg-primary/10 rounded-full p-1 transition-colors" title="Crear cliente">person_add</button>
+                                `}
                             </div>
                         </div>
                     </div>
-                </div>
+
+                    <div class="flex-1 overflow-y-auto p-md">
+                        <div class="flex justify-between items-center mb-sm">
+                            <label class="text-label-bold font-label-bold text-outline uppercase">Carrito</label>
+                            ${cart.length > 0 ? '<button id="cancelCartBtn" class="text-error text-label-sm font-bold uppercase hover:underline">Vaciar</button>' : ''}
+                        </div>
+                        <div class="flex flex-col gap-sm">
+                            ${cart.length === 0 ? '<p class="text-outline text-center py-4 text-body-md">El carrito está vacío</p>' : ''}
+                            ${cart.map((item, index) => {
+                                const prod = products.find(p => p.id === item.id);
+                                return `
+                                <div class="flex justify-between items-center p-sm rounded-lg bg-surface-container-lowest hover:bg-surface-container transition-colors border border-outline-variant group cursor-pointer edit-qty" data-index="${index}">
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <p class="text-body-md font-semibold text-on-surface truncate group-hover:text-primary">${item.name}</p>
+                                        <p class="text-label-sm text-outline">
+                                            ${Number(Number(item.qty).toFixed(3))} ${item.sellUnit || 'ud'}
+                                            ${(item.unitContent && item.unitContent > 1) ? ` x ${item.unitContent} ${item.baseUnit || 'ud'} ` : ''}
+                                            x $ ${fmt(item.price)}
+                                        </p>
+                                        ${(item.extras && item.extras.length > 0) ? `
+                                            <p class="text-label-sm text-primary mt-1 font-bold">
+                                                + Extras: ${item.extras.map(e => `${e.name} ($${fmt(e.price)})`).join(', ')}
+                                            </p>
+                                        ` : ''}
+                                    </div>
+                                    <div class="flex items-center gap-sm">
+                                        <p class="font-label-sm text-primary font-bold">$ ${fmt(item.total)}</p>
+                                        <button class="material-symbols-outlined text-outline hover:text-error transition-colors btn-remove" data-index="${index}" style="font-size: 18px;">delete</button>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
+                            ${includeOldDebt ? `
+                            <div class="flex justify-between items-center p-sm rounded-lg bg-error/10 border border-error/30">
+                                <div class="flex-1 min-w-0 pr-2">
+                                    <p class="text-body-md font-bold text-error truncate">DEUDA PENDIENTE</p>
+                                    <p class="text-label-sm text-error/80">Referencial (No facturable)</p>
+                                </div>
+                                <div class="flex items-center gap-sm">
+                                    <p class="font-label-sm text-error font-bold">$ ${fmt(clientDebt)}</p>
+                                    <button class="material-symbols-outlined text-error/80 hover:text-error transition-colors btn-remove-debt" style="font-size: 18px;">delete</button>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </aside>
             </div>
+
+            <!-- Global Footer Section -->
+            <footer class="bg-surface-container border-t border-outline-variant p-md z-50 shrink-0 h-[116px]">
+                <div class="flex gap-md h-full items-center">
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ITEMS</p>
+                        <p class="text-display-metrics text-white" style="font-size: 24px;">${totalItems}</p>
+                    </div>
+                
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 border-l-primary flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN $</p>
+                        <p class="text-headline-md font-display-metrics text-white whitespace-nowrap">$ ${fmt(effectiveTotalUSD)}</p>
+                    </div>
+                
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN BS</p>
+                        <p class="text-headline-md font-display-metrics text-white whitespace-nowrap leading-tight text-[18px]">Bs ${fmt(totalBs)}</p>
+                    </div>
+                
+                    <div id="pullDebtBtn" class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 ${clientDebt > 0 ? 'border-l-error cursor-pointer hover:bg-error/10' : 'border-l-outline'} flex flex-col justify-center transition-colors">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">DEUDA CLIENTE ${includeOldDebt ? '(CARGADA)' : ''}</p>
+                        <p class="text-headline-md font-display-metrics text-white whitespace-nowrap">$ ${fmt(clientDebt)}</p>
+                    </div>
+                
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ENTREGADO</p>
+                        <div class="flex flex-col">
+                            <p class="text-body-lg font-bold text-white leading-tight">$ ${fmt(paidUSD)}</p>
+                            <p class="text-body-lg font-bold text-white leading-tight">Bs ${fmt(paidUSD * bcvRate)}</p>
+                        </div>
+                    </div>
+                
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center border-l-4 ${currentChangeUSD > 0 ? 'border-l-green-400' : (currentRemainingUSD > 0 ? 'border-l-red-500' : 'border-l-white')}">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">${currentChangeUSD > 0 ? 'VUELTO' : 'RESTA'}</p>
+                        <div class="flex flex-col">
+                            <p class="text-body-lg font-bold ${currentChangeUSD > 0 ? 'text-green-400' : (currentRemainingUSD > 0 ? 'text-red-500' : 'text-white')} leading-tight">$ ${currentChangeUSD > 0 ? fmt(currentChangeUSD) : fmt(currentRemainingUSD)}</p>
+                            <p class="text-body-lg font-bold ${currentChangeUSD > 0 ? 'text-green-400' : (currentRemainingUSD > 0 ? 'text-red-500' : 'text-white')} leading-tight">Bs ${currentChangeUSD > 0 ? fmt(currentChangeUSD * bcvRate) : fmt(currentRemainingUSD * bcvRate)}</p>
+                        </div>
+                    </div>
+                
+                    <button id="openPaymentModalBtn" class="flex-1 h-full bg-primary text-white rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/90 transition-all shadow-lg active:scale-[0.98]" ${settings.type === 'presupuesto' ? 'disabled style="opacity:0.5"' : ''}>CARGAR PAGO</button>
+                    <button id="finishBtn" class="flex-1 h-full border-2 border-primary text-primary rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98]">${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
+                </div>
+            </footer>
+
+            <!-- Toast Notification -->
+            <div id="toast" class="fixed bottom-container-margin left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-lg py-md rounded-xl shadow-2xl flex items-center gap-md transform translate-y-32 transition-transform duration-300 z-[100]">
+                <span class="material-symbols-outlined text-secondary">check_circle</span>
+                <span id="toastMsg" class="font-body-lg">Acción completada</span>
+            </div>
+        </div>
         `;
 
-        // Event Listeners for Payment View
-        container.querySelector('#backToCartBtn').addEventListener('click', () => {
-            currentView = 'cart';
+        // Clock and Date
+        const clockSpan = container.querySelector('#clockSpan');
+        const dateSpan = container.querySelector('#dateSpan');
+        if (clockSpan && dateSpan) {
+            const now = new Date();
+            clockSpan.textContent = now.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+            dateSpan.textContent = now.toLocaleDateString('es-VE');
+        }
+
+        // Bind events
+        const navHomeLogic = () => {
+            const navHome = document.getElementById('navHome');
+            if (navHome) {
+                navHome.click();
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon && toggleIcon.innerText === '▶') document.getElementById('sidebarToggle')?.click();
+            } else {
+                window.location.hash = '#dashboard';
+            }
+        };
+        container.querySelector('#backToDashboardBtn')?.addEventListener('click', navHomeLogic);
+        container.querySelector('#backToDashboardBtn2')?.addEventListener('click', navHomeLogic);
+
+        container.querySelector('#viewHistoryBtn')?.addEventListener('click', () => {
+            currentView = 'history';
             render();
         });
 
-        // Client Search Logic
-        const clientSearch = container.querySelector('#clientSearch');
-        const clientResults = container.querySelector('#clientResults');
-
-        clientSearch.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            if (term.length < 1) { clientResults.style.display = 'none'; return; }
-
-            const filtered = clients.filter(c => c.fullName.toLowerCase().includes(term) || c.id.toLowerCase().includes(term));
-            let resultsHtml = '';
-            
-            if (filtered.length > 0) {
-                resultsHtml = filtered.map(c => `
-                    <div class="client-opt" data-id="${c.id}" style="padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.2s;" onmouseover="this.style.background='rgba(var(--primary-rgb), 0.05)'" onmouseout="this.style.background='transparent'">
-                        <div style="font-weight: bold;">${c.fullName}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${c.id}</div>
-                    </div>
-                `).join('');
-            }
-            
-            // Always show 'New Client' option if typing
-            resultsHtml += `
-                <div id="createNewClientBtn" style="padding: 1rem; cursor: pointer; background: rgba(34, 197, 94, 0.05); border-top: 1px dashed var(--success); color: var(--success); display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600; font-size: 0.9rem;" onmouseover="this.style.background='rgba(34, 197, 94, 0.1)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.05)'">
-                    <span>➕</span> Nuevo Cliente: "${clientSearch.value}"
-                </div>
-            `;
-            
-            clientResults.innerHTML = resultsHtml;
-            clientResults.style.display = 'block';
-
-            // Add events to existing options
-            container.querySelectorAll('.client-opt').forEach(opt => {
-                opt.addEventListener('click', async () => {
-                    const client = clients.find(c => c.id === opt.dataset.id);
-                    selectedClient = client;
-                    clientResults.style.display = 'none';
-                    // Load client debt
-                    clientDebt = await calculateClientDebt(client.id);
-                    render();
-                });
-            });
-
-            // Add event to Create New Client - NAVIGATE TO CLIENTS
-            const newBtn = container.querySelector('#createNewClientBtn');
-            if (newBtn) {
-                newBtn.onclick = () => {
-                    clientResults.style.display = 'none';
-                    // Persist current state before leaving
-                    sessionStorage.setItem('sales_temp_state', JSON.stringify({
-                        cart,
-                        payments,
-                        currentView: 'payment'
-                    }));
-                    // Deep navigation with return callback
-                    renderClients(container, (newClient) => {
-                        renderSales(container, newClient);
-                    }, ''); // Empty string to keep the name field blank
-                };
-            }
+        container.querySelector('#viewOrdersBtn')?.addEventListener('click', () => {
+            currentView = 'orders';
+            render();
         });
 
-        // Remove client event
-        const removeClientBtn = container.querySelector('#removeClientBtn');
-        if (removeClientBtn) {
-            removeClientBtn.onclick = () => {
-                selectedClient = null;
-                clientDebt = 0;
-                render();
-            };
+        container.querySelector('#productSearch').addEventListener('input', (e) => {
+            searchProductTerm = e.target.value.toLowerCase();
+            const productListWrapper = container.querySelector('#productList');
+            if (productListWrapper) {
+                productListWrapper.innerHTML = `
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
+                        ${renderProductList()}
+                    </div>
+                `;
+            }
+            attachProductClickEvents();
+        });
+
+        container.querySelector('#saleType').addEventListener('change', (e) => { settings.type = e.target.value; render(); });
+        container.querySelector('#saleTarget').addEventListener('change', (e) => { settings.target = e.target.value; render(); });
+        if (typeof flatpickr !== 'undefined' && container.querySelector('#deliveryDateInput')) {
+            // Parse YYYY-MM-DD into a valid Date object to avoid flatpickr format confusion
+            const parts = deliveryDate.split('-');
+            const defDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            
+            flatpickr(container.querySelector('#deliveryDateInput'), {
+                dateFormat: "d/m/Y",
+                defaultDate: defDate,
+                locale: "es",
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        const d = selectedDates[0];
+                        const yy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        deliveryDate = `${yy}-${mm}-${dd}`;
+                    }
+                }
+            });
         }
-
-        // Payment logic
-        const payCurrency = container.querySelector('#payCurrency');
-        const payMethod = container.querySelector('#payMethod');
-        const refGroup = container.querySelector('#refGroup');
-
-        const updatePayMethods = () => {
-            const currency = payCurrency.value;
-            let options = '';
-            if (currency === 'USD') {
-                options = `
-                    <option value="BINANCE">Binance</option>
-                    <option value="EFECTIVO">Dólares Efectivo</option>
-                    <option value="PAYPAL">PayPal</option>
-                    <option value="ZELLE">Zelle</option>
-                `;
-            } else {
-                options = `
-                    <option value="EFECTIVO">Bs. Efectivo</option>
-                    <option value="PAGO_MOVIL">Pago Móvil</option>
-                    <option value="PUNTO">Punto de Venta</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                `;
-            }
-            payMethod.innerHTML = options;
-            
-            // Check if the first option is electronic to show reference
-            const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(payMethod.value);
-            refGroup.style.display = isElectronic ? 'block' : 'none';
-
-            // Pre-fill amount based on currency
-            const payAmountInput = container.querySelector('#payAmount');
-            if (payAmountInput) {
-                const amount = currency === 'BS' ? (remainingUSD * bcvRate) : remainingUSD;
-                payAmountInput.value = (Math.max(0, amount)).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-        };
-
-        const applyNumericMask = (input) => {
-            input.addEventListener('input', (e) => {
-                let value = e.target.value.replace(/\D/g, ''); 
-                if (!value) { e.target.value = ''; return; }
-                let number = parseInt(value, 10);
-                e.target.value = (number / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        container.querySelector('#priceType').addEventListener('change', (e) => {
+            settings.priceType = e.target.value;
+            cart = cart.map(item => {
+                const prod = products.find(p => p.id === item.id);
+                const newPrice = getPrice(prod);
+                return { ...item, price: newPrice, total: newPrice * item.qty };
             });
-            input.addEventListener('focus', (e) => { if (e.target.value === '0,00') e.target.value = ''; });
-            input.addEventListener('blur', (e) => { if (!e.target.value) e.target.value = '0,00'; });
-        };
-
-        const parseNum = (val) => {
-            if (!val) return 0;
-            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
-        };
-
-        const payAmountInput = container.querySelector('#payAmount');
-        if (payAmountInput) applyNumericMask(payAmountInput);
-
-        // Currency Toggle Logic
-        container.querySelectorAll('.currency-opt').forEach(btn => {
-            btn.addEventListener('click', () => {
-                activePayCurrency = btn.dataset.value;
-                payCurrency.value = activePayCurrency;
-                
-                // Update button visual states
-                container.querySelectorAll('.currency-opt').forEach(b => {
-                    b.classList.remove('btn-primary', 'btn-outline');
-                    b.classList.add(b.dataset.value === activePayCurrency ? 'btn-primary' : 'btn-outline');
-                });
-
-                updatePayMethods();
-            });
+            render();
         });
-
-        updatePayMethods(); // Initial load
-
-        payMethod.addEventListener('change', (e) => {
-            const electronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(e.target.value);
-            refGroup.style.display = electronic ? 'block' : 'none';
-        });
-
-        container.querySelector('#addPaymentBtn').addEventListener('click', () => {
-            const amount = parseNum(container.querySelector('#payAmount').value);
-            const method = container.querySelector('#payMethod').value;
-            const currency = container.querySelector('#payCurrency').value;
-            const ref = container.querySelector('#payRef')?.value;
-
-            if (isNaN(amount) || amount <= 0) { showNotification("Monto inválido"); return; }
-            const electronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(method);
-            if (electronic && !ref) { showNotification("La referencia es obligatoria para pagos electrónicos"); return; }
-
-            // Custom confirmation modal
-            const confirmModal = document.createElement('div');
-            confirmModal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center;';
-            confirmModal.innerHTML = `
-                <div class="card" style="width: 90%; max-width: 400px; padding: 2rem; text-align: center; animation: modalIn 0.3s ease-out;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">💰</div>
-                    <h3 style="margin-bottom: 0.5rem;">Cargar Pago</h3>
-                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">¿Está seguro de cargar este pago de <b style="color: var(--primary);">${currency} ${fmt(amount)}</b> vía <b>${method}</b>?</p>
-                    <div style="display: flex; gap: 1rem;">
-                        <button id="cancelPayBtn" class="btn btn-outline" style="flex: 1;">Cancelar</button>
-                        <button id="confirmPayBtn" class="btn btn-primary" style="flex: 1; background: var(--success); border-color: var(--success);">Confirmar</button>
-                    </div>
-                </div>
-                <style>
-                    @keyframes modalIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-                </style>
-            `;
-            document.body.appendChild(confirmModal);
-
-            confirmModal.querySelector('#cancelPayBtn').onclick = () => confirmModal.remove();
-            confirmModal.querySelector('#confirmPayBtn').onclick = () => {
-                payments.push({
-                    method,
-                    currency,
-                    amount,
-                    ref,
-                    rate: currency === 'BS' ? bcvRate : 1,
-                    timestamp: new Date().toISOString()
-                });
-                confirmModal.remove();
-                render();
-            };
-        });
-
-        container.querySelectorAll('.remove-payment').forEach(btn => {
-            btn.addEventListener('click', () => {
-                payments.splice(parseInt(btn.dataset.index), 1);
-                render();
-            });
+        container.querySelector('#saleStatus')?.addEventListener('change', (e) => {
+            render();
         });
 
         container.querySelector('#pullDebtBtn')?.addEventListener('click', () => {
@@ -1271,25 +729,622 @@ export function renderSales(container, preSelectedClient = null) {
             }
         });
 
-        container.querySelector('#finishBtn').addEventListener('click', () => {
-            const status = container.querySelector('#saleStatus').value;
+        container.querySelector('#cancelCartBtn')?.addEventListener('click', () => {
+            showConfirmModal("Cancelar Venta", "¿Está seguro que desea cancelar esta venta y vaciar el carrito?", () => {
+                cart = []; payments = []; selectedClient = null; clientDebt = 0; includeOldDebt = false;
+                sessionStorage.removeItem('sales_temp_state');
+                render();
+            }, "Sí, Cancelar", "No, Volver");
+        });
+
+        // Client search logic
+        const clientSearch = container.querySelector('#clientSearch');
+        const clientResults = container.querySelector('#clientResults');
+        if (clientSearch) {
+            clientSearch.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                if (term.length < 2) {
+                    clientResults.style.display = 'none';
+                    return;
+                }
+                const termClean = term.replace(/[-.]/g, '');
+                const isNumeric = /^[a-z]?\d+$/.test(termClean);
+
+                const filtered = clients.filter(c => {
+                    if (isNumeric) {
+                        const idClean = (c.id || '').toLowerCase().replace(/[-.]/g, '');
+                        const idDigits = (c.id || '').replace(/\D/g, '');
+                        const phoneClean = (c.phone || '').replace(/\D/g, '');
+                        const termDigits = term.replace(/\D/g, '');
+                        
+                        return idClean.startsWith(termClean) || 
+                               (termDigits && idDigits.startsWith(termDigits)) || 
+                               (termDigits.length > 2 && phoneClean.includes(termDigits));
+                    } else {
+                        return c.fullName && c.fullName.toLowerCase().includes(term);
+                    }
+                });
             
-            // Final Validation
+                if (filtered.length > 0) {
+                    clientResults.innerHTML = filtered.map(c => `
+                        <div class="client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant last:border-0" data-id="${c.id}">
+                            <p class="font-bold text-on-surface">${c.fullName}</p>
+                            <p class="text-label-sm text-outline">${c.id} | ${c.phone || 'Sin tel.'}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    clientResults.innerHTML = `
+                        <div class="create-client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant text-primary flex items-center gap-2">
+                            <span class="material-symbols-outlined">person_add</span>
+                            <p class="font-bold">Crear nuevo cliente: "${e.target.value}"</p>
+                        </div>
+                    `;
+                }
+            
+                clientResults.style.display = 'block';
+            
+                container.querySelectorAll('.client-option').forEach(opt => {
+                    opt.addEventListener('click', async () => {
+                        const selected = clients.find(c => c.id === opt.dataset.id);
+                        selectedClient = selected;
+                        clientSearch.value = selected.fullName;
+                        clientResults.style.display = 'none';
+                        clientDebt = await calculateClientDebt(selected.id);
+                        render();
+                    });
+                });
+                
+                const createOpt = container.querySelector('.create-client-option');
+                if (createOpt) {
+                    createOpt.addEventListener('click', () => {
+                        const currentSearch = clientSearch.value;
+                        sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart' }));
+                        renderClients(container, (newClient) => {
+                            renderSales(container, newClient);
+                        }, currentSearch);
+                    });
+                }
+            });
+
+            // Hide results on outside click
+            document.addEventListener('click', (e) => {
+                if (clientResults && !clientSearch.contains(e.target) && !clientResults.contains(e.target)) {
+                    clientResults.style.display = 'none';
+                }
+            });
+        }
+
+        container.querySelector('#removeClientBtn')?.addEventListener('click', () => {
+            selectedClient = null;
+            clientDebt = 0;
+            includeOldDebt = false;
+            render();
+        });
+
+        container.querySelector('#createNewClientBtn')?.addEventListener('click', () => {
+            const currentSearch = clientSearch.value;
+            sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart' }));
+            renderClients(container, (newClient) => {
+                renderSales(container, newClient);
+            }, currentSearch);
+        });
+
+        attachProductClickEvents();
+
+        container.querySelectorAll('.btn-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                cart.splice(parseInt(btn.dataset.index), 1);
+                render();
+            });
+        });
+
+        const btnRemoveDebt = container.querySelector('.btn-remove-debt');
+        if (btnRemoveDebt) {
+            btnRemoveDebt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                includeOldDebt = false;
+                render();
+            });
+        }
+
+        container.querySelectorAll('.edit-qty').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-remove')) return;
+                const index = parseInt(btn.dataset.index);
+                const item = cart[index];
+                const prod = products.find(p => p.id === item.id);
+                if (!prod) return;
+                const stock = prod ? (prod.stockGeneral ?? prod.stock ?? 0) : 999999;
+                showProductSaleModal(prod, (newQty, newUnit, newExtras) => {
+                    const isBox = (newUnit === prod.purchaseUnit && newUnit !== prod.stockUnit);
+                    const unitContent = isBox ? (parseFloat(prod.purchaseToStockQty) || 1) : 1;
+                    const realQty = newQty * unitContent;
+
+                    if (realQty > stock) {
+                        showToast("Atención: Stock insuficiente (Inventario Negativo)", true);
+                    }
+                    
+                    const extraTotal = (newExtras || []).reduce((sum, e) => sum + e.price, 0);
+                    item.extras = newExtras || [];
+                    item.qty = parseFloat(newQty);
+                    item.sellUnit = newUnit;
+                    item.unitContent = unitContent;
+                    item.realQty = realQty;
+                    item.total = realQty * (item.price + extraTotal);
+                    item.baseUnit = prod.stockUnit || 'Unidad';
+                    render();
+                }, item.qty, item.sellUnit, item.extras || []);
+            });
+        });
+
+        container.querySelector('#openPaymentModalBtn')?.addEventListener('click', () => {
+            if (!selectedClient && settings.type !== 'presupuesto') {
+                showToast("Debe seleccionar un cliente primero", true);
+                return;
+            }
+            showPaymentModal(effectiveTotalUSD);
+        });
+
+        container.querySelector('#finishBtn').addEventListener('click', () => {
             if (!selectedClient) {
-                showNotification("❌ Error: Debe seleccionar un cliente para procesar la venta.");
-                container.querySelector('#clientSearch').focus();
+                showToast("Debe seleccionar un cliente primero", true);
                 return;
             }
-
-            if ((status === 'contado' || status === 'abono') && payments.length === 0) {
-                showNotification(`❌ Error: Para una venta a ${status.toUpperCase()}, debe registrar al menos un método de pago.`);
+            const status = container.querySelector('#saleStatus')?.value || 'contado';
+            if ((status === 'contado' || status === 'abono') && payments.length === 0 && settings.type !== 'presupuesto' && settings.type !== 'pedido') {
+                showToast("Debe registrar al menos un pago", true);
                 return;
             }
-
-            processSale(remainingUSD);
+            processSale(currentRemainingUSD);
         });
     }
 
+    function showProductSaleModal(product, callback, initialQty = 1, initialUnit = null, initialExtras = []) {
+        const modal = document.createElement('div');
+        modal.className = "fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-md animate-in fade-in";
+        
+        const sellU = product.stockUnit || 'Unidad';
+        const purchU = product.purchaseUnit || 'Caja';
+        const currentUnit = initialUnit || sellU;
+
+        const isReceta = product.category === 'RECETA';
+        let extrasAvailable = [];
+        let extrasHtml = '';
+        if (isReceta) {
+            extrasAvailable = products.filter(p => p.category?.toUpperCase() === 'EXTRAS' || p.category?.toUpperCase() === 'EXTRA');
+            if (extrasAvailable.length > 0) {
+                extrasHtml = `
+                <div class="form-group mt-sm">
+                    <label class="text-label-bold font-label-bold text-outline uppercase">Extras (Opcional)</label>
+                    <div class="flex flex-col gap-xs mt-xs max-h-32 overflow-y-auto custom-scrollbar">
+                        ${extrasAvailable.map(ext => {
+                            const isChecked = initialExtras.find(e => e.id === ext.id) ? 'checked' : '';
+                            return `
+                            <label class="flex items-center gap-sm p-xs bg-surface-container-high rounded border border-outline-variant cursor-pointer hover:border-primary transition-colors">
+                                <input type="checkbox" class="extra-checkbox accent-primary" value="${ext.id}" ${isChecked}>
+                                <span class="text-body-sm flex-1 truncate">${ext.name}</span>
+                                <span class="text-label-bold text-primary">+$${fmt(getPrice(ext))}</span>
+                            </label>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                `;
+            } else {
+                extrasHtml = `<div class="form-group mt-sm text-label-sm text-outline italic">No hay extras disponibles (Cree productos con categoría 'EXTRAS')</div>`;
+            }
+        }
+
+        modal.innerHTML = `
+            <div class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-sm p-lg shadow-2xl flex flex-col gap-md">
+                <h3 class="text-headline-md font-bold text-primary">${product.name}</h3>
+                
+                <div class="form-group">
+                    <label class="text-label-bold font-label-bold text-outline uppercase">Tipo de Venta</label>
+                    <select id="saleUnitType" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
+                        <option value="${sellU}" ${currentUnit === sellU ? 'selected' : ''}>🔄 ${sellU.toUpperCase()}</option>
+                        ${sellU.toLowerCase() !== purchU.toLowerCase() ? `<option value="${purchU}" ${currentUnit === purchU ? 'selected' : ''}>📦 ${purchU.toUpperCase()}</option>` : ''}
+                    </select>
+                </div>
+                
+                ${extrasHtml}
+
+                <div class="form-group">
+                    <label class="text-label-bold font-label-bold text-outline uppercase">Cantidad</label>
+                    <input type="text" inputmode="numeric" id="saleQty" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
+                </div>
+
+                <div class="flex gap-md mt-sm pt-md border-t border-outline-variant">
+                    <button id="cancelModalBtn" class="flex-1 bg-surface-variant text-primary border border-primary rounded-lg font-bold py-2 hover:bg-primary/10 transition-colors">CANCELAR</button>
+                    <button id="confirmModalBtn" class="flex-1 bg-primary text-white rounded-lg font-bold py-2 hover:bg-primary/90 transition-colors">AÑADIR</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+
+        // Autofocus and format for ATM styling
+        const qtyInput = modal.querySelector('#saleQty');
+        
+        const initialVal = parseFloat(initialQty) || 1;
+        qtyInput.value = initialVal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        qtyInput.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            if (!val) val = '0';
+            const num = parseInt(val, 10) / 100;
+            e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        });
+
+        qtyInput.addEventListener('click', () => {
+            qtyInput.value = '';
+        });
+
+        setTimeout(() => { 
+            qtyInput.focus(); 
+            // Select text if we don't clear, but since we clear on click, we don't necessarily need select here. 
+            // However, focus() triggers when modal opens, we might just clear it immediately or keep it highlighted?
+            // If we clear it immediately, they can't just hit enter for 1. Let's keep the initial value but highlight it.
+            // On click, clear it.
+            qtyInput.select();
+        }, 100);
+
+        qtyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') modal.querySelector('#confirmModalBtn').click();
+        });
+
+        modal.querySelector('#cancelModalBtn').onclick = () => { modal.remove(); };
+        modal.querySelector('#confirmModalBtn').onclick = () => {
+            const cleanStr = qtyInput.value.replace(/\./g, '').replace(',', '.');
+            const qty = parseFloat(cleanStr) || 1;
+            const unit = modal.querySelector('#saleUnitType').value;
+            
+            const selectedExtras = [];
+            modal.querySelectorAll('.extra-checkbox:checked').forEach(cb => {
+                const ext = extrasAvailable.find(e => e.id === cb.value);
+                if (ext) {
+                    selectedExtras.push({ id: ext.id, name: ext.name, price: getPrice(ext) });
+                }
+            });
+
+            modal.remove();
+            callback(qty, unit, selectedExtras);
+        };
+    }
+
+    function showPaymentModal(remainingUSD) {
+        const modal = document.createElement('div');
+        modal.className = "fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-md animate-in fade-in";
+    
+        // Default currency to what was used last or BS
+        const amountBS = remainingUSD * bcvRate;
+    
+        modal.innerHTML = `
+            <div class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg p-lg shadow-2xl flex flex-col gap-md">
+                <div class="flex justify-between items-center border-b border-outline-variant pb-sm">
+                    <h3 class="text-headline-md font-bold text-primary">Cargar Pago</h3>
+                    <button id="closePayModal" class="material-symbols-outlined text-outline hover:text-error transition-colors">close</button>
+                </div>
+            
+                <div class="grid grid-cols-2 gap-md">
+                    <div class="col-span-2 form-group">
+                        <label class="text-label-bold font-label-bold text-outline uppercase">Moneda</label>
+                        <div class="flex gap-sm mt-xs" id="currencyGroup">
+                            <button class="pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors ${activePayCurrency === 'BS' ? 'bg-primary text-white border-primary' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant'}" data-value="BS">Bolívares (Bs)</button>
+                            <button class="pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors ${activePayCurrency === 'USD' ? 'bg-primary text-white border-primary' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant'}" data-value="USD">Dólares ($)</button>
+                        </div>
+                        <input type="hidden" id="payCurrency" value="${activePayCurrency}">
+                    </div>
+                    <div class="col-span-2 form-group">
+                        <label class="text-label-bold font-label-bold text-outline uppercase">Método</label>
+                        <div class="flex flex-nowrap overflow-x-auto gap-sm mt-xs pb-1 custom-scrollbar" id="methodGroup">
+                        </div>
+                        <input type="hidden" id="payMethod" value="">
+                    </div>
+                    <div class="col-span-2 sm:col-span-1 form-group">
+                        <label class="text-label-bold font-label-bold text-outline uppercase">Monto</label>
+                        <input type="text" id="payAmount" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
+                    </div>
+                    <div class="form-group" id="payRefGroup" style="display: none;">
+                        <label class="text-label-bold font-label-bold text-outline uppercase">Referencia</label>
+                        <input type="text" id="payRef" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" placeholder="Ej. 1234">
+                    </div>
+                </div>
+            
+                <div class="mt-sm">
+                    <h4 class="text-label-sm uppercase text-outline mb-xs border-b border-outline-variant pb-xs">Pagos Actuales</h4>
+                    <div id="paymentsList" class="flex flex-col gap-xs max-h-32 overflow-y-auto hide-scrollbar">
+                        ${payments.length === 0 ? '<p class="text-body-md text-outline text-center py-2">Ninguno</p>' : ''}
+                    </div>
+                </div>
+
+                <div id="changeSection" class="mt-sm" style="display: none;">
+                    <div class="bg-surface-container-highest rounded-lg border border-outline-variant border-l-4 border-l-green-500 p-md flex flex-col mb-sm shadow-md">
+                        <span class="text-label-md font-bold uppercase text-on-surface mb-xs">Vuelto a Entregar</span>
+                        <div class="flex flex-col gap-0">
+                            <span class="text-headline-sm font-bold text-green-400" id="vueltoUSD">$ 0,00</span>
+                            <span class="text-headline-sm font-bold text-green-400" id="vueltoBS">Bs 0,00</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-sm">
+                        <div class="form-group">
+                            <label class="text-[10px] font-label-bold text-white uppercase">Entregado en Bs</label>
+                            <input type="text" id="changeGivenBs" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none" value="">
+                        </div>
+                        <div class="form-group">
+                            <label class="text-[10px] font-label-bold text-white uppercase">Entregado en $</label>
+                            <input type="text" id="changeGivenUSD" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none" value="">
+                        </div>
+                    </div>
+                    <button id="addChangeBtn" class="w-full mt-sm bg-surface-variant text-green-400 border border-green-500/30 rounded-lg font-bold py-2 hover:bg-green-500/10 transition-colors uppercase text-sm">Registrar Vuelto</button>
+                </div>
+
+                <div class="flex gap-md mt-sm pt-md border-t border-outline-variant">
+                    <button id="addPaymentBtn" class="flex-1 bg-surface-variant text-primary border border-primary rounded-lg font-bold py-2 hover:bg-primary/10 transition-colors">AÑADIR PAGO</button>
+                    <button id="donePayBtn" class="flex-1 bg-primary text-white rounded-lg font-bold py-2 hover:bg-primary/90 transition-colors">LISTO</button>
+                </div>
+            </div>
+        `;
+    
+        document.body.appendChild(modal);
+
+        const payCurrency = modal.querySelector('#payCurrency');
+        const payMethod = modal.querySelector('#payMethod');
+        const payAmount = modal.querySelector('#payAmount');
+        const payRefGroup = modal.querySelector('#payRefGroup');
+        const payRef = modal.querySelector('#payRef');
+        const paymentsList = modal.querySelector('#paymentsList');
+
+        const renderPaymentsList = () => {
+            if(payments.length === 0) {
+                paymentsList.innerHTML = '<p class="text-body-md text-outline text-center py-2">Ninguno</p>';
+                return;
+            }
+            paymentsList.innerHTML = payments.map((p, i) => {
+                const isVuelto = p.amount < 0;
+                const label = isVuelto ? `VUELTO (${p.method.replace('_', ' ')})` : `${p.method.replace('_', ' ')} ${p.ref ? '(#'+p.ref+')' : ''}`;
+                const color = isVuelto ? 'text-green-400' : 'text-primary';
+                return `
+                <div class="flex justify-between items-center p-xs bg-surface-container-highest rounded border border-outline-variant ${isVuelto ? 'border-l-4 border-l-green-400' : ''}">
+                    <span class="text-label-sm font-bold ${isVuelto ? 'text-green-400' : ''}">${label}</span>
+                    <div class="flex items-center gap-sm">
+                        <span class="text-label-sm ${color} font-bold">${p.currency} ${fmt(Math.abs(p.amount))}</span>
+                        <button class="material-symbols-outlined text-error hover:text-error/80 text-[18px] btn-rem-pay" data-index="${i}">close</button>
+                    </div>
+                </div>
+            `}).join('');
+        
+            modal.querySelectorAll('.btn-rem-pay').forEach(b => {
+                b.onclick = () => {
+                    payments.splice(parseInt(b.dataset.index), 1);
+                    renderPaymentsList();
+                    // update original remaining
+                    let paid = 0;
+                    payments.forEach(px => paid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                    const newRem = Math.max(0, (includeOldDebt ? remainingUSD : remainingUSD) - paid);
+                    updatePayMethods(newRem);
+                };
+            });
+        };
+
+        const currencyGroupBtns = modal.querySelectorAll('.pay-currency-btn');
+        currencyGroupBtns.forEach(btn => {
+            btn.onclick = () => {
+                payCurrency.value = btn.dataset.value;
+                activePayCurrency = payCurrency.value;
+                currencyGroupBtns.forEach(b => {
+                    if (b.dataset.value === payCurrency.value) {
+                        b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors bg-primary text-white border-primary";
+                    } else {
+                        b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant";
+                    }
+                });
+                let paid = 0;
+                payments.forEach(px => paid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                const rem = Math.max(0, remainingUSD - paid);
+                updatePayMethods(rem, true);
+            };
+        });
+
+        const updatePayMethods = (currRem, resetAmount = true) => {
+            const currency = payCurrency.value;
+            let methods = [];
+            if (currency === 'USD') {
+                methods = [
+                    {val: 'EFECTIVO', label: 'Efectivo'},
+                    {val: 'ZELLE', label: 'Zelle'},
+                    {val: 'BINANCE', label: 'Binance'},
+                    {val: 'PAYPAL', label: 'PayPal'}
+                ];
+            } else {
+                methods = [
+                    {val: 'PUNTO', label: 'Punto'},
+                    {val: 'PAGO_MOVIL', label: 'Pago Móvil'},
+                    {val: 'BIO_PAGO', label: 'Bio Pago'},
+                    {val: 'EFECTIVO', label: 'Efectivo'},
+                    {val: 'TRANSFERENCIA', label: 'Transf.'}
+                ];
+            }
+
+            if (!methods.find(m => m.val === payMethod.value)) {
+                payMethod.value = methods[0].val;
+            }
+
+            const methodGroup = modal.querySelector('#methodGroup');
+            methodGroup.innerHTML = methods.map(m => `
+                <button class="pay-method-btn flex-shrink-0 min-w-max py-2 px-3 rounded-lg font-bold border transition-colors text-sm truncate ${payMethod.value === m.val ? 'bg-primary text-white border-primary' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant'}" data-value="${m.val}">${m.label}</button>
+            `).join('');
+
+            modal.querySelectorAll('.pay-method-btn').forEach(btn => {
+                btn.onclick = () => {
+                    payMethod.value = btn.dataset.value;
+                    const amountValStr = payAmount.value.replace(/\./g, '').replace(',', '.');
+                    updatePayMethods(parseFloat(amountValStr) || currRem, false);
+                };
+            });
+        
+            const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(payMethod.value);
+            payRefGroup.style.display = isElectronic ? 'block' : 'none';
+        
+            if (resetAmount) {
+                const amount = currency === 'BS' ? (currRem * bcvRate) : currRem;
+                payAmount.value = (Math.max(0, amount)).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            let totalPaid = 0;
+            payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+            const actualRem = remainingUSD - totalPaid;
+            const changeSec = modal.querySelector('#changeSection');
+            if (changeSec) {
+                if (actualRem < -0.009) {
+                    changeSec.style.display = 'block';
+                    modal.querySelector('#vueltoUSD').textContent = `$ ${fmt(-actualRem)}`;
+                    modal.querySelector('#vueltoBS').textContent = `Bs ${fmt(-actualRem * bcvRate)}`;
+                    modal.querySelector('#changeGivenBs').dataset.suggested = (-actualRem * bcvRate).toString();
+                    modal.querySelector('#changeGivenUSD').dataset.suggested = (-actualRem).toString();
+                } else {
+                    changeSec.style.display = 'none';
+                }
+            }
+        };
+
+        // input mask - ATM style and clear on click
+        payAmount.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            if (!val) val = '0';
+            const num = parseInt(val, 10) / 100;
+            e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        });
+
+        payAmount.addEventListener('click', (e) => {
+            e.target.value = '';
+        });
+
+        payAmount.addEventListener('focus', (e) => {
+            // Also select on focus for tab navigation
+            e.target.select();
+        });
+
+        const parseNum = (val) => {
+            let s = val.toString().trim().replace(/[^\d.,]/g, '');
+            if (!s) return 0;
+            const lastComma = s.lastIndexOf(',');
+            const lastDot = s.lastIndexOf('.');
+            const lastSep = Math.max(lastComma, lastDot);
+            if (lastSep === -1) return parseFloat(s) || 0;
+            const whole = s.substring(0, lastSep).replace(/[.,]/g, '');
+            const frac = s.substring(lastSep + 1);
+            return parseFloat(whole + '.' + frac) || 0;
+        };
+
+        modal.querySelector('#addPaymentBtn').onclick = () => {
+            const amount = parseNum(payAmount.value);
+            if (amount <= 0) return;
+            const method = payMethod.value;
+            const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(method);
+            if (isElectronic && !payRef.value) {
+                alert("Referencia es requerida");
+                return;
+            }
+        
+            payments.push({
+                method,
+                currency: payCurrency.value,
+                amount,
+                ref: payRef.value || null,
+                rate: payCurrency.value === 'BS' ? bcvRate : 1,
+                timestamp: new Date().toISOString()
+            });
+        
+            payRef.value = '';
+            renderPaymentsList();
+        
+            let paid = 0;
+            payments.forEach(px => paid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+            const rem = Math.max(0, remainingUSD - paid);
+            updatePayMethods(rem);
+        };
+
+        modal.querySelector('#closePayModal').onclick = () => { modal.remove(); render(); };
+        modal.querySelector('#donePayBtn').onclick = () => { modal.remove(); render(); };
+
+        const addChangeBtn = modal.querySelector('#addChangeBtn');
+        if (addChangeBtn) {
+            addChangeBtn.onclick = () => {
+                const bsVal = parseNum(modal.querySelector('#changeGivenBs').value);
+                const usdVal = parseNum(modal.querySelector('#changeGivenUSD').value);
+                
+                if (bsVal > 0) {
+                    payments.push({ method: 'EFECTIVO', currency: 'BS', amount: -bsVal, rate: bcvRate, isChange: true });
+                }
+                if (usdVal > 0) {
+                    payments.push({ method: 'EFECTIVO', currency: 'USD', amount: -usdVal, rate: 1, isChange: true });
+                }
+                
+                if (bsVal > 0 || usdVal > 0) {
+                    modal.querySelector('#changeGivenBs').value = '';
+                    modal.querySelector('#changeGivenUSD').value = '';
+                    renderPaymentsList();
+                    let totalPaid = 0;
+                    payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                    updatePayMethods(Math.max(0, remainingUSD - totalPaid), true);
+                }
+            };
+        }
+
+        const setupChangeInput = (inp) => {
+            if(!inp) return;
+            inp.oninput = (e) => { e.target.value = e.target.value.replace(/[^\d.,]/g, ''); };
+            inp.onfocus = (e) => { 
+                if (!e.target.value || e.target.value === '0,00') {
+                    if (e.target.dataset.suggested) {
+                        e.target.value = parseFloat(e.target.dataset.suggested).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+                } 
+            };
+            inp.onblur = (e) => { 
+                if (e.target.value) {
+                    e.target.value = parseNum(e.target.value).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+            };
+        };
+        setupChangeInput(modal.querySelector('#changeGivenBs'));
+        setupChangeInput(modal.querySelector('#changeGivenUSD'));
+
+        renderPaymentsList();
+        let initialPaid = 0;
+        payments.forEach(px => initialPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+        updatePayMethods(Math.max(0, remainingUSD - initialPaid));
+    }
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMsg');
+        const icon = toast.querySelector('.material-symbols-outlined');
+        if(toast && toastMsg) {
+            toastMsg.textContent = message;
+            if(isError) {
+                toast.classList.replace('bg-inverse-surface', 'bg-error-container');
+                toast.classList.replace('text-inverse-on-surface', 'text-on-error-container');
+                icon.textContent = 'error';
+                icon.classList.replace('text-secondary', 'text-error');
+            } else {
+                toast.classList.replace('bg-error-container', 'bg-inverse-surface');
+                toast.classList.replace('text-on-error-container', 'text-inverse-on-surface');
+                icon.textContent = 'check_circle';
+                icon.classList.replace('text-error', 'text-secondary');
+            }
+        
+            toast.classList.remove('translate-y-32');
+            toast.classList.add('translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-32');
+                toast.classList.remove('translate-y-0');
+            }, 3000);
+        } else {
+            showNotification(message); // fallback
+        }
+    }
     function showNewClientModal(initialName, onCreated) {
         const modal = document.createElement('div');
         modal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 3000; display: flex; align-items: center; justify-content: center;';
@@ -1368,18 +1423,24 @@ export function renderSales(container, preSelectedClient = null) {
         if (!selectedClient) { showNotification("Debe seleccionar un cliente."); return; }
         const status = container.querySelector('#saleStatus').value;
 
-        if (status === 'contado' && remainingUSD > 0.01) {
+        const isPresupuesto = settings.type === 'presupuesto';
+        const isPedido = settings.type === 'pedido';
+
+        if (status === 'contado' && remainingUSD > 0.01 && !isPresupuesto && !isPedido) {
             showNotification(`Para una venta de CONTADO debe cubrir el total de la factura. Faltan $${fmt(remainingUSD)}`);
             return;
         }
 
-        const isPresupuesto = settings.type === 'presupuesto';
+
         let confirmMsg = '';
         let confirmTitle = "Confirmar Venta";
 
         if (isPresupuesto) {
             confirmTitle = "Confirmar Presupuesto";
             confirmMsg = "¿Está seguro que desea generar este presupuesto? (No afectará el inventario)";
+        } else if (isPedido) {
+            confirmTitle = "Confirmar Pedido";
+            confirmMsg = "¿Está seguro que desea registrar este pedido? (No afectará el inventario hasta facturar)";
         } else {
             confirmMsg = status === 'contado' ? "¿Está seguro de finalizar esta venta?" :
                          status === 'abono' ? "¿Está seguro que desea finalizar esta venta con abono?" :
@@ -1389,10 +1450,12 @@ export function renderSales(container, preSelectedClient = null) {
         showConfirmModal(confirmTitle, confirmMsg, async () => {
             const finishBtn = container.querySelector('#finishBtn');
             finishBtn.disabled = true;
-            finishBtn.textContent = isPresupuesto ? 'Generando...' : 'Procesando...';
+            finishBtn.textContent = isPresupuesto ? 'Generando...' : isPedido ? 'Guardando...' : 'Procesando...';
 
             try {
                 const subtotalUSD_original = cart.reduce((sum, item) => sum + item.total, 0);
+                const totalCostUSD = cart.reduce((sum, item) => sum + ((item.baseCostUSD || 0) * (item.realQty || item.qty * (item.unitContent || 1))), 0);
+                const profitUSD = subtotalUSD_original - totalCostUSD;
                 const taxAmountUSD_original = taxConfig.enabled ? subtotalUSD_original * taxConfig.rate / 100 : 0;
                 const totalUSD_original = subtotalUSD_original + taxAmountUSD_original;
                 const paymentsTotalUSD = payments.reduce((sum, p) => {
@@ -1459,62 +1522,100 @@ export function renderSales(container, preSelectedClient = null) {
 
                     // 2. SEGUNDO: Realizar todas las ESCRITURAS
                     
-                    // Actualizar Inventario (Solo si NO es presupuesto)
-                    if (!isPresupuesto) {
+                    // Actualizar Inventario (Solo si NO es presupuesto y NO es pedido)
+                    if (!isPresupuesto && !isPedido) {
                         for (const ps of prodSnaps) {
                             if (ps.snap.exists()) {
                                 const pData = ps.snap.data();
                                 if (storeId) {
                                     const ss = storeSnaps.find(s => s.itemId === ps.item.id);
                                     const currentStoreStock = (ss && ss.snap.exists()) ? (ss.snap.data().stock || 0) : 0;
-                                    transaction.set(ss.ref, { stock: currentStoreStock - ps.item.qty }, { merge: true });
+                                    const deductQty = ps.item.realQty || ps.item.qty;
+                                    transaction.set(ss.ref, { stock: currentStoreStock - deductQty }, { merge: true });
                                 } else {
                                     const currentStock = pData.stockGeneral ?? pData.stock ?? 0;
-                                    transaction.update(ps.ref, { stockGeneral: currentStock - ps.item.qty });
+                                    const deductQty = ps.item.realQty || ps.item.qty;
+                                    transaction.update(ps.ref, { stockGeneral: currentStock - deductQty });
                                 }
                             }
                         }
                     }
 
-                    // Calcular correlativo (Ya leímos el snap arriba)
-                    let count = 1;
-                    if (isPresupuesto) {
-                        count = (counterSnap.exists() ? counterSnap.data().budgets || 0 : 0) + 1;
-                        transaction.set(counterRef, { budgets: count }, { merge: true });
-                    } else {
-                        count = (counterSnap.exists() ? counterSnap.data().sales || 0 : 0) + 1;
-                        transaction.set(counterRef, { sales: count }, { merge: true });
+                    let isEditingPedido = isPedido && convertingBudgetId;
+                    let correlative = '';
+
+                    if (!isEditingPedido) {
+                        // Calcular correlativo (Ya leímos el snap arriba)
+                        let count = 1;
+                        if (isPresupuesto) {
+                            count = (counterSnap.exists() ? counterSnap.data().budgets || 0 : 0) + 1;
+                            transaction.set(counterRef, { budgets: count }, { merge: true });
+                        } else if (isPedido) {
+                            count = (counterSnap.exists() ? counterSnap.data().orders || 0 : 0) + 1;
+                            transaction.set(counterRef, { orders: count }, { merge: true });
+                        } else {
+                            count = (counterSnap.exists() ? counterSnap.data().sales || 0 : 0) + 1;
+                            transaction.set(counterRef, { sales: count }, { merge: true });
+                        }
+                        
+                        correlative = isPresupuesto ? `PRE-${String(count).padStart(8, '0')}` : 
+                                            isPedido ? `PED-${String(count).padStart(8, '0')}` :
+                                            `FAC-${String(count).padStart(8, '0')}`;
                     }
-                    
-                    const correlative = isPresupuesto ? 
-                        `PRE-${String(count).padStart(8, '0')}` : 
-                        `FAC-${String(count).padStart(8, '0')}`;
 
                     // Registrar Venta / Presupuesto Actual
-                    const saleRef = doc(collection(db, "businesses", businessId, "sales"));
-                    transaction.set(saleRef, {
-                        correlative: correlative,
-                        items: cart,
-                        subtotalUSD: subtotalUSD_original,
-                        taxName: taxConfig.enabled ? taxConfig.name : null,
-                        taxRate: taxConfig.enabled ? taxConfig.rate : 0,
-                        taxAmountUSD: taxAmountUSD_original,
-                        totalUSD: totalUSD_original,
-                        totalBs: totalUSD_original * bcvRate,
-                        paidUSD: isPresupuesto ? 0 : paidToCurrentSale,
-                        remainingUSD: isPresupuesto ? totalUSD_original : currentRemaining,
-                        status: isPresupuesto ? 'presupuesto' : (currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito')),
-                        clientId: selectedClient.id,
-                        clientName: selectedClient.fullName,
-                        employeeEmail: userEmail,
-                        employeeName: currentEmployeeName,
-                        storeId: storeId || 'general',
-                        storeName: storeName,
-                        bcvRate,
-                        settings,
-                        createdAt: serverTimestamp(),
-                        date: new Date().toLocaleDateString('sv-SE')
-                    });
+                    let saleRef;
+                    if (isEditingPedido) {
+                        saleRef = doc(db, "businesses", businessId, "sales", convertingBudgetId);
+                        transaction.set(saleRef, {
+                            items: cart,
+                            subtotalUSD: subtotalUSD_original,
+                            totalCostUSD: totalCostUSD,
+                            profitUSD: profitUSD,
+                            taxName: taxConfig.enabled ? taxConfig.name : null,
+                            taxRate: taxConfig.enabled ? taxConfig.rate : 0,
+                            taxAmountUSD: taxAmountUSD_original,
+                            totalUSD: totalUSD_original,
+                            totalBs: totalUSD_original * bcvRate,
+                            paidUSD: paidToCurrentSale,
+                            remainingUSD: currentRemaining,
+                            status: currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito'),
+                            deliveryDate: deliveryDate,
+                            settings: settings,
+                            clientId: selectedClient.id,
+                            clientName: selectedClient.fullName
+                        }, { merge: true });
+                    } else {
+                        saleRef = doc(collection(db, "businesses", businessId, "sales"));
+                        transaction.set(saleRef, {
+                            correlative: correlative,
+                            items: cart,
+                            subtotalUSD: subtotalUSD_original,
+                            totalCostUSD: totalCostUSD,
+                            profitUSD: profitUSD,
+                            taxName: taxConfig.enabled ? taxConfig.name : null,
+                            taxRate: taxConfig.enabled ? taxConfig.rate : 0,
+                            taxAmountUSD: taxAmountUSD_original,
+                            totalUSD: totalUSD_original,
+                            totalBs: totalUSD_original * bcvRate,
+                            paidUSD: isPresupuesto ? 0 : paidToCurrentSale,
+                            remainingUSD: isPresupuesto ? totalUSD_original : currentRemaining,
+                            status: isPresupuesto ? 'presupuesto' : isPedido ? 'pedido' : (currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito')),
+                            orderStatus: isPedido ? 'Por Entregar' : null,
+                            deliveryDate: isPedido ? deliveryDate : null,
+                            isOrder: isPedido ? true : null,
+                            clientId: selectedClient.id,
+                            clientName: selectedClient.fullName,
+                            employeeEmail: userEmail,
+                            employeeName: currentEmployeeName,
+                            storeId: storeId || 'general',
+                            storeName: storeName,
+                            bcvRate,
+                            settings,
+                            createdAt: serverTimestamp(),
+                            date: new Date().toLocaleDateString('sv-SE')
+                        });
+                    }
 
                     // Distribuir excedente a ventas antiguas (Solo si NO es presupuesto)
                     let remainingSurplus = surplus;
@@ -1539,6 +1640,14 @@ export function renderSales(container, preSelectedClient = null) {
                     const todayStr = new Date().toLocaleDateString('sv-SE');
                     if (!isPresupuesto) {
                         for (const p of payments) {
+                            if (p.isOld && p.id && convertingBudgetId && !isEditingPedido) {
+                                // Transferir el pago antiguo a la nueva factura
+                                const oldPayRef = doc(db, "businesses", businessId, "payments", p.id);
+                                transaction.update(oldPayRef, { saleId: saleRef.id });
+                                continue;
+                            }
+                            if (p.isOld) continue; // Do not duplicate old payments!
+                            
                             const payRef = doc(collection(db, "businesses", businessId, "payments"));
                             transaction.set(payRef, {
                                 ...p,
@@ -1568,7 +1677,7 @@ export function renderSales(container, preSelectedClient = null) {
                 // Update original budget status if applicable
                 if (convertingBudgetId && !isPresupuesto) {
                     const budgetRef = doc(db, "businesses", businessId, "sales", convertingBudgetId);
-                    await updateDoc(budgetRef, { status: 'facturado' });
+                    await updateDoc(budgetRef, { status: 'facturado', orderStatus: 'Facturado' });
                 }
 
                 resetSettings();
@@ -1610,9 +1719,9 @@ export function renderSales(container, preSelectedClient = null) {
         container.innerHTML = `
             <div style="display: flex; flex-direction: column; height: 100%; gap: 4px;">
                 <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <button id="backToCartBtn" class="btn btn-outline" style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.8rem;">← Volver</button>
-                        <h2 style="margin: 0; font-size: 1.1rem;">📅 Ventas del Día</h2>
+                    <div class="flex items-center flex-stack-mobile" style="gap: 1rem;">
+                        <button id="backToCartBtn" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem;">← Volver</button>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0;">📅 Ventas del Día</h2>
                     </div>
                     
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1633,11 +1742,13 @@ export function renderSales(container, preSelectedClient = null) {
                         : `
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
-                                <tr style="border-bottom: 2px solid var(--border); text-align: left; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                                <tr style="position: sticky; top: -0.76rem; background: var(--surface-container, #1e293b); z-index: 10; border-bottom: 2px solid var(--border); text-align: left; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
                                     <th style="padding: 0.45rem 0.75rem;">Hora</th>
                                     <th style="padding: 0.45rem 0.75rem;">Cliente</th>
                                     <th style="padding: 0.45rem 0.75rem;">Tienda / Vendedor</th>
-                                    <th style="padding: 0.45rem 0.75rem; text-align: right;">Total</th>
+                                    <th style="padding: 0.45rem 0.75rem; text-align: right;">Total $</th>
+                                    <th style="padding: 0.45rem 0.75rem; text-align: right;">Total Bs</th>
+                                    <th style="padding: 0.45rem 0.75rem; text-align: right;">Ganancia $</th>
                                     <th style="padding: 0.45rem 0.75rem; text-align: center;">Estado</th>
                                     <th style="padding: 0.45rem 0.75rem;"></th>
                                 </tr>
@@ -1663,9 +1774,11 @@ export function renderSales(container, preSelectedClient = null) {
                                             <div style="font-size: 0.7rem;">🏪 ${sale.storeName}</div>
                                             <div style="font-size: 0.7rem; color: var(--text-muted);">👤 ${sale.employeeName}</div>
                                         </td>
-                                        <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: 800;">$${fmt(sale.totalUSD)}</td>
+                                        <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: bold;">$ ${fmt(sale.totalUSD)}</td>
+                                        <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: bold; color: white;">Bs ${fmt(sale.totalBs)}</td>
+                                        <td style="padding: 0.45rem 0.75rem; text-align: right; font-weight: bold; color: white;">$ ${fmt(sale.profitUSD || 0)}</td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: center;">
-                                            <span style="padding: 0.15rem 0.4rem; border-radius: 4px; background: ${sale.status === 'presupuesto' ? 'rgba(59, 130, 246, 0.1)' : sale.status === 'facturado' ? 'rgba(16, 185, 129, 0.1)' : statusColor + '1A'}; color: ${sale.status === 'presupuesto' ? 'var(--primary)' : sale.status === 'facturado' ? '#10b981' : statusColor}; font-weight: bold; font-size: 0.65rem; text-transform: uppercase;">
+                                            <span style="font-size: 0.7rem; font-weight: 800; color: ${statusColor}; border: 1px solid ${statusColor}40; padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase;">
                                                 ${sale.status}
                                             </span>
                                         </td>
@@ -1757,6 +1870,365 @@ export function renderSales(container, preSelectedClient = null) {
         loadHistorySummary(container.querySelector('#historySummary'));
     }
 
+    function renderOrdersView() {
+        const displayedPedidos = allPedidos.filter(p => selectedOrderStatusFilter === 'Todos' || p.orderStatus === selectedOrderStatusFilter || (!p.orderStatus && selectedOrderStatusFilter === 'Por Entregar'));
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; height: 100%; gap: 4px;">
+                <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
+                    <div class="flex items-center flex-stack-mobile" style="gap: 1rem;">
+                        <button id="backToCartBtnOrders" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem;">← Volver</button>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0;">📦 Pedidos</h2>
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select id="orderStatusFilter" class="bg-surface-container-high border border-outline-variant text-on-surface" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; height: 38px; border-radius: 8px; outline: none; cursor: pointer;">
+                            <option value="Todos" ${selectedOrderStatusFilter === 'Todos' ? 'selected' : ''}>Todos los Estados</option>
+                            <option value="Por Entregar" ${selectedOrderStatusFilter === 'Por Entregar' ? 'selected' : ''}>Por Entregar</option>
+                            <option value="Entregado" ${selectedOrderStatusFilter === 'Entregado' ? 'selected' : ''}>Entregado</option>
+                            <option value="Facturado" ${selectedOrderStatusFilter === 'Facturado' ? 'selected' : ''}>Facturado</option>
+                        </select>
+                        <button id="productionTodayBtn" class="btn btn-primary" style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.8rem; background: var(--secondary); border-color: var(--secondary);">👨‍🍳 PRODUCCIÓN HOY</button>
+                        <input type="text" id="orderDateFilter" class="bg-surface-container-high border border-outline-variant text-on-surface" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; height: 38px; border-radius: 8px;" value="${selectedPedidoDate}">
+                        <button id="refreshOrdersBtn" class="btn btn-outline" style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.8rem;">🔄 Actualizar</button>
+                    </div>
+                </div>
+
+                <div class="card" style="flex: 1; overflow-y: auto; padding: 0.75rem 1.25rem; margin: 0;">
+                    ${displayedPedidos.length === 0 
+                        ? '<p class="text-muted" style="text-align: center; padding: 3rem;">No hay pedidos para esta fecha.</p>'
+                        : `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="position: sticky; top: -0.76rem; background: var(--surface-container, #1e293b); z-index: 10; border-bottom: 2px solid var(--border); text-align: left; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <th style="padding: 0.45rem 0.75rem;">Correlativo</th>
+                                    <th style="padding: 0.45rem 0.75rem;">Cliente</th>
+                                    <th style="padding: 0.45rem 0.75rem;">Fecha Entrega</th>
+                                    <th style="padding: 0.45rem 0.75rem;">Monto</th>
+                                    <th style="padding: 0.45rem 0.75rem;">Abonado</th>
+                                    <th style="padding: 0.45rem 0.75rem;">Estado</th>
+                                    <th style="padding: 0.45rem 0.75rem; text-align: right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${displayedPedidos.map((pedido, idx) => {
+                                    const estadoColor = pedido.orderStatus === 'Entregado' ? '#10b981' : (pedido.orderStatus === 'Facturado' ? '#0ea5e9' : '#f59e0b');
+                                    return `
+                                    <tr style="border-bottom: 1px solid var(--surface-container-high); transition: background 0.2s;">
+                                        <td style="padding: 0.75rem; font-weight: 600;">${pedido.correlative}</td>
+                                        <td style="padding: 0.75rem; font-weight: 500;">
+                                            ${pedido.clientName}
+                                        </td>
+                                        <td style="padding: 0.75rem; font-weight: 500;">
+                                            ${pedido.deliveryDate ? pedido.deliveryDate.split('-').reverse().join('/') : ''}
+                                        </td>
+                                        <td style="padding: 0.75rem; font-weight: 800;">$${fmt(pedido.totalUSD)}</td>
+                                        <td style="padding: 0.75rem; font-weight: 600; color: var(--success);">$${fmt(pedido.paidUSD)}</td>
+                                        <td style="padding: 0.75rem;">
+                                            ${pedido.orderStatus === 'Facturado' || pedido.orderStatus === 'Entregado' ? `
+                                                <span style="background: ${estadoColor}20; color: ${estadoColor}; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; border: 1px solid ${estadoColor}40;">
+                                                    ${pedido.orderStatus}
+                                                </span>
+                                            ` : `
+                                                <select class="order-status-select" data-index="${idx}" style="padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; background-color: ${estadoColor}20; color: ${estadoColor}; border: 1px solid ${estadoColor}40; outline: none; cursor: pointer;">
+                                                    <option value="Por Entregar" ${pedido.orderStatus === 'Por Entregar' ? 'selected' : ''}>Por Entregar</option>
+                                                    <option value="Entregado" ${pedido.orderStatus === 'Entregado' ? 'selected' : ''}>Entregado</option>
+                                                </select>
+                                            `}
+                                        </td>
+                                        <td style="padding: 0.75rem; text-align: right;">
+                                            <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                                                <button class="btn btn-outline view-order-detail" data-index="${idx}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Ver Detalle">👁️ Ver Detalle</button>
+                                                <button class="btn btn-outline print-order" data-index="${idx}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Imprimir PDF">🖨️ Imprimir</button>
+                                                ${pedido.orderStatus !== 'Facturado' ? `<button class="btn btn-outline edit-order" data-index="${idx}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Editar">✏️ Editar</button>` : `<button class="btn btn-outline" disabled style="padding: 0.25rem 0.5rem; font-size: 0.75rem; opacity: 0.5; cursor: not-allowed; border-color: var(--border);" title="No disponible">✏️ Editar</button>`}
+                                                <button class="btn btn-outline delete-order" data-index="${idx}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4);" title="Eliminar">🗑️ Eliminar</button>
+                                                ${pedido.orderStatus !== 'Facturado' ? `<button class="btn btn-primary bill-order" data-index="${idx}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Facturar">🛒 Facturar</button>` : `<button class="btn" disabled style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background-color: var(--surface-container-highest, rgba(255,255,255,0.05)); color: var(--text-muted); opacity: 0.5; cursor: not-allowed; border: 1px solid transparent;" title="Ya facturado">🛒 Facturar</button>`}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                        `}
+                </div>
+            </div>
+
+            <!-- Detail Modal -->
+            <div id="saleDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; align-items: center; justify-content: center; padding: 1rem;">
+                <div class="card" style="width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;">
+                    <button id="closeDetailBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer;">✕</button>
+                    <div id="modalContent"></div>
+                </div>
+            </div>
+        `;
+
+        container.querySelector('#backToCartBtnOrders').addEventListener('click', () => {
+            currentView = 'cart';
+            render();
+        });
+
+        container.querySelector('#orderStatusFilter').addEventListener('change', (e) => {
+            selectedOrderStatusFilter = e.target.value;
+            renderOrdersView();
+        });
+
+        const modal = container.querySelector('#saleDetailModal');
+        container.querySelector('#closeDetailBtn').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        container.querySelector('#refreshOrdersBtn').addEventListener('click', async () => {
+            const btn = container.querySelector('#refreshOrdersBtn');
+            btn.innerHTML = '⏳';
+            await loadPedidos(selectedPedidoDate);
+            renderOrdersView();
+        });
+
+        if (typeof flatpickr !== 'undefined') {
+            const pParts = selectedPedidoDate.split('-');
+            const defPDate = new Date(pParts[0], pParts[1] - 1, pParts[2]);
+
+            flatpickr(container.querySelector('#orderDateFilter'), {
+                dateFormat: "d/m/Y",
+                defaultDate: defPDate,
+                locale: "es",
+                onChange: async function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        const d = selectedDates[0];
+                        const yy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        selectedPedidoDate = `${yy}-${mm}-${dd}`;
+                        await loadPedidos(selectedPedidoDate);
+                        renderOrdersView();
+                    }
+                }
+            });
+        }
+
+        container.querySelector('#productionTodayBtn').addEventListener('click', () => {
+            showProductionSummaryModal();
+        });
+
+        container.querySelectorAll('.order-status-select').forEach(sel => {
+            sel.addEventListener('change', async (e) => {
+                const newStatus = e.target.value;
+                const pedido = displayedPedidos[parseInt(sel.dataset.index)];
+                const pedidoRef = doc(db, "businesses", businessId, "sales", pedido.id);
+                await updateDoc(pedidoRef, { orderStatus: newStatus });
+                showNotification("✅ Estado actualizado.");
+                await loadPedidos(selectedPedidoDate);
+                renderOrdersView();
+            });
+        });
+
+        container.querySelectorAll('.view-order-detail').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const pedido = displayedPedidos[parseInt(btn.dataset.index)];
+                showSaleDetail(pedido);
+            });
+        });
+
+        container.querySelectorAll('.print-order').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pedido = displayedPedidos[parseInt(btn.dataset.index)];
+                let salePayments = [];
+                const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", pedido.id));
+                const paySnap = await getDocs(q);
+                salePayments = paySnap.docs.map(doc => doc.data());
+                await generateDocumentView(pedido, salePayments);
+            });
+        });
+
+        container.querySelectorAll('.delete-order').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pedido = displayedPedidos[parseInt(btn.dataset.index)];
+                
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 1rem;';
+                
+                modal.innerHTML = `
+                    <div class="card" style="width: 100%; max-width: 400px; padding: 2rem; text-align: center; position: relative;">
+                        <div style="font-size: 3.5rem; margin-bottom: 1rem; line-height: 1;">🗑️</div>
+                        <h3 style="margin-bottom: 0.5rem; font-weight: 700; font-size: 1.25rem;">Eliminar Pedido</h3>
+                        <p style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">¿Estás seguro de que deseas eliminar este pedido? Esta acción borrará el pedido y sus pagos asociados, y <b>no se puede deshacer</b>.</p>
+                        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem;">
+                            <button class="btn btn-outline" id="cancelConfirmBtn" style="flex: 1; padding: 0.75rem;">Cancelar</button>
+                            <button class="btn btn-primary" id="acceptConfirmBtn" style="flex: 1; padding: 0.75rem; background: #ef4444; border-color: #ef4444; color: white;">Sí, Eliminar</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                modal.querySelector('#cancelConfirmBtn').addEventListener('click', () => {
+                    document.body.removeChild(modal);
+                });
+                
+                modal.querySelector('#acceptConfirmBtn').addEventListener('click', async () => {
+                    document.body.removeChild(modal);
+                    btn.innerHTML = '⏳';
+                    btn.disabled = true;
+                    try {
+                        const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", pedido.id));
+                        const paySnap = await getDocs(q);
+                        const deletePromises = paySnap.docs.map(payDoc => deleteDoc(doc(db, "businesses", businessId, "payments", payDoc.id)));
+                        await Promise.all(deletePromises);
+                        await deleteDoc(doc(db, "businesses", businessId, "sales", pedido.id));
+                        showNotification("✅ Pedido eliminado");
+                        await loadPedidos(selectedPedidoDate);
+                        renderOrdersView();
+                    } catch (err) {
+                        console.error("Error al eliminar:", err);
+                        showNotification("Error al eliminar pedido");
+                        btn.innerHTML = '🗑️ Eliminar';
+                        btn.disabled = false;
+                    }
+                });
+            });
+        });
+
+        container.querySelectorAll('.edit-order').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pedido = allPedidos[parseInt(btn.dataset.index)];
+                convertingBudgetId = pedido.id;
+                cart = [...(pedido.items || [])];
+                settings = { ...pedido.settings, type: 'pedido' };
+                deliveryDate = pedido.deliveryDate || selectedPedidoDate;
+                const cli = clients.find(c => c.id === pedido.clientId);
+                if (cli) selectedClient = cli;
+                
+                const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", pedido.id));
+                const paySnap = await getDocs(q);
+                payments = paySnap.docs.map(doc => ({ ...doc.data(), isOld: true, id: doc.id }));
+
+                currentView = 'cart';
+                render();
+            });
+        });
+
+        container.querySelectorAll('.bill-order').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pedido = allPedidos[parseInt(btn.dataset.index)];
+                convertingBudgetId = pedido.id;
+                cart = [...(pedido.items || [])];
+                settings = { ...pedido.settings, type: 'venta' }; // Changed to venta to finalize
+                const cli = clients.find(c => c.id === pedido.clientId);
+                if (cli) selectedClient = cli;
+                
+                const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", pedido.id));
+                const paySnap = await getDocs(q);
+                payments = paySnap.docs.map(doc => ({ ...doc.data(), isOld: true, id: doc.id }));
+
+                currentView = 'cart';
+                render();
+            });
+        });
+    }
+
+    function showProductionSummaryModal() {
+        const summary = {};
+        let totalOrders = 0;
+        
+        allPedidos.forEach(pedido => {
+            if (pedido.orderStatus === 'Facturado' || pedido.orderStatus === 'Entregado') return; // optional: include only pending? Or include all? The user says "producción hoy", maybe include all orders for that date. Let's include all.
+            totalOrders++;
+            (pedido.items || []).forEach(item => {
+                const key = item.id;
+                if (!summary[key]) {
+                    summary[key] = { name: item.name, qty: 0, unit: item.sellUnit || item.baseUnit, extras: {} };
+                }
+                summary[key].qty += item.qty;
+                
+                (item.extras || []).forEach(ext => {
+                    if (!summary[key].extras[ext.name]) {
+                        summary[key].extras[ext.name] = 0;
+                    }
+                    summary[key].extras[ext.name] += item.qty; // extra qty is 1 per item qty
+                });
+            });
+        });
+
+        const itemsHtml = Object.values(summary).map(item => {
+            let extrasHtml = '';
+            if (Object.keys(item.extras).length > 0) {
+                extrasHtml = '<ul style="margin-top: 0.2rem; padding-left: 1rem; font-size: 0.8rem; color: var(--text-muted);">';
+                for (const [extName, extQty] of Object.entries(item.extras)) {
+                    extrasHtml += `<li>${extQty}x ${extName}</li>`;
+                }
+                extrasHtml += '</ul>';
+            }
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 0.5rem 0; border-bottom: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 600;">${item.name}</div>
+                        ${extrasHtml}
+                    </div>
+                    <div style="font-weight: 800; font-size: 1.1rem;">${fmt(item.qty)} <span style="font-size: 0.7rem; color: var(--text-muted);">${item.unit}</span></div>
+                </div>
+            `;
+        }).join('');
+
+        const modal = document.createElement('div');
+        modal.style = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 4000; display: flex; align-items: center; justify-content: center;';
+        modal.innerHTML = `
+            <div class="card" style="width: 90%; max-width: 500px; padding: 2rem; max-height: 90vh; display: flex; flex-direction: column; animation: modalIn 0.3s ease-out;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">👨‍🍳 Producción: ${selectedPedidoDate}</h3>
+                    <button id="closeProdModalBtn" class="btn btn-outline" style="padding: 0.2rem 0.5rem;">❌</button>
+                </div>
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">Total pedidos pendientes para esta fecha: ${totalOrders}</p>
+                
+                <div style="flex: 1; overflow-y: auto; margin-bottom: 1rem; padding-right: 0.5rem;">
+                    ${Object.keys(summary).length === 0 ? '<p class="text-muted" style="text-align: center; padding: 2rem;">No hay productos para producir.</p>' : itemsHtml}
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: auto;">
+                    <button id="printProdModalBtn" class="btn btn-primary" style="flex: 1;">🖨️ Imprimir Reporte</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector('#closeProdModalBtn').onclick = () => modal.remove();
+        modal.querySelector('#printProdModalBtn').onclick = () => {
+            printProductionReport(summary, selectedPedidoDate);
+        };
+    }
+
+    function printProductionReport(summary, dateStr) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ format: 'a4', unit: 'mm' });
+        
+        doc.setFontSize(18);
+        doc.text(`Reporte de Producción: ${dateStr}`, 10, 20);
+        
+        doc.setFontSize(12);
+        let y = 30;
+        
+        for (const item of Object.values(summary)) {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            doc.setFont("helvetica", "bold");
+            doc.text(`${fmt(item.qty)} ${item.unit} - ${item.name}`, 10, y);
+            y += 6;
+            
+            if (Object.keys(item.extras).length > 0) {
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(10);
+                for (const [extName, extQty] of Object.entries(item.extras)) {
+                    doc.text(`    • ${fmt(extQty)}x ${extName}`, 10, y);
+                    y += 5;
+                }
+                doc.setFontSize(12);
+            }
+            y += 2; // Extra space between items
+        }
+        
+        window.open(doc.output('bloburl'), '_blank');
+    }
+
     async function loadHistorySummary(summaryContainer) {
         if (!summaryContainer) return;
         const todayStr = new Date().toLocaleDateString('sv-SE');
@@ -1846,7 +2318,9 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     async function showSaleDetail(sale) {
-        const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
+        const isBudget = sale.status === 'presupuesto' || (sale.status === 'facturado' && !sale.isOrder);
+        const isOrder = sale.isOrder || sale.status === 'pedido';
+        
         const modal = container.querySelector('#saleDetailModal');
         const content = container.querySelector('#modalContent');
 
@@ -1857,15 +2331,39 @@ export function renderSales(container, preSelectedClient = null) {
             salePayments = paySnap.docs.map(doc => doc.data());
         }
 
+        let headerType = isBudget ? 'Presupuesto' : isOrder ? 'Pedido' : 'Venta';
+        let headerLabel = isBudget ? 'Presupuesto:' : isOrder ? 'Pedido:' : 'Factura:';
+        let correlativeStr = sale.correlative || sale.id.slice(-6).toUpperCase();
+        let displayStatus = isOrder ? (sale.orderStatus || sale.status) : sale.status;
+        
+        let displayDate = '';
+        if (isOrder && sale.deliveryDate) {
+            const [y, m, d] = sale.deliveryDate.split('-');
+            displayDate = `Entrega: ${d}/${m}/${y}`;
+        } else {
+            displayDate = sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleString('es-VE') : formatDateToDDMMYYYY(sale.date);
+        }
+
+        let statusColor = 'var(--primary)';
+        let statusBg = 'var(--primary)1A';
+        const lowerStatus = (displayStatus || '').toLowerCase();
+        if (lowerStatus === 'facturado' || lowerStatus === 'contado' || lowerStatus === 'entregado') {
+            statusColor = '#10b981';
+            statusBg = 'rgba(16, 185, 129, 0.1)';
+        } else if (lowerStatus === 'abono' || lowerStatus === 'por entregar') {
+            statusColor = '#f59e0b';
+            statusBg = 'rgba(245, 158, 11, 0.1)';
+        }
+
         content.innerHTML = `
             <div style="text-align: center; margin-bottom: 2rem;">
                 <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;">
-                    ${isBudget ? 'Resumen de Presupuesto' : 'Resumen de Venta'}
+                    Resumen de ${headerType}
                 </div>
                 <h2 style="margin: 0.5rem 0;">
-                    ${isBudget ? 'Presupuesto:' : 'Factura:'} ${sale.id.slice(-6).toUpperCase()}
+                    ${headerLabel} ${correlativeStr}
                 </h2>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleString('es-VE') : formatDateToDDMMYYYY(sale.date)}</div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">${displayDate}</div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
@@ -1876,8 +2374,8 @@ export function renderSales(container, preSelectedClient = null) {
                 </div>
                 <div style="text-align: right;">
                     <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Estado</h4>
-                    <span style="padding: 0.2rem 0.6rem; border-radius: 4px; background: ${sale.status === 'facturado' ? 'rgba(16, 185, 129, 0.1)' : 'var(--primary)1A'}; color: ${sale.status === 'facturado' ? '#10b981' : 'var(--primary)'}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
-                        ${sale.status}
+                    <span style="padding: 0.2rem 0.6rem; border-radius: 4px; background: ${statusBg}; color: ${statusColor}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
+                        ${displayStatus}
                     </span>
                 </div>
             </div>
@@ -1886,7 +2384,10 @@ export function renderSales(container, preSelectedClient = null) {
             <div style="margin-bottom: 2rem;">
                 ${sale.items.map(item => `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.9rem;">
-                        <span>${item.qty} x ${item.name}</span>
+                        <div>
+                            <div>${item.qty} x ${item.name}</div>
+                            ${(item.unitContent && item.unitContent > 1) ? `<div style="font-size:0.75rem; color:var(--text-muted);">${item.qty} ${item.sellUnit} x ${item.unitContent} ${item.baseUnit || 'ud'}</div>` : ''}
+                        </div>
                         <span style="font-weight: bold;">$${fmt(item.total)}</span>
                     </div>
                 `).join('')}
@@ -2071,7 +2572,10 @@ export function renderSales(container, preSelectedClient = null) {
                             ${sale.items.map(item => `
                                 <tr>
                                     <td style="width: 50px;">${item.qty}</td>
-                                    <td>${item.name}</td>
+                                    <td>
+                                        ${item.name}
+                                        ${(item.unitContent && item.unitContent > 1) ? `<br><small style="color:#718096">${item.qty} ${item.sellUnit} x ${item.unitContent} ${item.baseUnit || 'ud'}</small>` : ''}
+                                    </td>
                                     <td style="text-align: right; width: 100px;">$ ${fmt(item.price)}</td>
                                     <td style="text-align: right; width: 100px;">$ ${fmt(item.total)}</td>
                                 </tr>
