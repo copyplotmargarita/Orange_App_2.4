@@ -357,7 +357,7 @@ export function renderProducts(container) {
 
                         <div style="display: grid; grid-template-columns: 1fr; gap: 0.35rem;">
                             <div class="form-group">
-                                <label>📦 UNIDAD DE COMPRA</label>
+                                <label id="lblPurchaseUnit">📦 UNIDAD DE COMPRA</label>
                                 <select id="prodPurchaseUnit" class="form-control">
                                     <option value="" disabled ${!editProduct?.purchaseUnit ? 'selected' : ''}>Seleccionar unidad...</option>
                                     <option value="Saco" ${editProduct?.purchaseUnit==='Saco'?'selected':''}>Saco</option>
@@ -429,7 +429,7 @@ export function renderProducts(container) {
                         <h3 style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">👩‍🍳 Configuración de Receta</h3>
                         <div class="form-group">
                             <label>🍽️ RENDIMIENTO (PORCIONES/UNIDADES)</label>
-                            <input type="number" step="0.01" id="prodYield" class="form-control" placeholder="¿Cuánto produce esta receta?" value="${editProduct?.yield || ''}">
+                            <input type="text" inputmode="numeric" id="prodYield" class="form-control" placeholder="Ej. 10,00" value="${(editProduct?.yield != null) ? editProduct.yield.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''}">
                             <button type="button" class="btn btn-primary mt-4" id="buildRecipeBtn" style="width: 100%; background: var(--primary); border-color: var(--primary); height: 50px; font-weight: 800;">
                                 ➕ CONSTRUIR RECETA / INGREDIENTES
                             </button>
@@ -453,17 +453,29 @@ export function renderProducts(container) {
 
                             <div class="form-group">
                                 <label id="lblPriceDetal">🛒 PRECIO DETAL (+30%)</label>
-                                <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary);">
+                                <div id="gridPriceDetal" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                                    <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary);">
+                                    <input type="text" id="marginDetalDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginDetal ? editProduct.marginDetal.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginDetal || ''}">
+                                    <input type="text" id="suggestedDetalDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                </div>
                             </div>
 
                             <div class="form-group">
                                 <label id="lblPriceMayor">🏢 PRECIO AL MAYOR (+25%)</label>
-                                <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                                <div id="gridPriceMayor" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                                    <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                                    <input type="text" id="marginMayorDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginMayor ? editProduct.marginMayor.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginMayor || ''}">
+                                    <input type="text" id="suggestedMayorDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                </div>
                             </div>
 
                             <div class="form-group">
                                 <label id="lblPriceSpecial">⭐ PRECIO ESPECIAL (+20%)</label>
-                                <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                                <div id="gridPriceSpecial" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                                    <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                                    <input type="text" id="marginSpecialDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginSpecial ? editProduct.marginSpecial.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginSpecial || ''}">
+                                    <input type="text" id="suggestedSpecialDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                </div>
                             </div>
                         </div>
 
@@ -549,7 +561,7 @@ export function renderProducts(container) {
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; text-align: center;">
                                 <div class="card" style="padding: 1rem;">
                                     <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Rendimiento</p>
-                                    <p style="font-size: 1.25rem; font-weight: 900;" id="rbYieldDisplay">0</p>
+                                    <input type="number" id="rbYieldDisplay" style="font-size: 1.25rem; font-weight: 900; background: transparent; border: 1px dashed var(--primary); color: var(--text-main); text-align: center; width: 100%; padding: 0.2rem; border-radius: 4px;" value="0">
                                 </div>
                                 <div class="card" style="padding: 1rem;">
                                     <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Costo Total</p>
@@ -765,6 +777,19 @@ export function renderProducts(container) {
             prodPriceDetal.readOnly = false;
             prodPriceMayor.readOnly = false;
             prodPriceSpecial.readOnly = false;
+            
+            // Default layout for price grids
+            ['Detal', 'Mayor', 'Special'].forEach(lvl => {
+                const grid = container.querySelector(`#gridPrice${lvl}`);
+                if(grid) {
+                    grid.style.gridTemplateColumns = '1fr';
+                    container.querySelector(`#margin${lvl}Display`).style.display = 'none';
+                    container.querySelector(`#suggested${lvl}Display`).style.display = 'none';
+                }
+            });
+
+            const lblPurchase = container.querySelector('#lblPurchaseUnit');
+            if (lblPurchase) lblPurchase.innerHTML = '📦 UNIDAD DE COMPRA';
 
             costLabel.innerHTML = 'Costo $ por <span id="costUnitLabel">Ud</span> <span class="text-danger">*</span>';
             lblPriceDetal.innerHTML = 'Precio Detal $ (+30%) <span class="text-danger">*</span>';
@@ -773,15 +798,23 @@ export function renderProducts(container) {
 
             if (cat === 'RECETA') {
                 recipeYieldGroup.style.display = 'block';
+                unitSection.style.display = 'block';
+                if (lblPurchase) lblPurchase.innerHTML = '📦 UNIDAD DE VENTA';
                 prodYield.required = true;
-                costPerUnitGroup.style.display = 'block';
                 prodCost.readOnly = true;
-                costLabel.innerHTML = 'Costo $ Receta <span class="text-danger">*</span>';
+                costLabel.innerHTML = 'Costo Unit. $ Receta <span class="text-danger">*</span>';
                 lblPriceDetal.innerHTML = 'Precio Detal $ (+160%) <span class="text-danger">*</span>';
                 lblPriceMayor.innerHTML = 'Precio Mayor $ (+150%) <span class="text-danger">*</span>';
                 lblPriceSpecial.innerHTML = 'Precio Especial $ (+140%) <span class="text-danger">*</span>';
                 prodIsSaleable.value = 'true';
                 subCategoryGroup.style.display = 'block';
+                
+                // Show grid for recipe custom pricing
+                ['Detal', 'Mayor', 'Special'].forEach(lvl => {
+                    container.querySelector(`#gridPrice${lvl}`).style.gridTemplateColumns = '1fr 1fr 1fr';
+                    container.querySelector(`#margin${lvl}Display`).style.display = 'block';
+                    container.querySelector(`#suggested${lvl}Display`).style.display = 'block';
+                });
 
             } else if (cat === 'SERVICIOS') {
                 lblPriceDetal.innerHTML = 'Precio Detal $ <span class="text-muted" style="font-size:0.8rem;">(= Costo $)</span>';
@@ -824,6 +857,25 @@ export function renderProducts(container) {
                 btnSaleableNo.style.color = 'white';
                 btnSaleableYes.style.background = 'var(--background)';
                 btnSaleableYes.style.color = 'var(--text-main)';
+            }
+            
+            // Toggle Precios if not saleable
+            const priceSectionContainers = [
+                container.querySelector('#lblPriceDetal')?.parentElement,
+                container.querySelector('#lblPriceMayor')?.parentElement,
+                container.querySelector('#lblPriceSpecial')?.parentElement
+            ];
+            
+            if (prodIsSaleable.value === 'false') {
+                priceSectionContainers.forEach(el => { if(el) el.style.display = 'none'; });
+                prodPriceDetal.required = false;
+                prodPriceMayor.required = false;
+                prodPriceSpecial.required = false;
+            } else {
+                priceSectionContainers.forEach(el => { if(el) el.style.display = 'block'; });
+                prodPriceDetal.required = true;
+                prodPriceMayor.required = true;
+                prodPriceSpecial.required = true;
             }
 
             // Toggle Nivel 3 (Contenido por Unidad)
@@ -1038,19 +1090,60 @@ export function renderProducts(container) {
             }
 
             // --- Calcular precios con márgenes ---
-            if (document.activeElement === prodCost || !prodPriceDetal.value || cat === 'RECETA') {
+            const formatPriceStr = (c, margin) => {
+                const n = c * margin;
+                if (n < 1) {
+                    return n.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 4});
+                }
+                return (Math.round(n * 20) / 20).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            };
+
+            if (cat !== 'RECETA' && (document.activeElement === prodCost || !prodPriceDetal.value)) {
                 let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
-                if (cat === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
-                const formatPriceStr = (cost, margin) => {
-                    const n = cost * margin;
-                    if (n < 1) {
-                        return n.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 4});
-                    }
-                    return (Math.round(n * 20) / 20).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                };
                 prodPriceDetal.value  = formatPriceStr(cost, mDetal);
                 prodPriceMayor.value  = formatPriceStr(cost, mMayor);
                 prodPriceSpecial.value = formatPriceStr(cost, mSpecial);
+            }
+            
+            if (cat === 'RECETA' && (!prodPriceDetal.value || parseNum(prodPriceDetal.value) === 0)) {
+                prodPriceDetal.value  = formatPriceStr(cost, 2.60);
+                prodPriceMayor.value  = formatPriceStr(cost, 2.50);
+                prodPriceSpecial.value = formatPriceStr(cost, 2.40);
+                container.querySelector('#marginDetalDisplay').dataset.margin = "160";
+                container.querySelector('#marginMayorDisplay').dataset.margin = "150";
+                container.querySelector('#marginSpecialDisplay').dataset.margin = "140";
+            }
+
+            if (cat === 'RECETA') {
+                ['Detal', 'Mayor', 'Special'].forEach(lvl => {
+                    const priceInput = container.querySelector(`#prodPrice${lvl}`);
+                    const marginInput = container.querySelector(`#margin${lvl}Display`);
+                    const suggestedInput = container.querySelector(`#suggested${lvl}Display`);
+                    
+                    const priceVal = parseNum(priceInput.value) || 0;
+                    
+                    // Si el usuario edita el precio manualmente, actualizamos su margen objetivo
+                    if (document.activeElement === priceInput && cost > 0) {
+                        const newMargin = ((priceVal / cost) - 1) * 100;
+                        marginInput.dataset.margin = newMargin;
+                    }
+
+                    const savedMarginStr = marginInput.dataset.margin;
+                    
+                    if (priceVal > 0 && cost > 0) {
+                        const realMargin = ((priceVal / cost) - 1) * 100;
+                        marginInput.value = realMargin.toLocaleString('de-DE', {maximumFractionDigits: 2}) + ' %';
+                        
+                        if (savedMarginStr) {
+                            const savedMargin = parseFloat(savedMarginStr) / 100;
+                            const suggested = cost * (1 + savedMargin);
+                            suggestedInput.value = suggested.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    } else {
+                        marginInput.value = '';
+                        suggestedInput.value = '';
+                    }
+                });
             }
         }
 
@@ -1060,6 +1153,9 @@ export function renderProducts(container) {
         prodUnitContentQty.addEventListener('input', calculateMath);
         prodUnitContentUnit.addEventListener('change', calculateMath);
         prodCost.addEventListener('input', calculateMath);
+        prodPriceDetal.addEventListener('input', calculateMath);
+        prodPriceMayor.addEventListener('input', calculateMath);
+        prodPriceSpecial.addEventListener('input', calculateMath);
 
         btnSaleableYes.addEventListener('click', () => {
             prodIsSaleable.value = 'true';
@@ -1099,7 +1195,7 @@ export function renderProducts(container) {
                 prodYield.focus();
                 return;
             }
-            rbYieldDisplay.textContent = yieldVal;
+            rbYieldDisplay.value = yieldVal;
             
             // Populate Catalog (Excluding SERVICIOS)
             const allowedCatalog = products.filter(p => p.category !== 'SERVICIOS');
@@ -1110,12 +1206,31 @@ export function renderProducts(container) {
         }
 
         container.querySelector('#buildRecipeBtn')?.addEventListener('click', openRecipeBuilder);
+        
+        rbYieldDisplay.addEventListener('input', (e) => {
+            const val = parseNum(e.target.value);
+            if (val > 0) {
+                prodYield.value = val;
+                renderDeck();
+            }
+        });
+
+        window.updateRecipeIngredientQty = (idx, newQty) => {
+            const parsed = parseNum(newQty);
+            if (parsed > 0) {
+                recipeIngredients[idx].qty = parsed;
+                recipeIngredients[idx].subTotal = parsed * recipeIngredients[idx].unitCost;
+                renderDeck();
+            }
+        };
 
         container.querySelector('#finishRecipeBtn').addEventListener('click', () => {
             builderModal.style.display = 'none';
-            // Pushing the calculated cost to the main form
+            // Pushing the calculated unit cost to the main form
             const totalCost = recipeIngredients.reduce((acc, ing) => acc + ing.subTotal, 0);
-            prodCost.value = totalCost.toFixed(4);
+            const yieldVal = parseNum(prodYield.value) || 1;
+            const unitCost = totalCost / yieldVal;
+            prodCost.value = unitCost.toLocaleString('de-DE', {minimumFractionDigits: 3, maximumFractionDigits: 3});
             calculateMath();
         });
 
@@ -1126,11 +1241,14 @@ export function renderProducts(container) {
         function renderCatalog(filteredProducts) {
             catalogGrid.innerHTML = '';
             filteredProducts.forEach(p => {
-                // RECALCULO FORZADO: Ignoramos valores guardados viejos y calculamos en tiempo real
-                // para garantizar que se use la nueva lógica de precisión (Costo / Contenido)
-                const cost = parseFloat(p.cost) || 0;
-                const content = parseFloat(p.unitContentQty) || 1;
-                const unitCost = cost / content;
+                // Usar el costo por unidad de receta de alta precisión calculado al guardar.
+                // Fallback para productos viejos que no tengan esta propiedad:
+                let unitCost = p.costPerRecipeUnit;
+                if (unitCost == null) {
+                    const cost = parseFloat(p.cost) || 0;
+                    const content = parseFloat(p.stockToRecipeFactor) || parseFloat(p.unitContentQty) || 1;
+                    unitCost = cost / content;
+                }
 
                 const card = document.createElement('div');
                 card.className = 'card';
@@ -1148,8 +1266,8 @@ export function renderProducts(container) {
                 card.addEventListener('mouseout', () => card.style.transform = 'scale(1)');
                 
                 card.addEventListener('click', () => {
-                    // Pasamos el costo recalculado en tiempo real para evitar errores de base de datos
-                    const unitLabel = p.recipeUnitLabel || (p.recipeUnits ? p.recipeUnits.split(' ')[1] : 'ud');
+                    // Usar recipeUnit (el actual) y si no, los valores viejos (recipeUnitLabel, recipeUnits)
+                    const unitLabel = p.recipeUnit || p.recipeUnitLabel || (p.recipeUnits ? p.recipeUnits.split(' ')[1] : 'ud');
                     openQtyModal(p, unitCost, unitLabel);
                 });
                 
@@ -1240,7 +1358,12 @@ export function renderProducts(container) {
                 tr.style.borderBottom = '1px solid var(--border)';
                 tr.innerHTML = `
                     <td style="padding: 0.5rem;">${ing.name}</td>
-                    <td style="padding: 0.5rem;">${ing.qty} <span class="text-muted text-sm">${ing.unit}</span></td>
+                    <td style="padding: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="number" step="0.0001" value="${ing.qty}" onchange="updateRecipeIngredientQty(${index}, this.value)" style="width: 70px; padding: 0.2rem; text-align: center; border: 1px solid var(--border); border-radius: 4px; background: var(--background); color: var(--text-main); font-weight: bold;">
+                            <span class="text-muted text-sm">${ing.unit}</span>
+                        </div>
+                    </td>
                     <td style="padding: 0.5rem;">$ ${ing.unitCost.toFixed(6)}</td>
                     <td style="padding: 0.5rem; font-weight: bold;">$ ${rowSubtotal.toFixed(4)}</td>
                     <td style="padding: 0.5rem; text-align: right;">
@@ -1329,6 +1452,10 @@ export function renderProducts(container) {
             const priceMayor = parseNum(prodPriceMayor.value) || 0;
             const priceSpecial = parseNum(prodPriceSpecial.value) || 0;
 
+            const marginDetal = parseFloat(container.querySelector('#marginDetalDisplay').dataset.margin) || 0;
+            const marginMayor = parseFloat(container.querySelector('#marginMayorDisplay').dataset.margin) || 0;
+            const marginSpecial = parseFloat(container.querySelector('#marginSpecialDisplay').dataset.margin) || 0;
+
             const businessId = localStorage.getItem('businessId');
 
             try {
@@ -1358,6 +1485,9 @@ export function renderProducts(container) {
                     priceDetal,
                     priceMayor,
                     priceSpecial,
+                    marginDetal: category === 'RECETA' ? marginDetal : null,
+                    marginMayor: category === 'RECETA' ? marginMayor : null,
+                    marginSpecial: category === 'RECETA' ? marginSpecial : null,
                     yield: pYield,
                     recipeIngredients: category === 'RECETA' ? recipeIngredients : [],
                     image: imageBase64,
