@@ -16,6 +16,28 @@ export function renderInventory(container) {
     const userRole = localStorage.getItem('userRole'); // 'admin' or 'employee'
     const fmt = (n) => parseFloat(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+    function getRecipeUnitInfo(stockUnit) {
+        if (stockUnit === 'Kilo')      return { recipeUnit: 'Gramo',      factor: 1000 };
+        if (stockUnit === 'Litro')     return { recipeUnit: 'Mililitro',  factor: 1000 };
+        if (stockUnit === 'Gramo')     return { recipeUnit: 'Gramo',      factor: 1    };
+        if (stockUnit === 'Mililitro') return { recipeUnit: 'Mililitro',  factor: 1    };
+        return                             { recipeUnit: 'Unidad',     factor: 1    };
+    }
+
+    function getFactorForProduct(insumo) {
+        if (!insumo) return 1;
+        if (insumo.stockToRecipeFactor !== undefined) return parseFloat(insumo.stockToRecipeFactor) || 1;
+        
+        const stockUnit = insumo.stockUnit || 'Unidad';
+        const isBasic = ['Unidad', 'Kilo', 'Litro', 'Gramo', 'Mililitro'].includes(insumo.purchaseUnit);
+        if (stockUnit === 'Unidad' && !isBasic) {
+            const info = getRecipeUnitInfo(insumo.unitContentUnit || 'Unidad');
+            return (parseFloat(insumo.unitContentQty) || 1) * info.factor;
+        } else {
+            return getRecipeUnitInfo(stockUnit).factor;
+        }
+    }
+
     async function loadData() {
         if (!businessId) {
             container.innerHTML = '<div style="padding:2rem;text-align:center;">Error: No se encontró ID de negocio.</div>';
@@ -385,13 +407,16 @@ export function renderInventory(container) {
             let hasNegative = false;
 
             productionList.forEach(({ recipe, qty }) => {
+                const yieldVal = recipe.yield || 1;
                 (recipe.recipeIngredients || []).forEach(ing => {
-                    const total = ing.qty * qty;
+                    const total = (ing.qty / yieldVal) * qty;
                     if (!consumoMap[ing.productId]) {
                         const insumo = products.find(p => p.id === ing.productId);
+                        const factor = getFactorForProduct(insumo);
+                        const stockG = insumo ? (parseFloat(insumo.stockGeneral ?? insumo.stock ?? 0)) : 0;
                         consumoMap[ing.productId] = {
                             name: ing.name, unit: ing.unit,
-                            total: 0, stockActual: insumo ? (insumo.stockProduccion ?? 0) : 0
+                            total: 0, stockActual: stockG * factor // Convertido a unidad de receta
                         };
                     }
                     consumoMap[ing.productId].total += total;
@@ -399,6 +424,7 @@ export function renderInventory(container) {
             });
 
             Object.values(consumoMap).forEach(c => {
+                c.total = Math.ceil(c.total); // Redondear a entero superior
                 c.stockAfter = c.stockActual - c.total;
                 if (c.stockAfter < 0) hasNegative = true;
             });
@@ -407,9 +433,9 @@ export function renderInventory(container) {
                 const col = c.stockAfter < 0 ? 'var(--danger)' : 'var(--success)';
                 return `<tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:0.5rem;">${c.name}</td>
-                    <td style="padding:0.5rem;text-align:right;">${c.total.toFixed(4)}</td>
-                    <td style="padding:0.5rem;text-align:right;color:var(--text-muted);">${fmt(c.stockActual)}</td>
-                    <td style="padding:0.5rem;text-align:right;font-weight:bold;color:${col};">${fmt(c.stockAfter)}</td>
+                    <td style="padding:0.5rem;text-align:right;">${c.total.toLocaleString('de-DE')}</td>
+                    <td style="padding:0.5rem;text-align:right;color:var(--text-muted);">${c.stockActual.toLocaleString('de-DE', {maximumFractionDigits: 2})}</td>
+                    <td style="padding:0.5rem;text-align:right;font-weight:bold;color:${col};">${c.stockAfter.toLocaleString('de-DE')}</td>
                     <td style="padding:0.5rem;text-align:center;color:var(--text-muted);font-size:0.8rem;">${c.unit}</td>
                 </tr>`;
             }).join('');
@@ -962,15 +988,19 @@ export function renderInventory(container) {
                 const ingredientsConsumed = [];
 
                 for (const ing of ingredients) {
-                    const totalConsumo = ing.qty * qtyProduced;
+                    const yieldVal = recipe.yield || 1;
+                    const totalConsumoRaw = (ing.qty / yieldVal) * qtyProduced;
+                    const totalConsumo = Math.ceil(totalConsumoRaw);
                     const prodRef = doc(db, "businesses", businessId, "products", ing.productId);
                     const snap = await getDoc(prodRef);
                     if (snap.exists()) {
                         const d = snap.data();
-                        const before = d.stockProduccion ?? 0;
-                        const after = before - totalConsumo;
-                        await updateDoc(prodRef, { stockProduccion: after });
-                        ingredientsConsumed.push({ ...ing, qty: totalConsumo, stockBefore: before, stockAfter: after });
+                        const before = parseFloat(d.stockGeneral ?? d.stock ?? 0);
+                        const factor = getFactorForProduct(d);
+                        const consumedStockUnits = totalConsumo / factor;
+                        const after = before - consumedStockUnits;
+                        await updateDoc(prodRef, { stockGeneral: after });
+                        ingredientsConsumed.push({ ...ing, qty: totalConsumo, stockBefore: before, stockAfter: after, factor });
                     }
                 }
 

@@ -2626,11 +2626,8 @@ export function renderPurchases(container) {
                         actualPurchaseToStockQty = 1; 
                     }
 
-                    // Ajuste para el sistema de 3 niveles cuando la unidad de stock es genérica "Unidad".
-                    // Multiplicamos por el contenido de la unidad intermedia para registrar las unidades base en el inventario.
-                    if (stockUnit === 'Unidad' && prod.unitContentQty > 1) {
-                        actualPurchaseToStockQty = actualPurchaseToStockQty * prod.unitContentQty;
-                    }
+                    // El stockGeneral siempre debe guardar la unidad de stock (nivel 2), no la unidad base (nivel 3).
+                    // La conversión a unidad base (receta) se hace con el factor de precisión en inventory.js.
 
                     const stockQtyReceived = qty * actualPurchaseToStockQty;
                     let costPerStockUnitUsd = 0;
