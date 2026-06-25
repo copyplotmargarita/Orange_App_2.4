@@ -15,6 +15,7 @@ const countryCodes = {
 export function renderEmployees(container) {
     let allEmployees = [];
     let employees = [];
+    let currentSearchQuery = '';
 
     async function loadEmployees() {
         container.innerHTML = '<div style="padding: 2rem; text-align: center;">Cargando empleados...</div>';
@@ -35,20 +36,21 @@ export function renderEmployees(container) {
         }
     }
 
-    function renderList() {
-        let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👤 Empleados</h2>
-                <button class="btn btn-primary" id="addEmployeeBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Empleado</button>
-            </div>
-            <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
-        `;
-        
-        if (employees.length === 0) {
-            html += `<p class="text-muted" style="grid-column: 1 / -1;">No hay empleados registrados activos.</p>`;
+    function renderGrid() {
+        const listGrid = container.querySelector('#employeeGrid');
+        if (!listGrid) return;
+
+        const filteredEmployees = employees.filter(e => 
+            (e.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || 
+            (e.role || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
+            (e.documentId || '').toLowerCase().includes(currentSearchQuery.toLowerCase())
+        );
+
+        let html = '';
+        if (filteredEmployees.length === 0) {
+            html = `<p class="text-muted" style="grid-column: 1 / -1;">No hay empleados registrados activos o no coinciden con la búsqueda.</p>`;
         } else {
-            employees.forEach(emp => {
+            filteredEmployees.forEach(emp => {
                 const statusColor = emp.status === 'ACTIVO' ? 'var(--success)' : (emp.status === 'INACTIVO' ? 'var(--danger)' : 'var(--warning)');
                 html += `
                     <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--primary);">
@@ -59,8 +61,38 @@ export function renderEmployees(container) {
                 `;
             });
         }
-        html += `</div>`;
+        listGrid.innerHTML = html;
+        
+        listGrid.querySelectorAll('.employee-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const emp = employees.find(e => e.id === card.dataset.id);
+                if(emp) renderDetail(emp);
+            });
+        });
+    }
+
+    function renderList() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👤 Empleados</h2>
+                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+                    <input type="text" id="searchEmployeeInput" class="form-control" placeholder="🔍 Buscar empleado..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    <button class="btn btn-primary" id="addEmployeeBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Empleado</button>
+                </div>
+            </div>
+            <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
+            </div>
+        `;
         container.innerHTML = html;
+
+        renderGrid();
+
+        const searchInput = container.querySelector('#searchEmployeeInput');
+        searchInput.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value;
+            renderGrid();
+        });
 
         container.querySelector('#addEmployeeBtn').addEventListener('click', renderForm);
         
@@ -76,17 +108,6 @@ export function renderEmployees(container) {
                     }
                 } else {
                     window.location.hash = '#dashboard';
-                }
-            });
-        }
-        
-        const listGrid = container.querySelector('#employeeGrid');
-        if (listGrid) {
-            listGrid.addEventListener('click', async (e) => {
-                const card = e.target.closest('.employee-card');
-                if (card) {
-                    const emp = employees.find(e => e.id === card.dataset.id);
-                    if(emp) renderDetail(emp);
                 }
             });
         }

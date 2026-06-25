@@ -157,17 +157,17 @@ export function renderPurchases(container) {
                 <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🧾 Cuentas por Pagar</h2>
                 <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                    <select id="filterType" class="form-control" style="width: 190px; height: 42px; font-size: 0.85rem; border-radius: 10px;">
+                    <select id="filterType" class="form-control" style="width: auto; max-width: 250px; height: 42px; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
                         <option value="TODOS" ${currentFilterType === 'TODOS' ? 'selected' : ''}>Todas las Compras</option>
                         <option value="PRODUCTO" ${currentFilterType === 'PRODUCTO' ? 'selected' : ''}>Insumos / Productos</option>
                         <option value="EQUIPO_UTENSILIO" ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'selected' : ''}>Equipos</option>
                         <option value="GASTO_SERVICIO" ${currentFilterType === 'GASTO_SERVICIO' ? 'selected' : ''}>Gastos y Servicios</option>
                     </select>
-                    <select id="filterSupplier" class="form-control" style="width: 190px; height: 42px; font-size: 0.85rem; border-radius: 10px;">
+                    <select id="filterSupplier" class="form-control" style="width: auto; max-width: 250px; height: 42px; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
                         <option value="">Todos los Proveedores</option>
                         ${suppliers.map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                     </select>
-                    <select id="filterStatus" class="form-control" style="width: 190px; height: 42px; font-size: 0.85rem; border-radius: 10px;">
+                    <select id="filterStatus" class="form-control" style="width: auto; max-width: 250px; height: 42px; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
                         <option value="">Todos los Estados</option>
                         <option value="CREDITO" ${currentFilterStatus === 'CREDITO' ? 'selected' : ''}>A CRÉDITO</option>
                         <option value="ABONO" ${currentFilterStatus === 'ABONO' ? 'selected' : ''}>ABONO</option>
@@ -267,7 +267,8 @@ export function renderPurchases(container) {
                 <p style="color: var(--text-muted); font-size: 1.1rem;">No hay registros que coincidan con los filtros.</p>
             </div>`;
         } else {
-            html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; margin-bottom: 2rem;">`;
+            html += `<div style="max-height: 240px; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 2rem;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">`;
             
             activeEntities.forEach(sup => {
                 html += `
@@ -279,7 +280,8 @@ export function renderPurchases(container) {
                 `;
             });
 
-            html += `</div>`;
+            html += `   </div>
+                     </div>`;
         }
 
         // Tabla de Historial de Compras
@@ -293,9 +295,9 @@ export function renderPurchases(container) {
                     <input type="date" id="filterEndDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterEndDate}">
                 </div>
             </div>
-            <div class="card" style="padding: 0; overflow-x: auto;">
+            <div class="card" style="padding: 0; overflow-x: auto; max-height: 400px; overflow-y: auto;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-                    <thead>
+                    <thead style="position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                         <tr style="background-color: var(--background); border-bottom: 1px solid var(--border);">
                             <th style="padding: 1rem;">Fecha</th>
                             <th style="padding: 1rem;">Días</th>

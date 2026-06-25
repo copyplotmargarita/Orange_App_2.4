@@ -13,20 +13,22 @@ export async function renderReceivables(container) {
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
 
     container.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-            <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-            <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📋 Cuentas por Cobrar</h2>
-            
-            <div style="position: relative; width: 300px; margin-left: auto;" class="flex-stack-mobile">
-                <input type="text" id="searchClientInput" placeholder="🔍 Buscar cliente..." style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #ffffff; width: 100%; box-sizing: border-box; font-size: 14px;">
+        <div id="receivablesTopSticky" style="position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📋 Cuentas por Cobrar</h2>
+                
+                <div style="position: relative; width: 300px; margin-left: auto;" class="flex-stack-mobile">
+                    <input type="text" id="searchClientInput" placeholder="🔍 Buscar cliente..." style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #ffffff; width: 100%; box-sizing: border-box; font-size: 14px;">
+                </div>
             </div>
+            
+            <div id="receivables-metrics"></div>
         </div>
         
-        <div id="receivables-metrics"></div>
-        
-        <div class="card">
+        <div class="card" style="padding:0;overflow:visible;border-radius:12px;">
             <div id="receivables-content">
-                <p>Cargando datos...</p>
+                <p style="padding: 1rem;">Cargando datos...</p>
             </div>
         </div>
         
@@ -195,15 +197,15 @@ export async function renderReceivables(container) {
 
         // Renderizar Tabla de Clientes
         contentDiv.innerHTML = `
-            <table class="premium-table" id="clientsTable">
+            <table class="premium-table" id="clientsTable" style="margin-bottom:0;">
                 <thead>
                     <tr>
-                        <th>Cliente</th>
-                        <th style="text-align: center;">Facturas</th>
-                        <th style="text-align: right;">Deuda ($)</th>
-                        <th style="text-align: right;">Deuda (Bs)</th>
-                        <th style="text-align: center;">F. Más Antigua</th>
-                        <th style="text-align: center;">Última Compra</th>
+                        <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Cliente</th>
+                        <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Facturas</th>
+                        <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Deuda ($)</th>
+                        <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Deuda (Bs)</th>
+                        <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">F. Más Antigua</th>
+                        <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Última Compra</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -220,6 +222,18 @@ export async function renderReceivables(container) {
                 </tbody>
             </table>
         `;
+
+        // Init ResizeObserver for sticky header
+        const topSticky = container.querySelector('#receivablesTopSticky');
+        if (topSticky) {
+            const updateSticky = () => {
+                const h = topSticky.offsetHeight - 12;
+                container.querySelectorAll('.sticky-th').forEach(th => th.style.top = h + 'px');
+            };
+            const ro = new ResizeObserver(updateSticky);
+            ro.observe(topSticky);
+            setTimeout(updateSticky, 50);
+        }
 
         // Lógica del Buscador
         const searchInput = container.querySelector('#searchClientInput');
@@ -303,15 +317,15 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
     }
 
     container.innerHTML = `
-        <table class="premium-table">
+        <table class="premium-table" style="margin-bottom:0;">
             <thead>
                 <tr>
-                    <th>Correlativo</th>
-                    <th>Fecha</th>
-                    <th style="text-align: right;">Monto ($)</th>
-                    <th style="text-align: right;">Monto (Bs)</th>
-                    <th style="text-align: center;">Estado</th>
-                    <th style="text-align: center;">Acción</th>
+                    <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Correlativo</th>
+                    <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Fecha</th>
+                    <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto ($)</th>
+                    <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto (Bs)</th>
+                    <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Estado</th>
+                    <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acción</th>
                 </tr>
             </thead>
             <tbody>
@@ -334,6 +348,15 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
     `;
 
 
+
+    // Update sticky headers for detail view
+    setTimeout(() => {
+        const topSticky = document.querySelector('#receivablesTopSticky');
+        if (topSticky) {
+            const h = topSticky.offsetHeight - 12;
+            container.querySelectorAll('.sticky-th').forEach(th => th.style.top = h + 'px');
+        }
+    }, 50);
 
     // Add listeners for sale rows (click to view detail)
     container.querySelectorAll('.sale-row').forEach(row => {

@@ -7,6 +7,7 @@ export function renderProducts(container) {
     let suppliers = [];
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
     const role = localStorage.getItem('userRole');
+    let currentSearchQuery = '';
 
     async function loadData() {
         container.innerHTML = '<div style="padding: 2rem; text-align: center;">Cargando inventario...</div>';
@@ -57,20 +58,20 @@ export function renderProducts(container) {
         }
     }
 
-    function renderList() {
-        let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
-                ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>` : ''}
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem;">
-        `;
-        
-        if (products.length === 0) {
-            html += `<p class="text-muted" style="grid-column: 1 / -1;">No hay productos registrados aún.</p>`;
+    function renderGrid() {
+        const gridContainer = container.querySelector('#productsGrid');
+        if (!gridContainer) return;
+
+        const filteredProducts = products.filter(p => 
+            (p.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || 
+            (p.barcode || '').includes(currentSearchQuery)
+        );
+
+        let html = '';
+        if (filteredProducts.length === 0) {
+            html = `<p class="text-muted" style="grid-column: 1 / -1;">No hay productos registrados aún o no coinciden con la búsqueda.</p>`;
         } else {
-            products.forEach(prod => {
+            filteredProducts.forEach(prod => {
                 let stockBadge = '';
                 const stock = prod.stockGeneral ?? prod.stock ?? 0;
                 const bcvRateLocal = parseFloat(localStorage.getItem('bcvRate')) || 1;
@@ -110,45 +111,9 @@ export function renderProducts(container) {
                 `;
             });
         }
-        html += `</div>`;
-        
-        html += `
-            <!-- Modal Eliminar Producto -->
-            <div id="deleteProductModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;">
-                <div class="card" style="width: 90%; max-width: 400px; padding: 1.5rem; text-align: center; background: var(--surface);">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🗑️</div>
-                    <h3 style="margin-bottom: 0.5rem; font-size: 1.2rem; font-weight: 800;">¿Eliminar Producto?</h3>
-                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">¿Eliminar permanentemente "<span id="deleteProdName"></span>"?</p>
-                    <div style="display: flex; gap: 0.75rem;">
-                        <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem;">Cancelar</button>
-                        <button type="button" class="btn btn-primary" id="confirmDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--danger); border-color: var(--danger); font-weight: 700;">Eliminar</button>
-                    </div>
-                </div>
-            </div>
-        `;
+        gridContainer.innerHTML = html;
 
-        container.innerHTML = html;
-
-        const addBtn = container.querySelector('#addProductBtn');
-        if (addBtn) addBtn.addEventListener('click', () => renderForm());
-        
-        const backBtn = container.querySelector('#backToDashboardBtn');
-        if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                const navHome = document.getElementById('navHome');
-                if (navHome) {
-                    navHome.click();
-                    const toggleIcon = document.getElementById('toggleIcon');
-                    if (toggleIcon && toggleIcon.innerText === '▶') {
-                        document.getElementById('sidebarToggle')?.click();
-                    }
-                } else {
-                    window.location.hash = '#dashboard';
-                }
-            });
-        }
-        
-        container.querySelectorAll('.delete-product-btn').forEach(btn => {
+        gridContainer.querySelectorAll('.delete-product-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
@@ -169,6 +134,9 @@ export function renderProducts(container) {
                         const businessId = localStorage.getItem('businessId');
                         await deleteDoc(doc(db, "businesses", businessId, "products", id));
                         showNotification("Producto eliminado", "success");
+                        // We must call the global loadData if it was accessible, 
+                        // or just filter the array and re-render. 
+                        // Wait, loadData is not accessible here since it's defined inside renderProducts. Oh, it is!
                         loadData();
                     } catch (error) {
                         console.error("Error al eliminar:", error);
@@ -182,7 +150,7 @@ export function renderProducts(container) {
             });
         });
 
-        container.querySelectorAll('.product-card').forEach(card => {
+        gridContainer.querySelectorAll('.product-card').forEach(card => {
             if (role !== 'employee') {
                 card.addEventListener('click', () => {
                     const prod = products.find(p => p.id === card.dataset.id);
@@ -192,6 +160,63 @@ export function renderProducts(container) {
             card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
             card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
         });
+    }
+
+    function renderList() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
+                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+                    <input type="text" id="searchProductInput" class="form-control" placeholder="🔍 Buscar producto..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>` : ''}
+                </div>
+            </div>
+            <div id="productsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem;">
+            </div>
+            
+            <!-- Modal Eliminar Producto -->
+            <div id="deleteProductModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;">
+                <div class="card" style="width: 90%; max-width: 400px; padding: 1.5rem; text-align: center; background: var(--surface);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🗑️</div>
+                    <h3 style="margin-bottom: 0.5rem; font-size: 1.2rem; font-weight: 800;">¿Eliminar Producto?</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">¿Eliminar permanentemente "<span id="deleteProdName"></span>"?</p>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem;">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="confirmDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--danger); border-color: var(--danger); font-weight: 700;">Eliminar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        renderGrid();
+
+        const searchInput = container.querySelector('#searchProductInput');
+        searchInput.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value;
+            renderGrid();
+        });
+
+        const addBtn = container.querySelector('#addProductBtn');
+        if (addBtn) addBtn.addEventListener('click', () => renderForm());
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
     }
 
     function renderForm(editProduct = null) {
