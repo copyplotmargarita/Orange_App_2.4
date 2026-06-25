@@ -8,6 +8,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
     let marker = null;
     let selectedLat = 10.992; 
     let selectedLng = -63.805;
+    let currentSearchQuery = '';
 
     async function loadClients() {
         container.innerHTML = '<div style="padding: 2rem; text-align: center;">Cargando clientes...</div>';
@@ -17,6 +18,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
             const q = query(collection(db, "businesses", businessId, "clients"), orderBy("createdAt", "desc"));
             const snapshot = await getDocs(q);
             clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            clients.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
             renderList();
         } catch (error) {
             console.error("Error cargando clientes:", error);
@@ -24,20 +26,21 @@ export function renderClients(container, onFinish = null, initialName = '') {
         }
     }
 
-    function renderList() {
-        let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👥 Cartera de Clientes</h2>
-                <button class="btn btn-primary" id="addClientBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Cliente</button>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
-        `;
-        
-        if (clients.length === 0) {
-            html += `<p class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border-radius: var(--radius-lg); border: 2px dashed var(--border);">No hay clientes registrados aún.</p>`;
+    function renderGrid() {
+        const gridContainer = container.querySelector('#clientsGrid');
+        if (!gridContainer) return;
+
+        const filteredClients = clients.filter(c => 
+            (c.fullName || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || 
+            (c.phone || '').includes(currentSearchQuery) || 
+            (c.docNumber || '').includes(currentSearchQuery)
+        );
+
+        let html = '';
+        if (filteredClients.length === 0) {
+            html = `<p class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border-radius: var(--radius-lg); border: 2px dashed var(--border);">No se encontraron clientes.</p>`;
         } else {
-            clients.forEach(client => {
+            filteredClients.forEach(client => {
                 html += `
                     <div class="card client-card" data-id="${client.id}" style="cursor: pointer; border-left: 4px solid var(--primary); padding: 1rem;">
                         <div style="margin-bottom: 0.75rem;">
@@ -51,8 +54,38 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 `;
             });
         }
-        html += `</div>`;
+        gridContainer.innerHTML = html;
+
+        gridContainer.querySelectorAll('.client-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const client = clients.find(c => c.id === card.dataset.id);
+                if (client) renderDetail(client);
+            });
+        });
+    }
+
+    function renderList() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👥 Cartera de Clientes</h2>
+                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+                    <input type="text" id="searchClientInput" class="form-control" placeholder="🔍 Buscar cliente..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    <button class="btn btn-primary" id="addClientBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Cliente</button>
+                </div>
+            </div>
+            <div id="clientsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
+            </div>
+        `;
         container.innerHTML = html;
+
+        renderGrid();
+
+        const searchInput = container.querySelector('#searchClientInput');
+        searchInput.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value;
+            renderGrid();
+        });
 
         container.querySelector('#addClientBtn').addEventListener('click', () => renderForm());
         
@@ -78,13 +111,6 @@ export function renderClients(container, onFinish = null, initialName = '') {
             container.prepend(backHeader);
             container.querySelector('#abortRedirectBtn').onclick = () => onFinish(null);
         }
-        
-        container.querySelectorAll('.client-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const client = clients.find(c => c.id === card.dataset.id);
-                if (client) renderDetail(client);
-            });
-        });
     }
 
     function renderForm() {
@@ -112,10 +138,10 @@ export function renderClients(container, onFinish = null, initialName = '') {
                             <label>🪪 Documento (Cédula o RIF)</label>
                             <div style="display: flex; gap: 0;">
                                 <select id="docType" class="form-control" style="width: 80px; border-radius: var(--radius-md) 0 0 var(--radius-md); border-right: none; height: 40px;" required>
+                                    <option value="V-" selected>V-</option>
                                     <option value="E-">E-</option>
                                     <option value="G-">G-</option>
                                     <option value="J-">J-</option>
-                                    <option value="V-">V-</option>
                                 </select>
                                 <input type="text" id="docNumber" class="form-control" style="border-radius: 0 var(--radius-md) var(--radius-md) 0; height: 40px;" placeholder="12345678" required pattern="[0-9]+" title="Solo números">
                             </div>
@@ -123,7 +149,8 @@ export function renderClients(container, onFinish = null, initialName = '') {
 
                         <div class="form-group">
                             <label>📧 Correo Electrónico</label>
-                            <input type="email" id="clientEmail" class="form-control" placeholder="usuario@correo.com" style="height: 40px;">
+                            <input type="email" id="clientEmail" class="form-control" placeholder="usuario@correo.com" style="height: 40px; text-transform: lowercase;" list="emailSuggestions">
+                            <datalist id="emailSuggestions"></datalist>
                         </div>
 
                         <div class="form-group">
@@ -209,7 +236,33 @@ export function renderClients(container, onFinish = null, initialName = '') {
         });
 
         if (initialName) {
-            container.querySelector('#clientName').value = initialName;
+            const trimmed = initialName.trim();
+            const digitsOnly = trimmed.replace(/[-.\s]/g, '');
+            if (/^\d+$/.test(digitsOnly) && digitsOnly.length > 0) {
+                container.querySelector('#docNumber').value = digitsOnly;
+            } else {
+                container.querySelector('#clientName').value = initialName;
+            }
+        }
+
+        const clientEmailInput = container.querySelector('#clientEmail');
+        const emailSuggestions = container.querySelector('#emailSuggestions');
+        const popularDomains = ['@gmail.com', '@hotmail.com', '@yahoo.com', '@outlook.com'];
+
+        if (clientEmailInput && emailSuggestions) {
+            clientEmailInput.addEventListener('input', function() {
+                this.value = this.value.toLowerCase();
+                const val = this.value;
+                if (val.includes('@')) {
+                    const [user, domainQuery] = val.split('@');
+                    emailSuggestions.innerHTML = popularDomains
+                        .filter(d => d.includes(domainQuery))
+                        .map(d => `<option value="${user}${d}">`)
+                        .join('');
+                } else {
+                    emailSuggestions.innerHTML = '';
+                }
+            });
         }
 
         // Inicializar Intl Tel Input (Mismo patrón que en Employees)
@@ -354,7 +407,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
             const docNum = container.querySelector('#docNumber').value.trim();
             const documentId = `${docType}${docNum}`; // Ej: V-14789652
             
-            const email = container.querySelector('#clientEmail').value.trim();
+            const email = container.querySelector('#clientEmail').value.trim().toLowerCase();
             
             // Obtiene el número en formato E.164 (Ej. +584241234567)
             const fullPhone = iti.getNumber();
@@ -491,7 +544,8 @@ export function renderClients(container, onFinish = null, initialName = '') {
                             </div>
                             <div class="form-group">
                                 <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">📧 Correo de Contacto</label>
-                                <input type="email" id="editEmail" class="form-control" value="${client.email || ''}" placeholder="Sin correo registrado" style="height: 40px; font-size: 0.85rem;">
+                                <input type="email" id="editEmail" class="form-control" value="${client.email || ''}" placeholder="Sin correo registrado" style="height: 40px; font-size: 0.85rem; text-transform: lowercase;" list="editEmailSuggestions">
+                                <datalist id="editEmailSuggestions"></datalist>
                             </div>
                             <div class="form-group">
                                 <label style="margin-bottom: 0.2rem; font-size: 0.65rem;">🏠 Dirección de Entrega</label>
@@ -622,6 +676,25 @@ export function renderClients(container, onFinish = null, initialName = '') {
             utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
         });
 
+        const editEmailInput = container.querySelector('#editEmail');
+        const editEmailSuggestions = container.querySelector('#editEmailSuggestions');
+        if (editEmailInput && editEmailSuggestions) {
+            const popularDomainsEdit = ['@gmail.com', '@hotmail.com', '@yahoo.com', '@outlook.com'];
+            editEmailInput.addEventListener('input', function() {
+                this.value = this.value.toLowerCase();
+                const val = this.value;
+                if (val.includes('@')) {
+                    const [user, domainQuery] = val.split('@');
+                    editEmailSuggestions.innerHTML = popularDomainsEdit
+                        .filter(d => d.includes(domainQuery))
+                        .map(d => `<option value="${user}${d}">`)
+                        .join('');
+                } else {
+                    editEmailSuggestions.innerHTML = '';
+                }
+            });
+        }
+
         // Lógica de Mapa Edición
         const editDelivery = container.querySelector('#editDelivery');
         const editMapContainer = container.querySelector('#editMapContainer');
@@ -688,7 +761,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
             btn.textContent = 'Guardando...';
 
             const phone = itiEdit.getNumber();
-            const email = container.querySelector('#editEmail').value.trim();
+            const email = container.querySelector('#editEmail').value.trim().toLowerCase();
             const address = toTitleCase(container.querySelector('#editAddress').value.trim());
             const needsDelivery = editDelivery.value === 'SI';
 

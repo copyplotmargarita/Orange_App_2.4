@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic
 
 export function renderStores(container) {
     let stores = [];
+    let currentSearchQuery = '';
 
     async function loadStores() {
         container.innerHTML = '<div style="padding: 2rem; text-align: center;">Cargando tiendas...</div>';
@@ -20,20 +21,20 @@ export function renderStores(container) {
         }
     }
 
-    function renderList() {
-        let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏪 Tiendas y Sucursales</h2>
-                <button class="btn btn-primary" id="addStoreBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Nueva Tienda</button>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
-        `;
-        
-        if (stores.length === 0) {
-            html += `<p class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border-radius: var(--radius-lg); border: 2px dashed var(--border);">No hay tiendas registradas aún.</p>`;
+    function renderGrid() {
+        const gridContainer = container.querySelector('#storesGrid');
+        if (!gridContainer) return;
+
+        const filteredStores = stores.filter(s => 
+            (s.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || 
+            (s.address || '').toLowerCase().includes(currentSearchQuery.toLowerCase())
+        );
+
+        let html = '';
+        if (filteredStores.length === 0) {
+            html = `<p class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--surface); border-radius: var(--radius-lg); border: 2px dashed var(--border);">No hay tiendas registradas aún o no coinciden con la búsqueda.</p>`;
         } else {
-            stores.forEach(store => {
+            filteredStores.forEach(store => {
                 html += `
                     <div class="card store-card" data-id="${store.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--success);">
                         <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${store.name}</h3>
@@ -42,8 +43,38 @@ export function renderStores(container) {
                 `;
             });
         }
-        html += `</div>`;
+        gridContainer.innerHTML = html;
+        
+        gridContainer.querySelectorAll('.store-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const store = stores.find(s => s.id === card.dataset.id);
+                if(store) renderDetail(store);
+            });
+        });
+    }
+
+    function renderList() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏪 Tiendas y Sucursales</h2>
+                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+                    <input type="text" id="searchStoreInput" class="form-control" placeholder="🔍 Buscar tienda..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    <button class="btn btn-primary" id="addStoreBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Nueva Tienda</button>
+                </div>
+            </div>
+            <div id="storesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
+            </div>
+        `;
         container.innerHTML = html;
+
+        renderGrid();
+
+        const searchInput = container.querySelector('#searchStoreInput');
+        searchInput.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value;
+            renderGrid();
+        });
 
         container.querySelector('#addStoreBtn').addEventListener('click', renderForm);
         
@@ -62,13 +93,6 @@ export function renderStores(container) {
                 }
             });
         }
-        
-        container.querySelectorAll('.store-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const store = stores.find(s => s.id === card.dataset.id);
-                if(store) renderDetail(store);
-            });
-        });
     }
 
     function renderForm() {

@@ -11,6 +11,7 @@ export function renderInventory(container) {
     let currentAdjProduct = null;
     let selectedStoreId = '';
     let storeStocks = {}; // productId -> qty
+    let currentSearchQuery = '';
     const businessId = localStorage.getItem('businessId');
     const userRole = localStorage.getItem('userRole'); // 'admin' or 'employee'
     const fmt = (n) => parseFloat(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -56,29 +57,34 @@ export function renderInventory(container) {
 
     function renderShell() {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📦 Inventarios</h2>
-            </div>
-            <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center;">
-                <button class="tab-btn btn ${activeTab==='general'?'btn-primary':'btn-outline'}" data-tab="general" style="width:auto;">Almacén General</button>
-                <button class="tab-btn btn ${activeTab==='produccion'?'btn-primary':'btn-outline'}" data-tab="produccion" style="width:auto;">Almacén Producción</button>
-                
-                <button class="tab-btn btn ${activeTab==='transferir'?'btn-primary':'btn-outline'}" data-tab="transferir" style="width:auto;">→ Transferir a Producción</button>
-                
-                <button class="tab-btn btn ${activeTab==='cargar'?'btn-primary':'btn-outline'}" data-tab="cargar" style="width:auto;">⚙️ Cargar Producción</button>
-                <button class="tab-btn btn ${activeTab==='tiendas'?'btn-primary':'btn-outline'}" data-tab="tiendas" style="width:auto;">🚚 Mover a Tiendas</button>
-                
-                ${userRole === 'admin' ? `
-                    <select id="storeSelector" class="btn btn-outline" style="width:auto; cursor:pointer; color:${activeTab==='store'?'var(--primary)':'var(--text-main)'}; border-color:${activeTab==='store'?'var(--primary)':'var(--border)'};">
-                        <option value="">🏪 Seleccionar Tienda...</option>
-                        ${stores.map(s => `<option value="${s.id}" ${selectedStoreId===s.id?'selected':''}>Tienda: ${s.name}</option>`).join('')}
-                    </select>
-                ` : ''}
+            <div id="inventoryTopSticky" style="position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📦 Inventarios</h2>
+                    <div style="margin-left: auto; display: flex; align-items: center;" class="flex-stack-mobile">
+                        <input type="text" id="searchInventoryInput" class="form-control" placeholder="🔍 Buscar producto..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                    <button class="tab-btn btn ${activeTab==='general'?'btn-primary':'btn-outline'}" data-tab="general" style="width:auto;">Almacén General</button>
+                    <button class="tab-btn btn ${activeTab==='produccion'?'btn-primary':'btn-outline'}" data-tab="produccion" style="width:auto;">Almacén Producción</button>
+                    
+                    <button class="tab-btn btn ${activeTab==='transferir'?'btn-primary':'btn-outline'}" data-tab="transferir" style="width:auto;">→ Transferir a Producción</button>
+                    
+                    <button class="tab-btn btn ${activeTab==='cargar'?'btn-primary':'btn-outline'}" data-tab="cargar" style="width:auto;">⚙️ Cargar Producción</button>
+                    <button class="tab-btn btn ${activeTab==='tiendas'?'btn-primary':'btn-outline'}" data-tab="tiendas" style="width:auto;">🚚 Mover a Tiendas</button>
+                    
+                    ${userRole === 'admin' ? `
+                        <select id="storeSelector" class="btn btn-outline" style="width:auto; cursor:pointer; color:${activeTab==='store'?'var(--primary)':'var(--text-main)'}; border-color:${activeTab==='store'?'var(--primary)':'var(--border)'};">
+                            <option value="">🏪 Seleccionar Tienda...</option>
+                            ${stores.map(s => `<option value="${s.id}" ${selectedStoreId===s.id?'selected':''}>Tienda: ${s.name}</option>`).join('')}
+                        </select>
+                    ` : ''}
 
-                <button class="tab-btn btn ${activeTab==='historial'?'btn-primary':'btn-outline'}" data-tab="historial" style="width:auto;">Historial</button>
+                    <button class="tab-btn btn ${activeTab==='historial'?'btn-primary':'btn-outline'}" data-tab="historial" style="width:auto;">Historial</button>
+                </div>
             </div>
-            <div id="tabContent"></div>
+            <div id="tabContent" style="margin-top: 1.5rem;"></div>
             <style>
                 /* Ocultar flechitas en todos los inputs numéricos de este módulo */
                 input[type=number]::-webkit-inner-spin-button,
@@ -154,9 +160,29 @@ export function renderInventory(container) {
         container.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 activeTab = btn.dataset.tab;
+                currentSearchQuery = '';
                 renderShell();
             });
         });
+
+        const searchInput = container.querySelector('#searchInventoryInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                currentSearchQuery = e.target.value;
+                const tabContent = container.querySelector('#tabContent');
+                if (activeTab === 'general') renderGeneral(tabContent);
+                else if (activeTab === 'produccion') renderProduccion(tabContent);
+                else if (activeTab === 'store') renderStoreInventory(tabContent, selectedStoreId);
+                
+                setTimeout(() => {
+                    const topSticky = container.querySelector('#inventoryTopSticky');
+                    if (topSticky) {
+                        const h = topSticky.offsetHeight - 12;
+                        container.querySelectorAll('.sticky-th').forEach(th => th.style.top = h + 'px');
+                    }
+                }, 50);
+            });
+        }
 
         container.querySelector('#adjCancelBtn').addEventListener('click', () => {
             container.querySelector('#adjustmentModal').style.display = 'none';
@@ -171,6 +197,19 @@ export function renderInventory(container) {
         else if (activeTab === 'store') renderStoreInventory(tabContent, selectedStoreId);
         else if (activeTab === 'transferir') renderTransferir(tabContent);
         else renderHistorial(tabContent);
+
+        const topSticky = container.querySelector('#inventoryTopSticky');
+        if (topSticky) {
+            const updateSticky = () => {
+                const h = topSticky.offsetHeight - 12;
+                container.querySelectorAll('.sticky-th').forEach(th => {
+                    th.style.top = h + 'px';
+                });
+            };
+            const ro = new ResizeObserver(updateSticky);
+            ro.observe(topSticky);
+            setTimeout(updateSticky, 50);
+        }
     }
 
     async function loadStoreData(storeId) {
@@ -188,7 +227,7 @@ export function renderInventory(container) {
     // ─── TAB TIENDA ESPECÍFICA (Admin Only) ───────────────────────────
     function renderStoreInventory(el, storeId) {
         const store = stores.find(s => s.id === storeId);
-        const physicals = products.filter(p => p.category !== 'SERVICIOS');
+        const physicals = products.filter(p => p.category !== 'SERVICIOS' && ((p.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || (p.barcode || '').includes(currentSearchQuery)));
         let rows = physicals.map(p => {
             const stock = storeStocks[p.id] || 0;
             const minStock = p.minStock || 0;
@@ -213,14 +252,14 @@ export function renderInventory(container) {
                 <h4 style="margin:0;color:var(--primary);">🏪 Inventario: ${store?.name || 'Tienda'}</h4>
                 <p class="text-muted" style="margin:0;">${physicals.length} productos</p>
             </div>
-            <div class="card" style="padding:0;overflow:hidden;">
+            <div class="card" style="padding:0;overflow:visible;border-radius:12px;">
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-                    <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
-                        <th style="padding:0.75rem;">Producto</th>
-                        <th style="padding:0.75rem; text-align: center;">Categoría</th>
-                        <th style="padding:0.75rem; text-align: center;">Stock Tienda</th>
-                        <th style="padding:0.75rem; text-align: center;">Unidad</th>
-                        <th style="padding:0.75rem; text-align: right;">Acciones</th>
+                    <thead><tr>
+                        <th class="sticky-th" style="padding:0.75rem; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Producto</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Categoría</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Stock Tienda</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Unidad</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acciones</th>
                     </tr></thead>
                     <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
                 </table>
@@ -239,7 +278,7 @@ export function renderInventory(container) {
 
     // ─── TAB 1: ALMACÉN GENERAL ────────────────────────────────────────
     function renderGeneral(el) {
-        const physicals = products.filter(p => p.category !== 'SERVICIOS');
+        const physicals = products.filter(p => p.category !== 'SERVICIOS' && ((p.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || (p.barcode || '').includes(currentSearchQuery)));
         let rows = physicals.map(p => {
             const stock = p.stockGeneral ?? p.stock ?? 0;
             const minStock = p.minStock || 0;
@@ -263,14 +302,14 @@ export function renderInventory(container) {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                 <p class="text-muted" style="margin:0;">${physicals.length} productos</p>
             </div>
-            <div class="card" style="padding:0;overflow:hidden;">
+            <div class="card" style="padding:0;overflow:visible;border-radius:12px;">
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-                    <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
-                        <th style="padding:0.75rem;">Producto</th>
-                        <th style="padding:0.75rem; text-align: center;">Categoría</th>
-                        <th style="padding:0.75rem; text-align: center;">Stock General</th>
-                        <th style="padding:0.75rem; text-align: center;">Unidad</th>
-                        <th style="padding:0.75rem; text-align: right;">Acciones</th>
+                    <thead><tr>
+                        <th class="sticky-th" style="padding:0.75rem; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Producto</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Categoría</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Stock General</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Unidad</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acciones</th>
                     </tr></thead>
                     <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin productos registrados</td></tr>'}</tbody>
                 </table>
@@ -286,7 +325,7 @@ export function renderInventory(container) {
 
     // ─── TAB 2: ALMACÉN PRODUCCIÓN ─────────────────────────────────────
     function renderProduccion(el) {
-        const insumos = products.filter(p => p.category === 'INSUMO' || (p.category && p.category !== 'SERVICIOS' && p.category !== 'RECETA'));
+        const insumos = products.filter(p => (p.category === 'INSUMO' || (p.category && p.category !== 'SERVICIOS' && p.category !== 'RECETA')) && ((p.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || (p.barcode || '').includes(currentSearchQuery)));
         let rows = insumos.map(p => {
             const stock = p.stockProduccion ?? 0;
             const unit = p.recipeUnit || p.stockUnit || 'ud';
@@ -309,14 +348,14 @@ export function renderInventory(container) {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                 <p class="text-muted" style="margin:0;">${insumos.length} insumos</p>
             </div>
-            <div class="card" style="padding:0;overflow:hidden;">
+            <div class="card" style="padding:0;overflow:visible;border-radius:12px;">
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-                    <thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">
-                        <th style="padding:0.75rem;">Producto</th>
-                        <th style="padding:0.75rem; text-align: center;">Categoría</th>
-                        <th style="padding:0.75rem; text-align: center;">Stock Producción</th>
-                        <th style="padding:0.75rem; text-align: center;">Unidad</th>
-                        <th style="padding:0.75rem; text-align: right;">Acciones</th>
+                    <thead><tr>
+                        <th class="sticky-th" style="padding:0.75rem; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Producto</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Categoría</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Stock Producción</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Unidad</th>
+                        <th class="sticky-th" style="padding:0.75rem; text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acciones</th>
                     </tr></thead>
                     <tbody>${rows || '<tr><td colspan="5" style="padding:1rem;text-align:center;color:var(--text-muted);">Sin insumos registrados</td></tr>'}</tbody>
                 </table>

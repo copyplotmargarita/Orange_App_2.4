@@ -4,6 +4,7 @@ import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc } f
 
 export function renderSuppliers(container) {
     let suppliers = [];
+    let currentSearchQuery = '';
 
     async function loadSuppliers() {
         container.innerHTML = '<div style="padding: 2rem; text-align: center;">Cargando proveedores...</div>';
@@ -31,20 +32,20 @@ export function renderSuppliers(container) {
         }
     }
 
-    function renderList() {
-        let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--warning); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏭 Proveedores</h2>
-                <button class="btn btn-primary" id="addSupplierBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;">+ Crear Proveedor</button>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
-        `;
-        
-        if (suppliers.length === 0) {
-            html += `<p class="text-muted" style="grid-column: 1 / -1;">No hay proveedores registrados aún.</p>`;
+    function renderGrid() {
+        const gridContainer = container.querySelector('#suppliersGrid');
+        if (!gridContainer) return;
+
+        const filteredSuppliers = suppliers.filter(s => 
+            (s.name || '').toLowerCase().includes(currentSearchQuery.toLowerCase()) || 
+            (s.sellerName || '').toLowerCase().includes(currentSearchQuery.toLowerCase())
+        );
+
+        let html = '';
+        if (filteredSuppliers.length === 0) {
+            html = `<p class="text-muted" style="grid-column: 1 / -1;">No hay proveedores registrados aún o no coinciden con la búsqueda.</p>`;
         } else {
-            suppliers.forEach(supplier => {
+            filteredSuppliers.forEach(supplier => {
                 html += `
                     <div class="card supplier-card" data-id="${supplier.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--warning); position: relative;">
                         <button class="delete-supplier-btn" data-id="${supplier.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; background: transparent; border: none; cursor: pointer; font-size: 1.2rem; color: var(--danger); transition: transform 0.2s; z-index: 2;" title="Eliminar proveedor">
@@ -61,30 +62,11 @@ export function renderSuppliers(container) {
                 `;
             });
         }
-        html += `</div>`;
-        container.innerHTML = html;
+        gridContainer.innerHTML = html;
 
-        container.querySelector('#addSupplierBtn').addEventListener('click', renderForm);
-        
-        const backBtn = container.querySelector('#backToDashboardBtn');
-        if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                const navHome = document.getElementById('navHome');
-                if (navHome) {
-                    navHome.click();
-                    const toggleIcon = document.getElementById('toggleIcon');
-                    if (toggleIcon && toggleIcon.innerText === '▶') {
-                        document.getElementById('sidebarToggle')?.click();
-                    }
-                } else {
-                    window.location.hash = '#dashboard';
-                }
-            });
-        }
-        
-        container.querySelectorAll('.supplier-card').forEach(card => {
+        gridContainer.querySelectorAll('.supplier-card').forEach(card => {
             card.addEventListener('click', (e) => {
-                if (e.target.closest('.delete-supplier-btn')) return; // Ignore click if delete button is clicked
+                if (e.target.closest('.delete-supplier-btn')) return;
                 const supplier = suppliers.find(s => s.id === card.dataset.id);
                 if (supplier) renderDetail(supplier);
             });
@@ -92,11 +74,11 @@ export function renderSuppliers(container) {
             card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
         });
 
-        container.querySelectorAll('.delete-supplier-btn').forEach(btn => {
+        gridContainer.querySelectorAll('.delete-supplier-btn').forEach(btn => {
             btn.addEventListener('mouseover', () => btn.style.transform = 'scale(1.2)');
             btn.addEventListener('mouseout', () => btn.style.transform = 'scale(1)');
             btn.addEventListener('click', async (e) => {
-                e.stopPropagation(); // Prevenir abrir el detalle
+                e.stopPropagation();
                 const supplierId = btn.dataset.id;
                 const supplier = suppliers.find(s => s.id === supplierId);
                 
@@ -124,17 +106,59 @@ export function renderSuppliers(container) {
                 }
             });
         });
+    }
 
-        async function deleteSupplierDoc(id) {
-            try {
-                const businessId = localStorage.getItem('businessId');
-                await deleteDoc(doc(db, "businesses", businessId, "suppliers", id));
-                showNotification("Proveedor eliminado", "success");
-                loadSuppliers(); // Recargar la lista
-            } catch (error) {
-                console.error("Error al eliminar proveedor: ", error);
-                showNotification("Error al eliminar proveedor", "error");
-            }
+    async function deleteSupplierDoc(id) {
+        try {
+            const businessId = localStorage.getItem('businessId');
+            await deleteDoc(doc(db, "businesses", businessId, "suppliers", id));
+            showNotification("Proveedor eliminado", "success");
+            loadSuppliers(); // Wait, this calls loadSuppliers from the outer scope, which is fine!
+        } catch (error) {
+            console.error("Error al eliminar proveedor: ", error);
+            showNotification("Error al eliminar proveedor", "error");
+        }
+    }
+
+    function renderList() {
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--warning); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏭 Proveedores</h2>
+                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+                    <input type="text" id="searchSupplierInput" class="form-control" placeholder="🔍 Buscar proveedor..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    <button class="btn btn-primary" id="addSupplierBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Proveedor</button>
+                </div>
+            </div>
+            <div id="suppliersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
+            </div>
+        `;
+        container.innerHTML = html;
+
+        renderGrid();
+
+        const searchInput = container.querySelector('#searchSupplierInput');
+        searchInput.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value;
+            renderGrid();
+        });
+
+        container.querySelector('#addSupplierBtn').addEventListener('click', renderForm);
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
         }
     }
 
