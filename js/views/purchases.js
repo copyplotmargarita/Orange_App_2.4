@@ -157,17 +157,17 @@ export function renderPurchases(container) {
                 <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🧾 Cuentas por Pagar</h2>
                 <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                    <select id="filterType" class="form-control" style="width: auto; max-width: 250px; height: 42px; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
+                    <select id="filterType" class="form-control" style="width: auto; max-width: 250px; height: 42px; padding: 0 2rem 0 1rem; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
                         <option value="TODOS" ${currentFilterType === 'TODOS' ? 'selected' : ''}>Todas las Compras</option>
                         <option value="PRODUCTO" ${currentFilterType === 'PRODUCTO' ? 'selected' : ''}>Insumos / Productos</option>
                         <option value="EQUIPO_UTENSILIO" ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'selected' : ''}>Equipos</option>
                         <option value="GASTO_SERVICIO" ${currentFilterType === 'GASTO_SERVICIO' ? 'selected' : ''}>Gastos y Servicios</option>
                     </select>
-                    <select id="filterSupplier" class="form-control" style="width: auto; max-width: 250px; height: 42px; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
+                    <select id="filterSupplier" class="form-control" style="width: auto; max-width: 250px; height: 42px; padding: 0 2rem 0 1rem; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
                         <option value="">Todos los Proveedores</option>
                         ${suppliers.map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                     </select>
-                    <select id="filterStatus" class="form-control" style="width: auto; max-width: 250px; height: 42px; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
+                    <select id="filterStatus" class="form-control" style="width: auto; max-width: 250px; height: 42px; padding: 0 2rem 0 1rem; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
                         <option value="">Todos los Estados</option>
                         <option value="CREDITO" ${currentFilterStatus === 'CREDITO' ? 'selected' : ''}>A CRÉDITO</option>
                         <option value="ABONO" ${currentFilterStatus === 'ABONO' ? 'selected' : ''}>ABONO</option>

@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase, showNotification, formatDateToDDMMYYYY } from '../utils.js';
-import { doc, setDoc, getDocs, getDoc, updateDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, getDoc, updateDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { renderClients } from './clients.js';
 
 export function renderSales(container, preSelectedClient = null) {
@@ -16,6 +16,7 @@ export function renderSales(container, preSelectedClient = null) {
     }
     let activeMobileTab = 'products'; // 'products' or 'cart'
     let includeOldDebt = false;
+    let currentPausedSaleId = null;
 
     
     // Attempt to restore state if returning from client creation or history
@@ -154,7 +155,30 @@ export function renderSales(container, preSelectedClient = null) {
                 await loadPedidos(selectedPedidoDate);
             } catch(e) { throw new Error("sales: " + e.message); }
 
-            render();
+            if (window.openOrderRecovery) {
+                delete window.openOrderRecovery;
+                setTimeout(() => {
+                    historyFilter = 'pedidos';
+                    currentView = 'orders';
+                    render();
+                }, 100);
+            } else {
+                render();
+            }
+
+            // Listen for paused sales to toggle pulse animation
+            const pausedQuery = query(collection(db, "businesses", businessId, "paused_sales"));
+            const unsubscribePaused = onSnapshot(pausedQuery, (snap) => {
+                const btn = container.querySelector('#recoverSaleBtn');
+                if (btn) {
+                    if (!snap.empty) {
+                        btn.classList.add('pulse-recover-btn');
+                    } else {
+                        btn.classList.remove('pulse-recover-btn');
+                    }
+                }
+            });
+
         } catch (error) {
             console.error("Error cargando datos:", error);
             container.innerHTML = `<div class="text-danger">Error al cargar los datos. Detalle: ${error.message}</div>`;
@@ -497,7 +521,19 @@ export function renderSales(container, preSelectedClient = null) {
                 <!-- Right Sidebar (Cart) -->
                 <aside class="w-80 lg:w-[400px] xl:w-[450px] bg-surface-container-low border-l border-outline-variant flex flex-col h-full shadow-2xl z-40">
                     <div class="p-md border-b border-outline-variant">
-                        <h3 class="font-headline-md text-headline-md mb-md text-on-surface">Detalles de Venta</h3>
+                        <div class="flex justify-between items-center mb-md">
+                            <h3 class="font-headline-md text-headline-md text-on-surface m-0">Detalles de Venta</h3>
+                            <div class="flex gap-2">
+                                <button id="pauseSaleBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; gap: 0.4rem;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">pause</span>
+                                    <span>Pausar</span>
+                                </button>
+                                <button id="recoverSaleBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; gap: 0.4rem;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">folder_open</span>
+                                    <span>Recuperar</span>
+                                </button>
+                            </div>
+                        </div>
                     
                         <div class="grid grid-cols-2 gap-sm mb-md">
                             <div class="form-group">
@@ -714,6 +750,9 @@ export function renderSales(container, preSelectedClient = null) {
             }
             attachProductClickEvents();
         });
+
+        container.querySelector('#pauseSaleBtn')?.addEventListener('click', pauseCurrentSale);
+        container.querySelector('#recoverSaleBtn')?.addEventListener('click', showPausedSalesModal);
 
         container.querySelector('#saleType').addEventListener('change', (e) => { settings.type = e.target.value; render(); });
         container.querySelector('#saleTarget').addEventListener('change', (e) => { settings.target = e.target.value; render(); });
@@ -1432,6 +1471,185 @@ export function renderSales(container, preSelectedClient = null) {
         };
     }
 
+    async function pauseCurrentSale() {
+        if (cart.length === 0 && !selectedClient) {
+            showNotification('El carrito está vacío.', 'error');
+            return;
+        }
+        
+        const note = selectedClient ? `Venta a ${selectedClient.fullName || selectedClient.name}` : `Venta en espera (${cart.length} items)`;
+        
+        const pauseBtn = container.querySelector('#pauseSaleBtn');
+        if(pauseBtn) {
+            pauseBtn.disabled = true;
+            pauseBtn.innerHTML = '<span class="material-symbols-outlined spin" style="font-size: 18px;">autorenew</span>';
+        }
+        
+        try {
+            const businessId = localStorage.getItem('businessId');
+            const dataToSave = {
+                note,
+                cart,
+                selectedClient,
+                payments,
+                settings,
+                includeOldDebt,
+                updatedAt: serverTimestamp()
+            };
+
+            if (currentPausedSaleId) {
+                await updateDoc(doc(db, "businesses", businessId, "paused_sales", currentPausedSaleId), dataToSave);
+                showNotification('Venta pausada actualizada.', 'success');
+            } else {
+                dataToSave.createdAt = serverTimestamp();
+                await addDoc(collection(db, "businesses", businessId, "paused_sales"), dataToSave);
+                showNotification('Venta pausada correctamente.', 'success');
+            }
+            
+            cart = [];
+            payments = [];
+            selectedClient = null;
+            includeOldDebt = false;
+            currentPausedSaleId = null;
+            render();
+        } catch (err) {
+            console.error("Error pausing sale:", err);
+            showNotification("Error al pausar la venta.", "error");
+        } finally {
+            if(pauseBtn) {
+                pauseBtn.disabled = false;
+                pauseBtn.innerHTML = '<span class="material-symbols-outlined text-outline" style="font-size: 18px;">pause</span>';
+            }
+        }
+    }
+
+    async function showPausedSalesModal() {
+        const businessId = localStorage.getItem('businessId');
+        if (!businessId) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+        modal.style.zIndex = '5000';
+        modal.innerHTML = `
+            <div class="bg-surface rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" style="max-height: 90vh;">
+                <div class="p-lg border-b border-outline-variant flex justify-between items-center relative">
+                    <h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2 m-0"><span class="material-symbols-outlined text-primary">folder_open</span> Ventas Pausadas</h2>
+                    <button class="btn btn-icon absolute top-4 right-4 text-on-surface-variant hover:text-on-surface" id="closePausedSalesBtn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%;"><span class="material-symbols-outlined" style="font-size: 20px;">close</span></button>
+                </div>
+                <div class="p-lg overflow-y-auto flex-1 bg-surface-container-lowest" id="pausedSalesContainer">
+                    <div class="flex justify-center p-lg"><span class="material-symbols-outlined spin text-4xl text-primary">autorenew</span></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('#closePausedSalesBtn').addEventListener('click', () => modal.remove());
+
+        try {
+            const q = query(collection(db, "businesses", businessId, "paused_sales"), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+            const containerNode = modal.querySelector('#pausedSalesContainer');
+            
+            if (snap.empty) {
+                containerNode.innerHTML = '<div class="text-center p-lg text-outline">No hay ventas pausadas.</div>';
+                return;
+            }
+            
+            let html = '<div class="flex flex-col gap-sm">';
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                const total = data.cart.reduce((sum, item) => sum + ((item.price||0) * (item.qty||1)), 0);
+                const dateStr = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Fecha desconocida';
+                
+                html += `
+                    <div class="bg-surface border border-outline-variant rounded-xl p-md flex items-center justify-between hover:border-primary transition-colors">
+                        <div>
+                            <div class="font-title-md text-title-md text-on-surface font-bold">${data.note || 'Venta'}</div>
+                            <div class="text-body-sm text-outline mt-1">${(data.cart||[]).length} ítems • Total: $${total.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                            <div class="text-label-sm text-outline mt-1">${dateStr}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="btn btn-outline text-danger border-danger hover:bg-danger hover:text-white flex items-center justify-center p-2 rounded-lg recover-delete-btn" data-id="${docSnap.id}" title="Eliminar">
+                                <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
+                            </button>
+                            <button class="btn btn-primary recover-sale-btn" data-id="${docSnap.id}">
+                                Recuperar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            containerNode.innerHTML = html;
+
+            containerNode.querySelectorAll('.recover-sale-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-id');
+                    const docSnap = snap.docs.find(d => d.id === id);
+                    if (docSnap) {
+                        const data = docSnap.data();
+                        cart = data.cart || [];
+                        selectedClient = data.selectedClient || null;
+                        payments = data.payments || [];
+                        settings = data.settings || settings;
+                        includeOldDebt = data.includeOldDebt || false;
+                        currentPausedSaleId = id;
+                        render();
+                        modal.remove();
+                        showNotification('Venta recuperada.', 'success');
+                    }
+                });
+            });
+
+            containerNode.querySelectorAll('.recover-delete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = btn.getAttribute('data-id');
+                    const itemDiv = e.target.closest('.bg-surface');
+
+                    const confirmModal = document.createElement('div');
+                    confirmModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4';
+                    confirmModal.style.zIndex = '6000';
+                    confirmModal.innerHTML = `
+                        <div class="bg-surface rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                            <div class="p-lg border-b border-outline-variant">
+                                <h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2 m-0"><span class="material-symbols-outlined text-danger">warning</span> Eliminar Venta</h2>
+                            </div>
+                            <div class="p-lg text-body-md text-on-surface">
+                                ¿Estás seguro de eliminar esta venta pausada? Esta acción no se puede deshacer.
+                            </div>
+                            <div class="p-lg bg-surface-container-low flex justify-end gap-sm border-t border-outline-variant">
+                                <button class="btn btn-outline" id="cancelDeleteBtn">Cancelar</button>
+                                <button class="btn btn-primary" style="background-color: var(--danger); border-color: var(--danger);" id="confirmDeleteBtn">Eliminar</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(confirmModal);
+
+                    confirmModal.querySelector('#cancelDeleteBtn').addEventListener('click', () => confirmModal.remove());
+                    confirmModal.querySelector('#confirmDeleteBtn').addEventListener('click', async () => {
+                        confirmModal.remove();
+                        try {
+                            itemDiv.style.opacity = '0.5';
+                            await deleteDoc(doc(db, "businesses", businessId, "paused_sales", id));
+                            itemDiv.remove();
+                            if (containerNode.children[0].children.length === 0) {
+                                 containerNode.innerHTML = '<div class="text-center p-lg text-outline">No hay ventas pausadas.</div>';
+                            }
+                            showNotification("Venta pausada eliminada.", "success");
+                        } catch (err) {
+                            console.error(err);
+                            showNotification("Error al eliminar.", "error");
+                            itemDiv.style.opacity = '1';
+                        }
+                    });
+                });
+            });
+
+        } catch (err) {
+            console.error("Error loading paused sales:", err);
+            modal.querySelector('#pausedSalesContainer').innerHTML = '<div class="text-center text-danger p-lg">Error al cargar ventas.</div>';
+        }
+    }
+
     async function calculateClientDebt(clientId) {
         try {
             const q = query(collection(db, "businesses", businessId, "sales"), 
@@ -1710,6 +1928,15 @@ export function renderSales(container, preSelectedClient = null) {
                     const budgetRef = doc(db, "businesses", businessId, "sales", convertingBudgetId);
                     await updateDoc(budgetRef, { status: 'facturado', orderStatus: 'Facturado' });
                 }
+
+                if (currentPausedSaleId) {
+                    try {
+                        await deleteDoc(doc(db, "businesses", businessId, "paused_sales", currentPausedSaleId));
+                    } catch (e) {
+                        console.error("Error deleting paused sale after process:", e);
+                    }
+                }
+                currentPausedSaleId = null;
 
                 resetSettings();
                 convertingBudgetId = null;
