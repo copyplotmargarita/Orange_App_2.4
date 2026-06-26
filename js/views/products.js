@@ -97,8 +97,7 @@ export function renderProducts(container) {
                         </div>
                         <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest">
                             <div>
-                                <h4 class="text-body-sm font-semibold text-on-surface truncate leading-tight group-hover:text-primary transition-colors" title="${prod.name}">${prod.name}</h4>
-                                <p class="text-label-sm text-outline mt-xs font-mono truncate">${prod.barcode || '---'}</p>
+                                <h4 class="text-body-sm font-semibold text-on-surface leading-tight group-hover:text-primary transition-colors" title="${prod.name}" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; font-size: 0.8rem;">${prod.name}</h4>
                             </div>
                             <div class="flex flex-col items-end mt-auto pt-2 gap-1">
                                 <span class="text-body-sm font-bold ${stock > minStock ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${sUnit}</span>
@@ -518,12 +517,10 @@ export function renderProducts(container) {
 
             <!-- Modal/Pantalla Completa Constructor de Recetas -->
             <div id="recipeBuilderModal" style="display: none; position: fixed; inset: 0; background: var(--background); z-index: 2000; flex-direction: column;">
-                <div style="height: auto; min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;" class="flex-stack-mobile">
-                    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 900;">👩‍🍳 Constructor de Receta</h2>
-                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                        <button type="button" class="btn btn-outline" id="cancelRecipeBtn" style="width: auto;">CANCELAR</button>
-                        <button type="button" class="btn btn-primary" id="finishRecipeBtn" style="width: auto; background: #ec4899; border-color: #ec4899;">FINALIZAR RECETA</button>
-                    </div>
+                <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem 2rem; background: var(--surface); border-bottom: 1px solid var(--border); margin-bottom: 0;" class="flex-stack-mobile">
+                    <button type="button" class="btn btn-outline" id="cancelRecipeBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--primary);">👩‍🍳 Constructor de Receta</h2>
+                    <button type="button" class="btn btn-primary" id="finishRecipeBtn" style="margin-left: auto; width: auto; min-width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">FINALIZAR RECETA</button>
                 </div>
                 <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
                     <!-- Lado Izquierdo: Catálogo de Productos -->
@@ -1251,24 +1248,31 @@ export function renderProducts(container) {
                 }
 
                 const card = document.createElement('div');
-                card.className = 'card';
-                card.style.cssText = 'padding: 0.75rem; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; align-items: center; text-align: center; border-radius: 12px; min-height: 150px; justify-content: space-between;';
+                card.className = 'product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative flex flex-col';
+                card.style.cssText = 'min-height: 150px;';
                 card.innerHTML = `
-                    <div style="width: 80px; height: 80px; background: var(--border); border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-top: 0.25rem;">
-                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : '📦'}
+                    <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
+                        ${p.image ? `<img src="${p.image}" alt="${p.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
                     </div>
-                    <div style="width: 100%; margin-top: 0.5rem;">
-                        <p style="font-size: 0.75rem; font-weight: bold; margin: 0; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--text-main);">${p.name}</p>
+                    <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest">
+                        <div>
+                            <h4 class="text-body-sm font-semibold text-on-surface leading-tight group-hover:text-primary transition-colors" title="${p.name}" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; font-size: 0.8rem; margin: 0;">${p.name}</h4>
+                        </div>
                     </div>
+                    <div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors pointer-events-none"></div>
                 `;
-                
-                card.addEventListener('mouseover', () => card.style.transform = 'scale(1.02)');
-                card.addEventListener('mouseout', () => card.style.transform = 'scale(1)');
                 
                 card.addEventListener('click', () => {
                     // Usar recipeUnit (el actual) y si no, los valores viejos (recipeUnitLabel, recipeUnits)
                     const unitLabel = p.recipeUnit || p.recipeUnitLabel || (p.recipeUnits ? p.recipeUnits.split(' ')[1] : 'ud');
                     openQtyModal(p, unitCost, unitLabel);
+                    
+                    // Limpiar barra de búsqueda
+                    const searchInput = container.querySelector('#catalogSearch');
+                    if (searchInput && searchInput.value) {
+                        searchInput.value = '';
+                        searchInput.dispatchEvent(new Event('input'));
+                    }
                 });
                 
                 catalogGrid.appendChild(card);

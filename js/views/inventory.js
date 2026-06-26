@@ -148,6 +148,17 @@ export function renderInventory(container) {
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Historial Detalle -->
+            <div id="historyDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;padding:1rem;">
+                <div class="card" style="width:100%;max-width:500px;border-top:4px solid var(--primary);padding:1.5rem;max-height:90vh;overflow-y:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                        <h3 style="margin:0;" id="historyDetailTitle">Detalle de Movimiento</h3>
+                        <button class="btn btn-outline" id="historyDetailCloseBtn" style="padding:0.25rem 0.75rem;width:auto;height:auto;">✕</button>
+                    </div>
+                    <div id="historyDetailContent" style="font-size:0.9rem;color:var(--text-main);"></div>
+                </div>
+            </div>
         `;
 
         const backBtn = container.querySelector('#backToDashboardBtn');
@@ -210,6 +221,10 @@ export function renderInventory(container) {
             container.querySelector('#adjustmentModal').style.display = 'none';
         });
         container.querySelector('#adjConfirmBtn').addEventListener('click', confirmAdjustment);
+
+        container.querySelector('#historyDetailCloseBtn')?.addEventListener('click', () => {
+            container.querySelector('#historyDetailModal').style.display = 'none';
+        });
 
         const tabContent = container.querySelector('#tabContent');
         if (activeTab === 'general') renderGeneral(tabContent);
@@ -446,32 +461,38 @@ export function renderInventory(container) {
                 <!-- Panel Izquierdo: Agregar recetas -->
                 <div>
                     <div class="card" style="padding:1.5rem;margin-bottom:1rem;">
-                        <h4 style="margin-bottom:1rem;">Agregar Receta Producida</h4>
-                        <div class="form-group mb-3">
-                            <label>Producto (RECETA) <span class="text-danger">*</span></label>
-                            <select id="recipeSelect" class="form-control">
-                                <option value="">Seleccione...</option>
-                                ${recetas.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
-                            </select>
+                        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+                            <div class="form-group" style="flex: 3; margin-bottom: 0;">
+                                <label>Producto (RECETA) <span class="text-danger">*</span></label>
+                                <select id="recipeSelect" class="form-control" style="height: 40px;">
+                                    <option value="">Seleccione...</option>
+                                    ${recetas.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 100px; margin-bottom: 0;">
+                                <label>Cantidad <span class="text-danger">*</span></label>
+                                <input type="number" id="qtyProduced" class="form-control"
+                                    placeholder="Ej. 20" inputmode="numeric" style="-moz-appearance:textfield; height: 40px;">
+                            </div>
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 0.5rem; justify-content: flex-end; margin-bottom: 0;">
+                                ${productionList.length > 0 ? 
+                                    `<button class="btn btn-primary" id="processAllBtn" style="height: 40px; white-space: nowrap; padding: 0 1rem; background: var(--success); border-color: var(--success); width: 100%; font-size: 0.85rem;">⚙️ Cargar y Procesar</button>`
+                                : `<div style="height: 40px;"></div>`}
+                                <button class="btn btn-primary" id="addToListBtn" style="height: 40px; white-space: nowrap; padding: 0 1rem; width: 100%;">➕ Agregar a la Lista</button>
+                            </div>
                         </div>
-                        <div class="form-group mb-4">
-                            <label>Cantidad Producida <span class="text-danger">*</span></label>
-                            <input type="number" id="qtyProduced" class="form-control"
-                                placeholder="Ej. 20" inputmode="numeric" style="-moz-appearance:textfield;">
-                        </div>
-                        <button class="btn btn-primary" id="addToListBtn" style="width:100%;">➕ Agregar a la Lista</button>
                     </div>
 
                     <!-- Lista de lote actual -->
                     <div class="card" style="padding:1.5rem;">
-                        <h4 style="margin-bottom:0.75rem;">Lote de Producción</h4>
                         ${productionList.length === 0
-                            ? `<p class="text-muted" style="text-align:center;padding:1rem 0;">Agrega al menos una receta para comenzar.</p>`
-                            : `<table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-bottom:1rem;">
+                            ? `<h4 style="margin-bottom:0.75rem; font-size:1rem;">Lote de Producción</h4>
+                               <p class="text-muted" style="text-align:center;padding:1rem 0;">Agrega al menos una receta para comenzar.</p>`
+                            : `<table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-bottom:0;">
                                 <thead><tr style="border-bottom:2px solid var(--border);">
-                                    <th style="padding:0.4rem;">Receta</th>
-                                    <th style="padding:0.4rem;text-align:right;">Cant.</th>
-                                    <th style="padding:0.4rem;"></th>
+                                    <th style="padding:0 0 0.25rem 0; text-align:left;"><h4 style="margin:0; font-size:1rem;">Lote de Producción</h4></th>
+                                    <th style="padding:0 0 0.25rem 0; text-align:right; font-size:0.85rem; font-weight:800; color:var(--text-muted);">Cant.</th>
+                                    <th style="padding:0 0 0.25rem 0; width:40px;"></th>
                                 </tr></thead>
                                 <tbody>
                                     ${productionList.map((item, i) => `
@@ -484,29 +505,24 @@ export function renderInventory(container) {
                                         </td>
                                     </tr>`).join('')}
                                 </tbody>
-                            </table>
-                            <button class="btn btn-primary" id="processAllBtn"
-                                style="width:100%;background:var(--success);border-color:var(--success);font-size:1rem;padding:0.75rem;">
-                                ⚙️ Cargar y Procesar Todo
-                            </button>`
+                            </table>`
                         }
                     </div>
                 </div>
 
                 <!-- Panel Derecho: Vista previa de consumo -->
                 <div class="card" style="padding:1.5rem;">
-                    <h4 style="margin-bottom:0.75rem;">Vista Previa de Consumo</h4>
                     ${consumoRows
                         ? `${hasNegative ? `<div style="padding:0.6rem 0.75rem;background:rgba(249,115,22,0.12);border-radius:6px;border:1px solid rgba(249,115,22,0.3);margin-bottom:0.75rem;">
                                 <p style="margin:0;font-size:0.83rem;color:#f97316;">⚠️ Algunos insumos quedarán en stock negativo. Puedes continuar.</p>
                             </div>` : ''}
                             <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
-                                <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface);">
-                                    <th style="padding:0.4rem;">Insumo</th>
-                                    <th style="padding:0.4rem;text-align:right;">Consumo</th>
-                                    <th style="padding:0.4rem;text-align:right;">Stock Actual</th>
-                                    <th style="padding:0.4rem;text-align:right;">Después</th>
-                                    <th style="padding:0.4rem;">Ud.</th>
+                                <thead><tr style="border-bottom:2px solid var(--border);">
+                                    <th style="padding:0 0 0.25rem 0; text-align:left;">Insumo</th>
+                                    <th style="padding:0 0 0.25rem 0; text-align:right;">Consumo</th>
+                                    <th style="padding:0 0 0.25rem 0; text-align:right;">Stock Actual</th>
+                                    <th style="padding:0 0 0.25rem 0; text-align:right;">Después</th>
+                                    <th style="padding:0 0 0.25rem 0; text-align:left; padding-left:0.5rem;">Ud.</th>
                                 </tr></thead>
                                 <tbody>${consumoRows}</tbody>
                             </table>`
@@ -786,12 +802,128 @@ export function renderInventory(container) {
                 return `<div class="card" style="padding:1rem;border-left:4px solid ${color};">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <span style="font-weight:bold;color:${color};">${icon} ${title}</span>
-                        <span style="font-size:0.8rem;color:var(--text-muted);">${m.date||'—'}</span>
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <span style="font-size:0.8rem;color:var(--text-muted);">${m.date||'—'}</span>
+                            <button class="btn btn-outline view-history-detail-btn" data-id="${m.id}" style="padding: 0.15rem 0.5rem; font-size: 0.75rem; width: auto; height: auto;">👁️ Ver Detalle</button>
+                        </div>
                     </div>
                     <p style="margin:0.25rem 0 0;font-size:0.85rem;color:var(--text-muted);">${detail}</p>
                 </div>`;
             }).join('')}
         </div>`;
+
+        // Event listeners para los botones de Ver Detalle
+        el.querySelectorAll('.view-history-detail-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mov = uniqueAll.find(m => m.id === btn.dataset.id);
+                if (mov) openHistoryDetailModal(mov, colorMap[mov._type], iconMap[mov._type]);
+            });
+        });
+    }
+
+    function openHistoryDetailModal(m, color, icon) {
+        const modal = container.querySelector('#historyDetailModal');
+        const titleEl = container.querySelector('#historyDetailTitle');
+        const contentEl = container.querySelector('#historyDetailContent');
+        
+        let title = '';
+        let html = '';
+        
+        if (m._type === 'TRANSFER') {
+            title = 'Transferencia → Producción';
+            html = `
+                <div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+                    <p><strong>Fecha:</strong> ${m.date || '—'}</p>
+                    <p><strong>Usuario:</strong> ${m.createdBy || '—'}</p>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <thead><tr style="border-bottom:2px solid var(--border);">
+                        <th style="padding:0.4rem;text-align:left;">Producto</th>
+                        <th style="padding:0.4rem;text-align:right;">Cantidad</th>
+                        <th style="padding:0.4rem;text-align:center;">Unidad</th>
+                    </tr></thead>
+                    <tbody>
+                        ${(m.items||[]).map(i => `
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:0.4rem;">${i.productName}</td>
+                                <td style="padding:0.4rem;text-align:right;">${i.qty}</td>
+                                <td style="padding:0.4rem;text-align:center;color:var(--text-muted);">${i.stockUnit}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else if (m._type === 'PRODUCTION') {
+            title = `Producción: ${m.recipeName}`;
+            html = `
+                <div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+                    <p><strong>Fecha:</strong> ${m.date || '—'}</p>
+                    <p><strong>Usuario:</strong> ${m.createdBy || '—'}</p>
+                    <p><strong>Cantidad Producida:</strong> ${m.qtyProduced} ud.</p>
+                </div>
+                <h4 style="margin-bottom:0.5rem;font-size:0.9rem;">Insumos Consumidos</h4>
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <thead><tr style="border-bottom:2px solid var(--border);">
+                        <th style="padding:0.4rem;text-align:left;">Insumo</th>
+                        <th style="padding:0.4rem;text-align:right;">Cantidad</th>
+                        <th style="padding:0.4rem;text-align:center;">Unidad</th>
+                    </tr></thead>
+                    <tbody>
+                        ${(m.ingredientsConsumed||[]).map(i => `
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:0.4rem;">${i.name}</td>
+                                <td style="padding:0.4rem;text-align:right;">${i.qty}</td>
+                                <td style="padding:0.4rem;text-align:center;color:var(--text-muted);">${i.unit}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else if (m._type === 'ADJUST') {
+            const loc = m.storeName ? ` (${m.storeName})` : '';
+            title = `Ajuste Manual${loc}`;
+            html = `
+                <div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+                    <p><strong>Fecha:</strong> ${m.date || '—'}</p>
+                    <p><strong>Usuario:</strong> ${m.createdBy || '—'}</p>
+                    <p><strong>Producto:</strong> ${m.productName}</p>
+                    <p><strong>Ajuste:</strong> ${m.adjustment > 0 ? '+' : ''}${fmt(m.adjustment)} ${m.unit}</p>
+                    <p><strong>Motivo:</strong> ${m.reason}</p>
+                </div>
+            `;
+        } else {
+            title = `Envío a ${m.storeName}`;
+            html = `
+                <div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+                    <p><strong>Fecha de Envío:</strong> ${m.date || '—'}</p>
+                    <p><strong>Estado:</strong> ${m.status === 'RECIBIDO' ? '✅ RECIBIDO' : '⏳ PENDIENTE'}</p>
+                    <p><strong>Enviado por:</strong> ${m.createdBy || '—'}</p>
+                    ${m.status === 'RECIBIDO' ? `<p><strong>Recibido por:</strong> ${m.receivedBy || '—'}</p>` : ''}
+                </div>
+                <h4 style="margin-bottom:0.5rem;font-size:0.9rem;">Productos Enviados</h4>
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <thead><tr style="border-bottom:2px solid var(--border);">
+                        <th style="padding:0.4rem;text-align:left;">Producto</th>
+                        <th style="padding:0.4rem;text-align:right;">Cantidad</th>
+                        <th style="padding:0.4rem;text-align:center;">Unidad</th>
+                    </tr></thead>
+                    <tbody>
+                        ${(m.items||[]).map(i => `
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:0.4rem;">${i.productName}</td>
+                                <td style="padding:0.4rem;text-align:right;">${i.qty}</td>
+                                <td style="padding:0.4rem;text-align:center;color:var(--text-muted);">${i.stockUnit}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        titleEl.innerHTML = `${icon} ${title}`;
+        titleEl.style.color = color;
+        contentEl.innerHTML = html;
+        modal.style.display = 'flex';
     }
 
     // ─── MODAL: TRANSFERENCIA (Único modal restante para Almacén General) ─
@@ -850,7 +982,8 @@ export function renderInventory(container) {
     function openAdjustmentModal(prod) {
         currentAdjProduct = prod;
         const modal = container.querySelector('#adjustmentModal');
-        container.querySelector('#adjProductName').textContent = (prod.isStore ? '🏪 ' : prod.isProduction ? '🏭 ' : '') + prod.name;
+        const unit = prod.stockUnit || 'Unidad';
+        container.querySelector('#adjProductName').innerHTML = (prod.isStore ? '🏪 ' : prod.isProduction ? '🏭 ' : '') + prod.name + ` <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted); margin-left:0.5rem;">(${unit})</span>`;
         
         let currentStock = 0;
         if (prod.isStore) currentStock = prod.currentStoreStock;
