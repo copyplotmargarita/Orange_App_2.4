@@ -369,8 +369,8 @@ export function renderPurchases(container) {
                         </td>
                         <td style="padding: 1rem;">
                             <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
-                                <button class="btn btn-outline edit-metadata-btn" data-id="${p.id}" style="padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border-color: var(--warning); color: var(--warning);" title="Editar datos">✏️</button>
-                                <button class="btn btn-outline delete-purchase-btn" data-id="${p.id}" style="padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border-color: var(--danger); color: var(--danger);" title="Eliminar Compra">🗑️</button>
+                                <button class="btn btn-outline edit-metadata-btn" data-id="${p.id}" style="padding: 0 0.5rem; width: auto; height: 32px; display: flex; gap: 0.25rem; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; border-color: var(--warning); color: var(--warning);" title="Editar datos">✏️ Editar</button>
+                                <button class="btn btn-outline delete-purchase-btn" data-id="${p.id}" style="padding: 0 0.5rem; width: auto; height: 32px; display: flex; gap: 0.25rem; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; border-color: var(--danger); color: var(--danger);" title="Eliminar Compra">🗑️ Eliminar</button>
                             </div>
                         </td>
                     </tr>
@@ -589,6 +589,17 @@ export function renderPurchases(container) {
             </div>
         `;
         container.innerHTML = html;
+
+        if (typeof flatpickr !== 'undefined') {
+            const fpConfig = {
+                locale: "es",
+                altInput: true,
+                altFormat: "d/m/Y",
+                dateFormat: "Y-m-d"
+            };
+            flatpickr(container.querySelector('#eEmissionDate'), fpConfig);
+            flatpickr(container.querySelector('#eReceptionDate'), fpConfig);
+        }
 
         container.querySelector('#backToDeckBtn').addEventListener('click', renderDeck);
         container.querySelector('#cancelEditBtn').addEventListener('click', renderDeck);
@@ -916,6 +927,17 @@ export function renderPurchases(container) {
                 </div>
             </div>
         `;
+
+        if (typeof flatpickr !== 'undefined') {
+            container.querySelectorAll('input[type="date"]').forEach(el => {
+                flatpickr(el, {
+                    locale: "es",
+                    altInput: true,
+                    altFormat: "d/m/Y",
+                    dateFormat: "Y-m-d"
+                });
+            });
+        }
 
         const pMethod = container.querySelector('#pPaymentMethod');
         const pRef = container.querySelector('#pReference');
@@ -1404,9 +1426,9 @@ export function renderPurchases(container) {
                 </div>
 
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" class="btn btn-outline" id="pausePurchaseBtn" style="flex: 1; height: 50px; font-weight: 700; border-color: var(--info, #3b82f6); color: var(--info, #3b82f6);">PAUSAR COMPRA</button>
-                    <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-weight: 700;">CANCELAR</button>
-                    <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="flex: 1; height: 50px; font-weight: 800;">CREAR COMPRA</button>
+                    <button type="button" class="btn btn-outline" id="pausePurchaseBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 700; border-color: var(--info, #3b82f6); color: var(--info, #3b82f6); padding: 0 0.5rem;">PAUSAR COMPRA</button>
+                    <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 700; padding: 0 0.5rem;">CANCELAR</button>
+                    <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 800; padding: 0 0.5rem;">CREAR COMPRA</button>
                 </div>
             </form>
 
@@ -1492,10 +1514,39 @@ export function renderPurchases(container) {
                 .btn:hover { transform: translateY(-2px); }
                 .btn-primary { background: var(--primary); color: white; }
                 .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
+                /* Tom Select Dark Theme adjustments */
+                .ts-wrapper { height: 40px; }
+                .ts-control { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px !important; color: var(--text-main) !important; font-family: 'Inter', sans-serif !important; padding: 0.4rem 1rem !important; min-height: 40px !important; display: flex !important; align-items: center !important; }
+                .ts-control > input { color: var(--text-main) !important; font-size: 0.9rem !important; }
+                .ts-dropdown { background: #131b2e !important; border: 1px solid var(--border) !important; border-radius: 10px !important; color: var(--text-main) !important; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5) !important; font-size: 0.9rem !important; margin-top: 4px !important; z-index: 1000 !important; }
+                .ts-dropdown .option { padding: 0.6rem 1rem !important; cursor: pointer !important; transition: background 0.2s !important; }
+                .ts-dropdown .active { background: var(--primary) !important; color: white !important; }
+                .ts-control.focus { border-color: var(--primary) !important; box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1) !important; }
             </style>
         `;
 
         container.innerHTML = html;
+
+        if (typeof TomSelect !== 'undefined') {
+            const tsOptions = { create: false };
+            const supplierSelect = container.querySelector('#pSupplier');
+            if (supplierSelect) new TomSelect(supplierSelect, tsOptions);
+            
+            const creditorSelect = container.querySelector('#pCreditor');
+            if (creditorSelect) new TomSelect(creditorSelect, tsOptions);
+        }
+
+        if (typeof flatpickr !== 'undefined') {
+            const fpConfig = {
+                locale: "es",
+                altInput: true,
+                altFormat: "d/m/Y",
+                dateFormat: "Y-m-d"
+            };
+            container.querySelectorAll('input[type="date"]').forEach(el => {
+                flatpickr(el, fpConfig);
+            });
+        }
 
         // Variables de estado interno
         let currentPurchaseProducts = [];
@@ -2866,21 +2917,15 @@ export function renderPurchases(container) {
                 <h2>Detalle de Compra</h2>
             </div>
             
-            <div class="card mb-4" style="padding: 1.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">
+            <div class="card mb-4" style="padding: 1rem 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <!-- Left -->
                     <div>
                         <h3 style="color: var(--primary); margin-bottom: 0.25rem;">${supName}</h3>
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Tasa Factura: Bs. ${purchase.bcvRate} | Creado por: ${purchase.createdBy}</p>
                     </div>
-                    <div style="text-align: right;">
-                        <span style="display: inline-block; padding: 0.3rem 0.6rem; border-radius: 12px; background: ${badgeColor}20; color: ${badgeColor}; font-weight: bold; font-size: 0.8rem; margin-bottom: 0.5rem;">
-                            ESTADO: ${purchase.status}
-                        </span>
-                        <p style="font-weight: bold; font-size: 1.1rem;">${purchase.docType} N° ${purchase.docNumber}</p>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    
+                    <!-- Metadata Items -->
                     <div>
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Fecha Emisión</p>
                         <p style="font-weight: 500;">${formatDateToDDMMYYYY(purchase.emissionDate)}</p>
@@ -2897,92 +2942,108 @@ export function renderPurchases(container) {
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Total Items</p>
                         <p style="font-weight: 500;">${purchase.itemsCount || 0}</p>
                     </div>
+
+                    <!-- Right -->
+                    <div style="text-align: right;">
+                        <span style="display: inline-block; padding: 0.3rem 0.6rem; border-radius: 12px; background: ${badgeColor}20; color: ${badgeColor}; font-weight: bold; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                            ESTADO: ${purchase.status}
+                        </span>
+                        <p style="font-weight: bold; font-size: 1.1rem;">${purchase.docType} N° ${purchase.docNumber}</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="card mb-4" style="padding: 1.5rem;">
-                <h4 style="margin-bottom: 1rem;">Productos Recibidos</h4>
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid var(--border);">
-                                <th style="padding: 0.5rem;">Producto</th>
-                                <th style="padding: 0.5rem;">Cant.</th>
-                                <th style="padding: 0.5rem;">Costo $</th>
-                                <th style="padding: 0.5rem;">Costo Bs</th>
-                                <th style="padding: 0.5rem;">SubTotal $</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${purchase.products.map(p => `
-                                <tr>
-                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.name}</td>
-                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.qty} ${p.stockUnit || 'ud'}</td>
-                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">$ ${p.costUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Bs. ${p.costBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--primary);">$ ${p.subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <div style="display: grid; grid-template-columns: 2.5fr 1fr; gap: 1.5rem; align-items: stretch; margin-bottom: 1.5rem;">
+                <!-- Productos Recibidos (Izquierda) -->
+                <div class="card" style="padding: 1rem 1.5rem; display: flex; flex-direction: column;">
+                    <div style="overflow-x: auto; flex: 1;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <th style="padding: 0.5rem;">Producto</th>
+                                    <th style="padding: 0.5rem;">Cant.</th>
+                                    <th style="padding: 0.5rem;">Costo $</th>
+                                    <th style="padding: 0.5rem;">Costo Bs</th>
+                                    <th style="padding: 0.5rem;">SubTotal $</th>
+                                    <th style="padding: 0.5rem;">SubTotal Bs</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 1.5rem; align-items: stretch;">
-                <!-- Historial de Pagos (Izquierda) -->
-                <div class="card" style="padding: 1.5rem; background: var(--background);">
-                    <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Historial de Pagos</h4>
-                    ${payments.length > 0 ? `
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                                        <th style="padding: 0.5rem;">Fecha</th>
-                                        <th style="padding: 0.5rem;">Método</th>
-                                        <th style="padding: 0.5rem;">Ref.</th>
-                                        <th style="padding: 0.5rem; text-align: right;">Abono Bs.</th>
-                                        <th style="padding: 0.5rem; text-align: right;">Abono $</th>
-                                        <th style="padding: 0.5rem; text-align: right;">Equiv. $</th>
-                                        <th style="padding: 0.5rem; text-align: right;"></th>
+                            </thead>
+                            <tbody>
+                                ${purchase.products.map(p => {
+                                    const subTotalBs = p.subTotalBs || (p.costBs * p.qty);
+                                    return `
+                                    <tr>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.name}</td>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.qty} ${p.stockUnit || 'ud'}</td>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">$ ${p.costUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Bs. ${p.costBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--primary);">$ ${p.subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--text-main);">Bs. ${subTotalBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    ${payments.map(p => {
-                                        const amtBs = p.amountBs || (p.id === 'legacy' ? (purchase.receivedBs || 0) : 0);
-                                        const amtUsd = p.amountUsd || (p.id === 'legacy' ? (purchase.receivedUsd || 0) : 0);
-                                        return `
-                                        <tr style="border-bottom: 1px solid var(--border);">
-                                            <td style="padding: 0.5rem;">${formatDateToDDMMYYYY(p.date)}</td>
-                                            <td style="padding: 0.5rem;">${p.method}</td>
-                                            <td style="padding: 0.5rem;"><small>${p.reference || '-'}</small></td>
-                                            <td style="padding: 0.5rem; text-align: right;">${amtBs > 0 ? `Bs. ${amtBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
-                                            <td style="padding: 0.5rem; text-align: right;">${amtUsd > 0 ? `$ ${amtUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
-                                            <td style="padding: 0.5rem; text-align: right; font-weight: bold; color: var(--success);">$ ${(p.equivalentUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                            <td style="padding: 0.5rem; text-align: right;">
-                                                <button class="delete-pay-btn" data-id="${p.id}" data-amount="${p.equivalentUsd}" style="background: none; border: none; color: var(--danger); cursor: pointer; font-weight: bold; font-size: 1.2rem;">×</button>
-                                            </td>
-                                        </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : '<p class="text-muted">No se registraron pagos para esta factura.</p>'}
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <!-- Totales (Derecha) -->
-                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: center;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 1rem;">
-                        <span style="color: var(--text-muted);">Total Facturado:</span>
-                        <strong>$ ${(purchase.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                <!-- Columna Derecha -->
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <!-- Totales (Arriba) -->
+                    <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 1rem;">
+                            <span style="color: var(--text-muted);">Total Facturado:</span>
+                            <strong>$ ${(purchase.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                            <span style="color: var(--text-muted);">Referencia BCV:</span>
+                            <span style="font-size: 0.9rem;">Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding-top: 1rem; border-top: 2px solid var(--border); font-size: 1.25rem; color: ${purchase.pendingBalanceUsd > 0 ? 'var(--danger)' : 'var(--success)'};">
+                            <span>Saldo Pendiente:</span>
+                            <strong>$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                        <span style="color: var(--text-muted);">Referencia BCV:</span>
-                        <span style="font-size: 0.9rem;">Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding-top: 1rem; border-top: 2px solid var(--border); font-size: 1.25rem; color: ${purchase.pendingBalanceUsd > 0 ? 'var(--danger)' : 'var(--success)'};">
-                        <span>Saldo Pendiente:</span>
-                        <strong>$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+
+                    <!-- Historial de Pagos (Abajo) -->
+                    <div class="card" style="padding: 1.5rem; background: var(--background); flex: 1; display: flex; flex-direction: column;">
+                        <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Historial de Pagos</h4>
+                        ${payments.length > 0 ? `
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                                            <th style="padding: 0.5rem;">Fecha</th>
+                                            <th style="padding: 0.5rem;">Método</th>
+                                            <th style="padding: 0.5rem;">Ref.</th>
+                                            <th style="padding: 0.5rem; text-align: right;">Abono Bs.</th>
+                                            <th style="padding: 0.5rem; text-align: right;">Abono $</th>
+                                            <th style="padding: 0.5rem; text-align: right;">Equiv. $</th>
+                                            <th style="padding: 0.5rem; text-align: right;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${payments.map(p => {
+                                            const amtBs = p.amountBs || (p.id === 'legacy' ? (purchase.receivedBs || 0) : 0);
+                                            const amtUsd = p.amountUsd || (p.id === 'legacy' ? (purchase.receivedUsd || 0) : 0);
+                                            return `
+                                            <tr style="border-bottom: 1px solid var(--border);">
+                                                <td style="padding: 0.5rem;">${formatDateToDDMMYYYY(p.date)}</td>
+                                                <td style="padding: 0.5rem;">${p.method}</td>
+                                                <td style="padding: 0.5rem;"><small>${p.reference || '-'}</small></td>
+                                                <td style="padding: 0.5rem; text-align: right;">${amtBs > 0 ? `Bs. ${amtBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
+                                                <td style="padding: 0.5rem; text-align: right;">${amtUsd > 0 ? `$ ${amtUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
+                                                <td style="padding: 0.5rem; text-align: right; font-weight: bold; color: var(--success);">$ ${(p.equivalentUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                                <td style="padding: 0.5rem; text-align: right;">
+                                                    <button class="delete-pay-btn" data-id="${p.id}" data-amount="${p.equivalentUsd}" style="background: none; border: none; color: var(--danger); cursor: pointer; font-weight: bold; font-size: 1.2rem;">×</button>
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : '<p class="text-muted">No se registraron pagos para esta factura.</p>'}
                     </div>
                 </div>
             </div>
