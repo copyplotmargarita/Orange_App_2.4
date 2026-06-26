@@ -551,7 +551,30 @@ export function renderInventory(container) {
                 });
             });
 
-            el.querySelector('#processAllBtn')?.addEventListener('click', () => processAllProduction(productionList, hasNegative));
+            el.querySelector('#processAllBtn')?.addEventListener('click', () => {
+                const backdrop = document.createElement('div');
+                backdrop.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(3px);';
+                backdrop.innerHTML = `
+                    <div class="card" style="padding: 2rem; max-width: 420px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-top: 4px solid var(--warning); animation: fadeIn 0.2s ease-out;">
+                        <h3 style="margin-top: 0; margin-bottom: 1rem; color: #fff;">¿Confirmar Procesamiento?</h3>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem; line-height: 1.5;">Se descontarán los insumos del Almacén General y se sumarán los productos elaborados al Almacén de Producción.</p>
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                            <button class="btn btn-outline" id="cancelProcessBtn" style="min-width: 100px;">Cancelar</button>
+                            <button class="btn btn-primary" id="confirmProcessBtn" style="background: var(--warning); border-color: var(--warning); min-width: 100px;">Sí, procesar</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(backdrop);
+
+                backdrop.querySelector('#cancelProcessBtn').addEventListener('click', () => {
+                    document.body.removeChild(backdrop);
+                });
+
+                backdrop.querySelector('#confirmProcessBtn').addEventListener('click', () => {
+                    document.body.removeChild(backdrop);
+                    processAllProduction(productionList, hasNegative);
+                });
+            });
         }
 
         renderUI();
