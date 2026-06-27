@@ -390,7 +390,7 @@ export function renderSales(container, preSelectedClient = null) {
             const price = getPrice(p);
             const stock = p.stockGeneral ?? p.stock ?? 0;
             return `
-            <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative" data-id="${p.id}">
+            <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative focus:outline-none focus:ring-4 focus:ring-primary focus:border-primary" data-id="${p.id}" tabindex="0">
                 ${stock <= 0 ? '<div class="absolute top-sm right-sm bg-error text-on-error px-xs py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm z-10">Agotado</div>' : ''}
                 <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
                     ${p.image ? `<img src="${p.image}" alt="${p.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors">inventory_2</span>`}
@@ -412,7 +412,8 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function attachProductClickEvents() {
-        container.querySelectorAll('.product-card').forEach(card => {
+        const cards = Array.from(container.querySelectorAll('.product-card'));
+        cards.forEach((card, index) => {
             card.addEventListener('click', () => {
                 const id = card.dataset.id;
                 const p = products.find(prod => prod.id === id);
@@ -439,6 +440,7 @@ export function renderSales(container, preSelectedClient = null) {
                         existing.qty += qty;
                         existing.realQty = (existing.realQty || existing.qty) + realQty;
                         existing.total = existing.realQty * totalUnitPrice;
+                        searchProductTerm = "";
                         render();
                     } else {
                         if (realQty > stock) {
@@ -457,9 +459,58 @@ export function renderSales(container, preSelectedClient = null) {
                             baseCostUSD: p.costPerUnit || p.cost || 0,
                             extras: extras || []
                         });
+                        searchProductTerm = "";
                         render();
                     }
                 }, 1, p.stockUnit || 'Unidad');
+            });
+            
+            // Keyboard navigation
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    card.click();
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    if (index < cards.length - 1) cards[index + 1].focus();
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    if (index > 0) cards[index - 1].focus();
+                    else container.querySelector('#productSearch')?.focus();
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const rect = card.getBoundingClientRect();
+                    let target = null;
+                    let minXDiff = Infinity;
+                    for (let i = index + 1; i < cards.length; i++) {
+                        const nextRect = cards[i].getBoundingClientRect();
+                        if (nextRect.top > rect.bottom - 10) {
+                            const xDiff = Math.abs(nextRect.left - rect.left);
+                            if (xDiff < minXDiff) {
+                                minXDiff = xDiff;
+                                target = cards[i];
+                            }
+                        }
+                    }
+                    if (target) target.focus();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const rect = card.getBoundingClientRect();
+                    let target = null;
+                    let minXDiff = Infinity;
+                    for (let i = index - 1; i >= 0; i--) {
+                        const prevRect = cards[i].getBoundingClientRect();
+                        if (prevRect.bottom < rect.top + 10) {
+                            const xDiff = Math.abs(prevRect.left - rect.left);
+                            if (xDiff < minXDiff) {
+                                minXDiff = xDiff;
+                                target = cards[i];
+                            }
+                        }
+                    }
+                    if (target) target.focus();
+                    else container.querySelector('#productSearch')?.focus();
+                }
             });
         });
     }
@@ -470,16 +521,34 @@ export function renderSales(container, preSelectedClient = null) {
         const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
         const effectiveTotalUSD = includeOldDebt ? baseWithTaxUSD + clientDebt : baseWithTaxUSD;
         const totalBs = effectiveTotalUSD * bcvRate;
-        const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-
-        let paidUSD = 0;
+        const totalItems = cart.length;
+        let netPaidUSD = 0;
+        let grossPaidUSD = 0;
+        let actualDeliveredUSD = 0;
+        let actualDeliveredBS = 0;
+        let actualVueltoUSD = 0;
+        let actualVueltoBS = 0;
+        
         payments.forEach(p => {
-            if (p.currency === 'USD') paidUSD += p.amount;
-            else paidUSD += p.amount / p.rate;
+            const amountInUSD = p.currency === 'USD' ? p.amount : p.amount / p.rate;
+            netPaidUSD += amountInUSD;
+            if (amountInUSD > 0) {
+                grossPaidUSD += amountInUSD;
+            }
+            if (p.amount > 0) {
+                if (p.currency === 'USD') actualDeliveredUSD += p.amount;
+                else actualDeliveredBS += p.amount;
+            } else if (p.amount < 0) {
+                if (p.currency === 'USD') actualVueltoUSD += Math.abs(p.amount);
+                else actualVueltoBS += Math.abs(p.amount);
+            }
         });
 
-        const currentRemainingUSD = Math.max(0, effectiveTotalUSD - paidUSD);
-        const currentChangeUSD = Math.max(0, paidUSD - effectiveTotalUSD);
+        const currentRemainingUSD = Math.max(0, effectiveTotalUSD - netPaidUSD);
+        const currentChangeUSD = Math.max(0, netPaidUSD - effectiveTotalUSD);
+        const isVueltoPending = currentChangeUSD > 0.009;
+        const isRestaPending = currentRemainingUSD > 0.009;
+        const isFullyPaid = !isVueltoPending && !isRestaPending;
         const saleStatus = container.querySelector('#saleStatus')?.value || (payments.length === 0 ? 'contado' : 'abono');
 
         container.innerHTML = `
@@ -649,44 +718,61 @@ export function renderSales(container, preSelectedClient = null) {
             <!-- Global Footer Section -->
             <footer class="bg-surface-container border-t border-outline-variant p-md z-50 shrink-0 h-[116px]">
                 <div class="flex gap-md h-full items-center">
+                    <!-- 1. ITEMS -->
                     <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
                         <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ITEMS</p>
                         <p class="text-display-metrics text-white" style="font-size: 24px;">${totalItems}</p>
                     </div>
+
+                    <!-- 2. RESTA / VUELTO -->
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center border-l-4 ${(isVueltoPending || isFullyPaid) ? 'border-l-green-400' : 'border-l-red-500'}">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">${isVueltoPending ? 'VUELTO' : 'RESTA'}</p>
+                        <div class="flex flex-col">
+                            <p class="text-body-lg font-bold ${(isVueltoPending || isFullyPaid) ? 'text-green-400' : 'text-red-500'} leading-tight">$ ${isVueltoPending ? fmt(currentChangeUSD) : fmt(currentRemainingUSD)}</p>
+                            <p class="text-body-lg font-bold ${(isVueltoPending || isFullyPaid) ? 'text-green-400' : 'text-red-500'} leading-tight">Bs ${isVueltoPending ? fmt(currentChangeUSD * bcvRate) : fmt(currentRemainingUSD * bcvRate)}</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. VUELTOS (Delivered back) -->
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">VUELTOS</p>
+                        <div class="flex flex-col">
+                            <p class="text-body-lg font-bold text-green-400 leading-tight">$ ${fmt(actualVueltoUSD)}</p>
+                            <p class="text-body-lg font-bold text-green-400 leading-tight">Bs ${fmt(actualVueltoBS)}</p>
+                        </div>
+                    </div>
                 
+                    <!-- 4. ENTREGADO -->
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ENTREGADO</p>
+                        <div class="flex flex-col">
+                            <p class="text-body-lg font-bold text-white leading-tight">$ ${fmt(actualDeliveredUSD)}</p>
+                            <p class="text-body-lg font-bold text-white leading-tight">Bs ${fmt(actualDeliveredBS)}</p>
+                        </div>
+                    </div>
+
+                    <!-- 5. DEUDA CLIENTE -->
+                    <div id="pullDebtBtn" class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 ${clientDebt > 0 ? 'border-l-error cursor-pointer hover:bg-error/10' : 'border-l-outline'} flex flex-col justify-center transition-colors">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">DEUDA CLIENTE ${includeOldDebt ? '(CARGADA)' : ''}</p>
+                        <p class="text-headline-md font-display-metrics ${clientDebt > 0 ? 'animate-pulse-text-red' : 'text-white'} whitespace-nowrap">$ ${fmt(clientDebt)}</p>
+                    </div>
+
+                    <!-- 6. TOTAL EN BS -->
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN BS</p>
+                        <p class="text-headline-md font-display-metrics text-white whitespace-nowrap leading-tight text-[18px]">Bs ${fmt(totalBs)}</p>
+                    </div>
+
+                    <!-- 7. TOTAL EN $ -->
                     <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 border-l-primary flex flex-col justify-center">
                         <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN $</p>
                         <p class="text-headline-md font-display-metrics text-white whitespace-nowrap">$ ${fmt(effectiveTotalUSD)}</p>
                     </div>
                 
-                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
-                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN BS</p>
-                        <p class="text-headline-md font-display-metrics text-white whitespace-nowrap leading-tight text-[18px]">Bs ${fmt(totalBs)}</p>
-                    </div>
-                
-                    <div id="pullDebtBtn" class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 ${clientDebt > 0 ? 'border-l-error cursor-pointer hover:bg-error/10' : 'border-l-outline'} flex flex-col justify-center transition-colors">
-                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">DEUDA CLIENTE ${includeOldDebt ? '(CARGADA)' : ''}</p>
-                        <p class="text-headline-md font-display-metrics text-white whitespace-nowrap">$ ${fmt(clientDebt)}</p>
-                    </div>
-                
-                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
-                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ENTREGADO</p>
-                        <div class="flex flex-col">
-                            <p class="text-body-lg font-bold text-white leading-tight">$ ${fmt(paidUSD)}</p>
-                            <p class="text-body-lg font-bold text-white leading-tight">Bs ${fmt(paidUSD * bcvRate)}</p>
-                        </div>
-                    </div>
-                
-                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center border-l-4 ${currentChangeUSD > 0 ? 'border-l-green-400' : (currentRemainingUSD > 0 ? 'border-l-red-500' : 'border-l-white')}">
-                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">${currentChangeUSD > 0 ? 'VUELTO' : 'RESTA'}</p>
-                        <div class="flex flex-col">
-                            <p class="text-body-lg font-bold ${currentChangeUSD > 0 ? 'text-green-400' : (currentRemainingUSD > 0 ? 'text-red-500' : 'text-white')} leading-tight">$ ${currentChangeUSD > 0 ? fmt(currentChangeUSD) : fmt(currentRemainingUSD)}</p>
-                            <p class="text-body-lg font-bold ${currentChangeUSD > 0 ? 'text-green-400' : (currentRemainingUSD > 0 ? 'text-red-500' : 'text-white')} leading-tight">Bs ${currentChangeUSD > 0 ? fmt(currentChangeUSD * bcvRate) : fmt(currentRemainingUSD * bcvRate)}</p>
-                        </div>
-                    </div>
-                
-                    <button id="openPaymentModalBtn" class="flex-1 h-full bg-primary text-white rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/90 transition-all shadow-lg active:scale-[0.98]" ${settings.type === 'presupuesto' ? 'disabled style="opacity:0.5"' : ''}>CARGAR PAGO</button>
-                    <button id="finishBtn" class="flex-1 h-full border-2 border-primary text-primary rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98]">${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
+                    <!-- 8. CARGAR PAGO -->
+                    <button id="openPaymentModalBtn" class="flex-2 h-full border-2 border-primary text-primary bg-transparent rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98] focus:bg-primary focus:text-white focus:outline-none" style="min-width: 140px;" ${settings.type === 'presupuesto' ? 'disabled style="opacity:0.5"' : ''}>CARGAR PAGO</button>
+                    <!-- 9. FINALIZAR -->
+                    <button id="finishBtn" class="flex-2 h-full border-2 border-primary text-primary bg-transparent rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98] focus:bg-primary focus:text-white focus:outline-none" style="min-width: 140px;">${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
                 </div>
             </footer>
 
@@ -738,18 +824,75 @@ export function renderSales(container, preSelectedClient = null) {
             render();
         });
 
-        container.querySelector('#productSearch').addEventListener('input', (e) => {
-            searchProductTerm = e.target.value.toLowerCase();
-            const productListWrapper = container.querySelector('#productList');
-            if (productListWrapper) {
-                productListWrapper.innerHTML = `
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
-                        ${renderProductList()}
-                    </div>
-                `;
-            }
-            attachProductClickEvents();
-        });
+        const searchInput = container.querySelector('#productSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const rawVal = e.target.value.toLowerCase();
+                
+                // Atajo para Cliente
+                if (rawVal === 'cc') {
+                    e.target.value = '';
+                    searchProductTerm = '';
+                    const clientInput = container.querySelector('#clientSearch');
+                    if (clientInput) {
+                        clientInput.focus();
+                        clientInput.select();
+                    }
+                    return; // Detenemos la búsqueda
+                }
+                
+                // Atajo para Pagar
+                if (rawVal === 'pp') {
+                    e.target.value = '';
+                    searchProductTerm = '';
+                    const payBtn = container.querySelector('#openPaymentModalBtn');
+                    if (payBtn) payBtn.focus();
+                    return;
+                }
+                
+                // Atajo para Finalizar
+                if (rawVal === 'ff') {
+                    e.target.value = '';
+                    searchProductTerm = '';
+                    const processBtn = container.querySelector('#finishBtn');
+                    if (processBtn && !processBtn.disabled) processBtn.focus();
+                    return;
+                }
+
+                searchProductTerm = rawVal;
+                const productListWrapper = container.querySelector('#productList');
+                if (productListWrapper) {
+                    productListWrapper.innerHTML = `
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
+                            ${renderProductList()}
+                        </div>
+                    `;
+                }
+                attachProductClickEvents();
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const firstCard = container.querySelector('.product-card');
+                    if (firstCard) firstCard.focus();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const firstCard = container.querySelector('.product-card');
+                    if (firstCard) firstCard.click();
+                }
+            });
+            
+            // Auto-focus on render
+            setTimeout(() => {
+                if (document.activeElement !== searchInput) {
+                    searchInput.focus();
+                    const val = searchInput.value;
+                    searchInput.value = '';
+                    searchInput.value = val;
+                }
+            }, 50);
+        }
 
         container.querySelector('#pauseSaleBtn')?.addEventListener('click', pauseCurrentSale);
         container.querySelector('#recoverSaleBtn')?.addEventListener('click', showPausedSalesModal);
@@ -837,14 +980,14 @@ export function renderSales(container, preSelectedClient = null) {
             
                 if (filtered.length > 0) {
                     clientResults.innerHTML = filtered.map(c => `
-                        <div class="client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant last:border-0" data-id="${c.id}">
+                        <div class="client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant last:border-0 focus:outline-none focus:bg-surface-variant focus:ring-2 focus:ring-primary" data-id="${c.id}" tabindex="0">
                             <p class="font-bold text-on-surface">${c.fullName}</p>
                             <p class="text-label-sm text-outline">${c.id} | ${c.phone || 'Sin tel.'}</p>
                         </div>
                     `).join('');
                 } else {
                     clientResults.innerHTML = `
-                        <div class="create-client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant text-primary flex items-center gap-2">
+                        <div class="create-client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant text-primary flex items-center gap-2 focus:outline-none focus:bg-surface-variant focus:ring-2 focus:ring-primary" tabindex="0">
                             <span class="material-symbols-outlined">person_add</span>
                             <p class="font-bold">Crear nuevo cliente: "${e.target.value}"</p>
                         </div>
@@ -873,6 +1016,36 @@ export function renderSales(container, preSelectedClient = null) {
                             renderSales(container, newClient);
                         }, currentSearch);
                     });
+                }
+
+                // Keyboard navigation for dropdown
+                const options = Array.from(clientResults.querySelectorAll('.client-option, .create-client-option'));
+                options.forEach((opt, index) => {
+                    opt.addEventListener('keydown', (e) => {
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (index < options.length - 1) options[index + 1].focus();
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            if (index > 0) options[index - 1].focus();
+                            else clientSearch.focus();
+                        } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            opt.click();
+                        }
+                    });
+                });
+            });
+
+            clientSearch.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const firstOption = clientResults.querySelector('.client-option, .create-client-option');
+                    if (firstOption && clientResults.style.display !== 'none') firstOption.focus();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const firstOption = clientResults.querySelector('.client-option, .create-client-option');
+                    if (firstOption && clientResults.style.display !== 'none') firstOption.click();
                 }
             });
 
@@ -1086,7 +1259,8 @@ export function renderSales(container, preSelectedClient = null) {
         const modal = document.createElement('div');
         modal.className = "fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-md animate-in fade-in";
     
-        // Default currency to what was used last or BS
+        // Default currency to empty so user has to select it
+        activePayCurrency = '';
         const amountBS = remainingUSD * bcvRate;
     
         modal.innerHTML = `
@@ -1100,8 +1274,8 @@ export function renderSales(container, preSelectedClient = null) {
                     <div class="col-span-2 form-group">
                         <label class="text-label-bold font-label-bold text-outline uppercase">Moneda</label>
                         <div class="flex gap-sm mt-xs" id="currencyGroup">
-                            <button class="pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors ${activePayCurrency === 'BS' ? 'bg-primary text-white border-primary' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant'}" data-value="BS">Bolívares (Bs)</button>
-                            <button class="pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors ${activePayCurrency === 'USD' ? 'bg-primary text-white border-primary' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant'}" data-value="USD">Dólares ($)</button>
+                            <button class="pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-all bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:outline-none focus:border-primary focus:text-primary focus:bg-primary/5" data-value="BS">Bolívares (Bs)</button>
+                            <button class="pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-all bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:outline-none focus:border-primary focus:text-primary focus:bg-primary/5" data-value="USD">Dólares ($)</button>
                         </div>
                         <input type="hidden" id="payCurrency" value="${activePayCurrency}">
                     </div>
@@ -1197,23 +1371,43 @@ export function renderSales(container, preSelectedClient = null) {
             });
         };
 
-        const currencyGroupBtns = modal.querySelectorAll('.pay-currency-btn');
-        currencyGroupBtns.forEach(btn => {
+        const currencyGroupBtns = Array.from(modal.querySelectorAll('.pay-currency-btn'));
+        currencyGroupBtns.forEach((btn, index) => {
             btn.onclick = () => {
                 payCurrency.value = btn.dataset.value;
                 activePayCurrency = payCurrency.value;
                 currencyGroupBtns.forEach(b => {
                     if (b.dataset.value === payCurrency.value) {
-                        b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors bg-primary text-white border-primary";
+                        b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-all bg-primary text-white border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
                     } else {
-                        b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-colors bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant";
+                        b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-all bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:outline-none focus:border-primary focus:text-primary focus:bg-primary/5";
                     }
                 });
                 let paid = 0;
                 payments.forEach(px => paid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
                 const rem = Math.max(0, remainingUSD - paid);
                 updatePayMethods(rem, true);
+                
+                // Keyboard flow: Focus first method after selecting currency
+                setTimeout(() => {
+                    const firstMethod = modal.querySelector('.pay-method-btn');
+                    if (firstMethod) firstMethod.focus();
+                }, 50);
             };
+            
+            // Allow selecting currency with Enter and navigating with arrows
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    btn.click();
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    if (index < currencyGroupBtns.length - 1) currencyGroupBtns[index + 1].focus();
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    if (index > 0) currencyGroupBtns[index - 1].focus();
+                }
+            });
         });
 
         const updatePayMethods = (currRem, resetAmount = true) => {
@@ -1237,20 +1431,43 @@ export function renderSales(container, preSelectedClient = null) {
             }
 
             if (!methods.find(m => m.val === payMethod.value)) {
-                payMethod.value = methods[0].val;
+                payMethod.value = ''; // Start unselected
             }
 
             const methodGroup = modal.querySelector('#methodGroup');
             methodGroup.innerHTML = methods.map(m => `
-                <button class="pay-method-btn flex-shrink-0 min-w-max py-2 px-3 rounded-lg font-bold border transition-colors text-sm truncate ${payMethod.value === m.val ? 'bg-primary text-white border-primary' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant'}" data-value="${m.val}">${m.label}</button>
+                <button class="pay-method-btn flex-shrink-0 min-w-max py-2 px-3 rounded-lg font-bold border transition-all text-sm truncate focus:outline-none ${payMethod.value === m.val ? 'bg-primary text-white border-primary focus:ring-2 focus:ring-primary focus:ring-offset-1' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:border-primary focus:text-primary focus:bg-primary/5'}" data-value="${m.val}">${m.label}</button>
             `).join('');
 
-            modal.querySelectorAll('.pay-method-btn').forEach(btn => {
+            const methodBtns = Array.from(modal.querySelectorAll('.pay-method-btn'));
+            methodBtns.forEach((btn, index) => {
                 btn.onclick = () => {
                     payMethod.value = btn.dataset.value;
                     const amountValStr = payAmount.value.replace(/\./g, '').replace(',', '.');
                     updatePayMethods(parseFloat(amountValStr) || currRem, false);
+                    
+                    // Keyboard flow: Focus amount after selecting method
+                    setTimeout(() => {
+                        payAmount.focus();
+                    }, 50);
                 };
+
+                btn.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        btn.click();
+                    } else if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        if (index < methodBtns.length - 1) methodBtns[index + 1].focus();
+                    } else if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        if (index > 0) methodBtns[index - 1].focus();
+                        else {
+                            const selectedCurr = modal.querySelector('.pay-currency-btn.bg-primary');
+                            if (selectedCurr) selectedCurr.focus();
+                        }
+                    }
+                });
             });
         
             const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(payMethod.value);
@@ -1295,6 +1512,37 @@ export function renderSales(container, preSelectedClient = null) {
             e.target.select();
         });
 
+        payAmount.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const amount = parseNum(payAmount.value);
+                
+                let paid = 0;
+                payments.forEach(px => paid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                const actualRem = remainingUSD - paid;
+                
+                // Si la deuda está saldada (ni debe, ni hay vuelto) y el monto actual es 0, completamos
+                if (amount <= 0 && actualRem <= 0.009 && actualRem >= -0.009) {
+                    modal.querySelector('#donePayBtn').click();
+                    return;
+                }
+
+                const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(payMethod.value);
+                if (isElectronic && amount > 0) {
+                    payRef.focus();
+                } else {
+                    modal.querySelector('#addPaymentBtn').click();
+                }
+            }
+        });
+
+        payRef.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                modal.querySelector('#addPaymentBtn').click();
+            }
+        });
+
         const parseNum = (val) => {
             let s = val.toString().trim().replace(/[^\d.,]/g, '');
             if (!s) return 0;
@@ -1308,12 +1556,21 @@ export function renderSales(container, preSelectedClient = null) {
         };
 
         modal.querySelector('#addPaymentBtn').onclick = () => {
+            if (!payCurrency.value) {
+                showToast("Debe seleccionar una Moneda primero", true);
+                return;
+            }
+            if (!payMethod.value) {
+                showToast("Debe seleccionar un Método de pago", true);
+                return;
+            }
             const amount = parseNum(payAmount.value);
             if (amount <= 0) return;
             const method = payMethod.value;
             const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(method);
             if (isElectronic && !payRef.value) {
-                alert("Referencia es requerida");
+                showToast("Referencia es requerida", true);
+                payRef.focus();
                 return;
             }
         
@@ -1332,7 +1589,44 @@ export function renderSales(container, preSelectedClient = null) {
             let paid = 0;
             payments.forEach(px => paid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
             const rem = Math.max(0, remainingUSD - paid);
-            updatePayMethods(rem);
+
+            // Flow after adding payment
+            if (rem > 0) {
+                // Still money to pay, restart cycle: Moneda -> Método
+                payCurrency.value = '';
+                payMethod.value = '';
+                
+                modal.querySelectorAll('.pay-currency-btn').forEach(b => {
+                    b.className = "pay-currency-btn flex-1 py-2 rounded-lg font-bold border transition-all bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:outline-none focus:border-primary focus:text-primary focus:bg-primary/5";
+                });
+                
+                updatePayMethods(rem);
+                
+                setTimeout(() => {
+                    const firstCurr = modal.querySelector('.pay-currency-btn');
+                    if (firstCurr) firstCurr.focus();
+                }, 50);
+            } else {
+                updatePayMethods(rem);
+                
+                setTimeout(() => {
+                    // Paid in full or change needed
+                    const actualRem = remainingUSD - paid;
+                    if (actualRem < -0.009) {
+                        // Needs change
+                        const bsInput = modal.querySelector('#changeGivenBs');
+                        const usdInput = modal.querySelector('#changeGivenUSD');
+                        if (bsInput && bsInput.dataset.suggested > 0) {
+                            bsInput.focus();
+                        } else if (usdInput) {
+                            usdInput.focus();
+                        }
+                    } else {
+                        // Done
+                        modal.querySelector('#donePayBtn')?.focus();
+                    }
+                }, 50);
+            }
         };
 
         modal.querySelector('#closePayModal').onclick = () => { modal.remove(); render(); };
@@ -1357,34 +1651,94 @@ export function renderSales(container, preSelectedClient = null) {
                     renderPaymentsList();
                     let totalPaid = 0;
                     payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
-                    updatePayMethods(Math.max(0, remainingUSD - totalPaid), true);
+                    const actualRem = remainingUSD - totalPaid;
+                    updatePayMethods(Math.max(0, actualRem), true);
+                    
+                    setTimeout(() => {
+                        if (actualRem < -0.009) {
+                            const bsInput = modal.querySelector('#changeGivenBs');
+                            if (bsInput) bsInput.focus();
+                        } else {
+                            const doneBtn = modal.querySelector('#donePayBtn');
+                            if (doneBtn) doneBtn.focus();
+                        }
+                    }, 50);
                 }
             };
         }
 
-        const setupChangeInput = (inp) => {
+        const setupChangeInput = (inp, nextElemSelector) => {
             if(!inp) return;
-            inp.oninput = (e) => { e.target.value = e.target.value.replace(/[^\d.,]/g, ''); };
+            inp.oninput = (e) => { 
+                let val = e.target.value.replace(/\D/g, '');
+                if (!val) val = '0';
+                const num = parseInt(val, 10) / 100;
+                e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            };
             inp.onfocus = (e) => { 
+                if (inp.id === 'changeGivenBs') {
+                    const usdInp = modal.querySelector('#changeGivenUSD');
+                    if (usdInp) usdInp.value = '';
+                } else if (inp.id === 'changeGivenUSD') {
+                    const bsInp = modal.querySelector('#changeGivenBs');
+                    if (bsInp) bsInp.value = '';
+                }
+                
                 if (!e.target.value || e.target.value === '0,00') {
                     if (e.target.dataset.suggested) {
                         e.target.value = parseFloat(e.target.dataset.suggested).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     }
-                } 
+                }
+                e.target.select();
             };
             inp.onblur = (e) => { 
                 if (e.target.value) {
                     e.target.value = parseNum(e.target.value).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
             };
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (nextElemSelector) {
+                        modal.querySelector(nextElemSelector)?.focus();
+                    }
+                } else if (e.key === 'ArrowRight' && inp.id === 'changeGivenBs') {
+                    e.preventDefault();
+                    inp.value = '';
+                    const usdInp = modal.querySelector('#changeGivenUSD');
+                    if (usdInp) usdInp.focus();
+                } else if (e.key === 'ArrowLeft' && inp.id === 'changeGivenUSD') {
+                    e.preventDefault();
+                    inp.value = '';
+                    const bsInp = modal.querySelector('#changeGivenBs');
+                    if (bsInp) bsInp.focus();
+                }
+            });
         };
-        setupChangeInput(modal.querySelector('#changeGivenBs'));
-        setupChangeInput(modal.querySelector('#changeGivenUSD'));
+        setupChangeInput(modal.querySelector('#changeGivenBs'), '#addChangeBtn');
+        setupChangeInput(modal.querySelector('#changeGivenUSD'), '#addChangeBtn');
+        
+        if (addChangeBtn) {
+            addChangeBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addChangeBtn.click();
+                }
+            });
+        }
 
         renderPaymentsList();
         let initialPaid = 0;
         payments.forEach(px => initialPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
         updatePayMethods(Math.max(0, remainingUSD - initialPaid));
+        
+        // Initial focus on open
+        setTimeout(() => {
+            const firstCurr = modal.querySelector('.pay-currency-btn');
+            if (firstCurr) {
+                firstCurr.focus();
+            }
+        }, 100);
     }
 
     function showToast(message, isError = false) {
@@ -1971,6 +2325,10 @@ export function renderSales(container, preSelectedClient = null) {
             modal.remove();
             onConfirm();
         };
+        setTimeout(() => {
+            const confirmBtn = modal.querySelector('#confirmFinalBtn');
+            if (confirmBtn) confirmBtn.focus();
+        }, 50);
     }
 
     function renderHistoryView() {
