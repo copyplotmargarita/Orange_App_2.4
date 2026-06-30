@@ -1226,6 +1226,7 @@ export function renderPurchases(container) {
                         <div class="form-group">
                             <label>NÚMERO DE DOCUMENTO <span class="text-danger">*</span></label>
                             <input type="text" id="pDocNumber" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} placeholder="Ej. 001-A" style="height: 40px;">
+                            <div id="pDocNumberError" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.2rem; display: none; font-weight: bold;">Este documento ya fue registrado para este proveedor.</div>
                         </div>
                         
                         <div class="form-group">
@@ -1575,8 +1576,33 @@ export function renderPurchases(container) {
         const pEquivalentUsd = container.querySelector('#pEquivalentUsd');
         const pPendingBalance = container.querySelector('#pPendingBalance');
         const pBcvRate = container.querySelector('#pBcvRate');
+        const pDocNumberError = container.querySelector('#pDocNumberError');
 
         let shouldOpenBuilder = false;
+
+        if (pDocNumber && pSupplier) {
+            const checkDuplicateDoc = () => {
+                const docVal = pDocNumber.value.trim().toLowerCase();
+                const supVal = pSupplier.value;
+                if (!docVal || !supVal) {
+                    if (pDocNumberError) pDocNumberError.style.display = 'none';
+                    pDocNumber.style.borderColor = '';
+                    return;
+                }
+                
+                const exists = purchases.find(p => p.supplierId === supVal && p.docNumber && p.docNumber.toLowerCase() === docVal);
+                if (exists) {
+                    if (pDocNumberError) pDocNumberError.style.display = 'block';
+                    pDocNumber.style.borderColor = 'var(--danger)';
+                } else {
+                    if (pDocNumberError) pDocNumberError.style.display = 'none';
+                    pDocNumber.style.borderColor = '';
+                }
+            };
+
+            pDocNumber.addEventListener('blur', checkDuplicateDoc);
+            pSupplier.addEventListener('change', checkDuplicateDoc);
+        }
         
         // Restore state if returning from Product Creation
         if (window.tempPurchaseState) {
@@ -2247,6 +2273,16 @@ export function renderPurchases(container) {
             if (purchaseType === 'PRODUCTO' && currentPurchaseProducts.length === 0) {
                 showToast("Debe agregar al menos un producto a la compra.", "error");
                 return;
+            }
+
+            const docVal = container.querySelector('#pDocNumber')?.value.trim().toLowerCase();
+            const supVal = container.querySelector('#pSupplier')?.value;
+            if (docVal && supVal) {
+                const exists = purchases.find(p => p.supplierId === supVal && p.docNumber && p.docNumber.toLowerCase() === docVal);
+                if (exists) {
+                    showToast("Este número de documento ya fue registrado para el proveedor seleccionado.", "error");
+                    return;
+                }
             }
             if (purchaseType === 'EQUIPO_UTENSILIO') {
                 if (!window.currentEquipmentItems || window.currentEquipmentItems.length === 0) {

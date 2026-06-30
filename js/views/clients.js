@@ -174,6 +174,11 @@ export function renderClients(container, onFinish = null, initialName = '') {
                             
                             <div id="mapContainerWrapper" style="display: none; margin-top: 1rem;">
                                 <p class="text-xs text-muted mb-2">Selecciona la ubicación exacta en el mapa</p>
+                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <input type="text" id="mapSearchInput" class="form-control" placeholder="Buscar lugar (Ej. Pampatar)..." style="height: 35px; font-size: 0.8rem; border-radius: 6px;">
+                                    <button type="button" class="btn btn-primary" id="mapSearchBtn" style="height: 35px; padding: 0 1rem; border-radius: 6px; font-size: 0.8rem; width: auto;">🔍</button>
+                                </div>
+                                <div id="mapSearchResults" style="display: none; max-height: 120px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.8rem;"></div>
                                 <div id="map" style="height: 250px; border-radius: 8px; border: 1px solid var(--border); z-index: 1;"></div>
                                 <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 0.7rem; font-family: monospace; color: var(--text-muted);" id="coordsDisplay">${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}</span>
@@ -192,9 +197,16 @@ export function renderClients(container, onFinish = null, initialName = '') {
 
             <!-- Modal Mapa Pantalla Completa -->
             <div id="fullMapModal" style="display: none; position: fixed; inset: 0; background: var(--background); z-index: 1000; flex-direction: column;">
-                <div style="padding: 1rem; background: var(--surface); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
-                    <h3 style="margin: 0; font-weight: 800;">📍 Ubicación de Entrega</h3>
-                    <button id="closeFullMapBtn" class="btn btn-primary" style="width: auto; height: 40px; padding: 0 1.5rem;">Confirmar y Cerrar</button>
+                <div style="padding: 1rem; background: var(--surface); display: flex; flex-direction: column; gap: 0.5rem; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-weight: 800;">📍 Ubicación de Entrega</h3>
+                        <button id="closeFullMapBtn" class="btn btn-primary" style="width: auto; height: 40px; padding: 0 1.5rem;">Confirmar y Cerrar</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="fullMapSearchInput" class="form-control" placeholder="Buscar lugar (Ej. Pampatar)..." style="height: 35px; font-size: 0.8rem; border-radius: 6px;">
+                        <button type="button" class="btn btn-primary" id="fullMapSearchBtn" style="height: 35px; padding: 0 1rem; border-radius: 6px; font-size: 0.8rem; width: auto;">🔍</button>
+                    </div>
+                    <div id="fullMapSearchResults" style="display: none; max-height: 120px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; margin-bottom: 0;"></div>
                 </div>
                 <div id="fullMap" style="flex: 1;"></div>
             </div>
@@ -255,6 +267,13 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 const val = this.value;
                 if (val.includes('@')) {
                     const [user, domainQuery] = val.split('@');
+                    
+                    // Si ya coincide exactamente con un dominio sugerido, limpiamos para evitar el bug del tooltip nativo (cuadro negro)
+                    if (popularDomains.some(d => val === user + d)) {
+                        emailSuggestions.innerHTML = '';
+                        return;
+                    }
+
                     emailSuggestions.innerHTML = popularDomains
                         .filter(d => d.includes(domainQuery))
                         .map(d => `<option value="${user}${d}">`)
@@ -277,6 +296,57 @@ export function renderClients(container, onFinish = null, initialName = '') {
         // Lógica de Delivery y Mapa
         const deliverySelect = container.querySelector('#deliverySelect');
         const mapContainerWrapper = container.querySelector('#mapContainerWrapper');
+        
+        const mapSearchBtn = container.querySelector('#mapSearchBtn');
+        const mapSearchInput = container.querySelector('#mapSearchInput');
+        const mapSearchResults = container.querySelector('#mapSearchResults');
+        
+        if (mapSearchBtn) {
+            const performSearch = async () => {
+                const q = mapSearchInput.value.trim();
+                if (!q) return;
+                mapSearchBtn.textContent = '...';
+                try {
+                    const ext = `${selectedLng-1},${selectedLat-1},${selectedLng+1},${selectedLat+1}`;
+                    const res = await fetch(`https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&singleLine=${encodeURIComponent(q)}&outFields=Match_addr,Addr_type&maxLocations=5&location=${selectedLng},${selectedLat}&distance=50000&countryCode=VEN&searchExtent=${ext}`);
+                    const data = await res.json();
+                    mapSearchResults.innerHTML = '';
+                    if (data && data.candidates && data.candidates.length > 0) {
+                        data.candidates.forEach(item => {
+                            const div = document.createElement('div');
+                            div.style.padding = '0.5rem';
+                            div.style.borderBottom = '1px solid var(--border)';
+                            div.style.cursor = 'pointer';
+                            div.textContent = item.address;
+                            div.onclick = () => {
+                                selectedLat = parseFloat(item.location.y);
+                                selectedLng = parseFloat(item.location.x);
+                                if (map) map.setView([selectedLat, selectedLng], 18);
+                                mapSearchResults.style.display = 'none';
+                                mapSearchInput.value = item.address.split(',')[0] || q;
+                                const coordDisp = container.querySelector('#coordsDisplay');
+                                if(coordDisp) coordDisp.textContent = `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+                            };
+                            mapSearchResults.appendChild(div);
+                        });
+                        mapSearchResults.style.display = 'block';
+                    } else {
+                        mapSearchResults.innerHTML = '<div style="padding: 0.5rem; color: var(--text-muted);">No se encontraron resultados</div>';
+                        mapSearchResults.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Error buscando', e);
+                }
+                mapSearchBtn.textContent = '🔍';
+            };
+            mapSearchBtn.addEventListener('click', performSearch);
+            mapSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performSearch();
+                }
+            });
+        }
         let fullMap = null;
         let fullMarker = null;
 
@@ -364,9 +434,10 @@ export function renderClients(container, onFinish = null, initialName = '') {
             if (!fullMap && window.L) {
                 setTimeout(() => {
                     fullMap = L.map('fullMap').setView([selectedLat, selectedLng], 18);
-                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                        attribution: 'Tiles &copy; Esri',
-                        maxZoom: 21
+                    L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+                        maxZoom: 21,
+                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                        attribution: '&copy; Google Maps'
                     }).addTo(fullMap);
                     fullMarker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(fullMap);
                     
@@ -386,6 +457,59 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 fullMarker.setLatLng([selectedLat, selectedLng]);
             }
         });
+
+        const fullMapSearchBtn = container.querySelector('#fullMapSearchBtn');
+        const fullMapSearchInput = container.querySelector('#fullMapSearchInput');
+        const fullMapSearchResults = container.querySelector('#fullMapSearchResults');
+        
+        if (fullMapSearchBtn) {
+            const performFullSearch = async () => {
+                const q = fullMapSearchInput.value.trim();
+                if (!q) return;
+                fullMapSearchBtn.textContent = '...';
+                try {
+                    const ext = `${selectedLng-1},${selectedLat-1},${selectedLng+1},${selectedLat+1}`;
+                    const res = await fetch(`https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&singleLine=${encodeURIComponent(q)}&outFields=Match_addr,Addr_type&maxLocations=5&location=${selectedLng},${selectedLat}&distance=50000&countryCode=VEN&searchExtent=${ext}`);
+                    const data = await res.json();
+                    fullMapSearchResults.innerHTML = '';
+                    if (data && data.candidates && data.candidates.length > 0) {
+                        data.candidates.forEach(item => {
+                            const div = document.createElement('div');
+                            div.style.padding = '0.5rem';
+                            div.style.borderBottom = '1px solid var(--border)';
+                            div.style.cursor = 'pointer';
+                            div.textContent = item.address;
+                            div.onclick = () => {
+                                selectedLat = parseFloat(item.location.y);
+                                selectedLng = parseFloat(item.location.x);
+                                if (fullMap) fullMap.setView([selectedLat, selectedLng], 18);
+                                if (fullMarker) fullMarker.setLatLng([selectedLat, selectedLng]);
+                                if (map) map.setView([selectedLat, selectedLng], 18);
+                                fullMapSearchResults.style.display = 'none';
+                                fullMapSearchInput.value = item.address.split(',')[0] || q;
+                                const coordDisp = container.querySelector('#coordsDisplay');
+                                if(coordDisp) coordDisp.textContent = `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`;
+                            };
+                            fullMapSearchResults.appendChild(div);
+                        });
+                        fullMapSearchResults.style.display = 'block';
+                    } else {
+                        fullMapSearchResults.innerHTML = '<div style="padding: 0.5rem; color: var(--text-muted);">No se encontraron resultados</div>';
+                        fullMapSearchResults.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Error buscando', e);
+                }
+                fullMapSearchBtn.textContent = '🔍';
+            };
+            fullMapSearchBtn.addEventListener('click', performFullSearch);
+            fullMapSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performFullSearch();
+                }
+            });
+        }
 
         container.querySelector('#closeFullMapBtn').addEventListener('click', () => {
             container.querySelector('#fullMapModal').style.display = 'none';
@@ -565,6 +689,11 @@ export function renderClients(container, onFinish = null, initialName = '') {
                                 </label>
                                 
                                 <div id="editMapContainer" style="display: none; margin-top: 1rem;">
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                        <input type="text" id="editMapSearchInput" class="form-control" placeholder="Buscar lugar..." style="height: 35px; font-size: 0.8rem; border-radius: 6px;">
+                                        <button type="button" class="btn btn-primary" id="editMapSearchBtn" style="height: 35px; padding: 0 1rem; border-radius: 6px; font-size: 0.8rem; width: auto;">🔍</button>
+                                    </div>
+                                    <div id="editMapSearchResults" style="display: none; max-height: 120px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.8rem;"></div>
                                     <div id="detailMap" style="height: 180px; border-radius: 8px; border: 1px solid var(--border); z-index: 1;"></div>
                                     <p style="font-size: 0.6rem; color: var(--text-muted); margin-top: 0.4rem; text-align: center;">Mueve el mapa para ajustar la mira central</p>
                                 </div>
@@ -685,6 +814,12 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 const val = this.value;
                 if (val.includes('@')) {
                     const [user, domainQuery] = val.split('@');
+                    
+                    if (popularDomainsEdit.some(d => val === user + d)) {
+                        editEmailSuggestions.innerHTML = '';
+                        return;
+                    }
+
                     editEmailSuggestions.innerHTML = popularDomainsEdit
                         .filter(d => d.includes(domainQuery))
                         .map(d => `<option value="${user}${d}">`)
@@ -699,6 +834,55 @@ export function renderClients(container, onFinish = null, initialName = '') {
         const editDelivery = container.querySelector('#editDelivery');
         const editMapContainer = container.querySelector('#editMapContainer');
         const showMapBtn = container.querySelector('#showMapBtn');
+        
+        const editMapSearchBtn = container.querySelector('#editMapSearchBtn');
+        const editMapSearchInput = container.querySelector('#editMapSearchInput');
+        const editMapSearchResults = container.querySelector('#editMapSearchResults');
+        
+        if (editMapSearchBtn) {
+            const performEditSearch = async () => {
+                const q = editMapSearchInput.value.trim();
+                if (!q) return;
+                editMapSearchBtn.textContent = '...';
+                try {
+                    const vb = `${selectedLng-0.5},${selectedLat+0.5},${selectedLng+0.5},${selectedLat-0.5}`;
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ve&viewbox=${vb}&bounded=0&limit=5`);
+                    const data = await res.json();
+                    editMapSearchResults.innerHTML = '';
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.style.padding = '0.5rem';
+                            div.style.borderBottom = '1px solid var(--border)';
+                            div.style.cursor = 'pointer';
+                            div.textContent = item.display_name;
+                            div.onclick = () => {
+                                selectedLat = parseFloat(item.lat);
+                                selectedLng = parseFloat(item.lon);
+                                if (detailMap) detailMap.setView([selectedLat, selectedLng], 18);
+                                editMapSearchResults.style.display = 'none';
+                                editMapSearchInput.value = item.name || q;
+                            };
+                            editMapSearchResults.appendChild(div);
+                        });
+                        editMapSearchResults.style.display = 'block';
+                    } else {
+                        editMapSearchResults.innerHTML = '<div style="padding: 0.5rem; color: var(--text-muted);">No se encontraron resultados</div>';
+                        editMapSearchResults.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Error buscando', e);
+                }
+                editMapSearchBtn.textContent = '🔍';
+            };
+            editMapSearchBtn.addEventListener('click', performEditSearch);
+            editMapSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performEditSearch();
+                }
+            });
+        }
         
         function initDetailMap() {
             if (!detailMap && window.L) {
