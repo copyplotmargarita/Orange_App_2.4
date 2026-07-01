@@ -143,8 +143,19 @@ export function renderPurchases(container) {
     initialStartDateObj.setDate(initialEndDateObj.getDate() - 7);
     let currentFilterStartDate = initialStartDateObj.toISOString().split('T')[0];
     let currentFilterEndDate = initialEndDateObj.toISOString().split('T')[0];
+    
+    let currentView = 'deck';
+
+    function goBackToDeck() {
+        if (currentView === 'history') {
+            renderHistoryDeck();
+        } else {
+            renderDeck();
+        }
+    }
 
     function renderDeck() {
+        currentView = 'deck';
         let filteredPurchases = purchases;
         if (currentFilterType !== 'TODOS') {
             filteredPurchases = filteredPurchases.filter(p => p.purchaseType === currentFilterType);
@@ -157,24 +168,27 @@ export function renderPurchases(container) {
                 <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🧾 Cuentas por Pagar</h2>
                 <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                    <select id="filterType" class="form-control" style="width: auto; max-width: 250px; height: 42px; padding: 0 2rem 0 1rem; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
+                    <select id="filterType" class="form-control filter-dropdown">
                         <option value="TODOS" ${currentFilterType === 'TODOS' ? 'selected' : ''}>Todas las Compras</option>
                         <option value="PRODUCTO" ${currentFilterType === 'PRODUCTO' ? 'selected' : ''}>Insumos / Productos</option>
                         <option value="EQUIPO_UTENSILIO" ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'selected' : ''}>Equipos</option>
                         <option value="GASTO_SERVICIO" ${currentFilterType === 'GASTO_SERVICIO' ? 'selected' : ''}>Gastos y Servicios</option>
                     </select>
-                    <select id="filterSupplier" class="form-control" style="width: auto; max-width: 250px; height: 42px; padding: 0 2rem 0 1rem; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
+                    <select id="filterSupplier" class="form-control filter-dropdown ts-filter">
                         <option value="">Todos los Proveedores</option>
-                        ${suppliers.map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                        ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                     </select>
-                    <select id="filterStatus" class="form-control" style="width: auto; max-width: 250px; height: 42px; padding: 0 2rem 0 1rem; font-size: 0.85rem; border-radius: 10px; text-overflow: ellipsis;">
+                    <select id="filterStatus" class="form-control filter-dropdown">
                         <option value="">Todos los Estados</option>
                         <option value="CREDITO" ${currentFilterStatus === 'CREDITO' ? 'selected' : ''}>A CRÉDITO</option>
                         <option value="ABONO" ${currentFilterStatus === 'ABONO' ? 'selected' : ''}>ABONO</option>
                         <option value="PAGADO" ${currentFilterStatus === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                         <option value="CONTADO" ${currentFilterStatus === 'CONTADO' ? 'selected' : ''}>CONTADO</option>
                     </select>
-                    ${role !== 'employee' ? `<button class="btn btn-primary" id="addPurchaseBtn" style="width: 190px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Cargar Compra</button>` : ''}
+                    ${role !== 'employee' ? `
+                    <button class="btn btn-primary" id="historyPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">📜 Historial</button>
+                    <button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Cargar Compra</button>
+                    ` : ''}
                 </div>
             </div>
             
@@ -237,6 +251,71 @@ export function renderPurchases(container) {
             `;
         }
 
+        // --- SECTION: Category Totals ---
+        let insumosTotal = 0;
+        let insumosCount = 0;
+        let gastosTotal = 0;
+        let gastosCount = 0;
+        let equiposTotal = 0;
+        let equiposCount = 0;
+
+        filteredPurchases.forEach(p => {
+            if (p.status === 'CREDITO' || p.status === 'ABONO' || p.status === 'PENDIENTE') {
+                const debt = parseFloat(p.pendingBalanceUsd || 0);
+                if (p.purchaseType === 'PRODUCTO') {
+                    insumosTotal += debt;
+                    insumosCount++;
+                } else if (p.purchaseType === 'GASTO_SERVICIO') {
+                    gastosTotal += debt;
+                    gastosCount++;
+                } else if (p.purchaseType === 'EQUIPO_UTENSILIO') {
+                    equiposTotal += debt;
+                    equiposCount++;
+                }
+            }
+        });
+
+        html += `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
+                        <div>
+                            <p class="text-sm text-muted">Insumos / Productos</p>
+                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${insumosTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;" class="text-left-mobile">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${insumosCount} doc(s)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
+                        <div>
+                            <p class="text-sm text-muted">Gastos y Servicios</p>
+                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${gastosTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;" class="text-left-mobile">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${gastosCount} doc(s)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
+                        <div>
+                            <p class="text-sm text-muted">Equipos</p>
+                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${equiposTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;" class="text-left-mobile">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${equiposCount} doc(s)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
         // Group debt by entity (supplier or creditor) based on filtered results
         const entityDebt = {};
         suppliers.forEach(s => {
@@ -267,7 +346,7 @@ export function renderPurchases(container) {
                 <p style="color: var(--text-muted); font-size: 1.1rem;">No hay registros que coincidan con los filtros.</p>
             </div>`;
         } else {
-            html += `<div style="max-height: 240px; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 2rem;">
+            html += `<div style="max-height: 500px; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 2rem;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">`;
             
             activeEntities.forEach(sup => {
@@ -284,18 +363,135 @@ export function renderPurchases(container) {
                      </div>`;
         }
 
-        // Tabla de Historial de Compras
-        html += `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-                <h3 style="margin: 0;">Historial de Compras</h3>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
+        container.innerHTML = html;
+
+        if (typeof TomSelect !== 'undefined') {
+            const filterSupEl = container.querySelector('#filterSupplier');
+            if (filterSupEl) {
+                new TomSelect(filterSupEl, { create: false, placeholder: "Todos los Proveedores" });
+            }
+        }
+
+        // Listeners Filtros
+        const filterSup = container.querySelector('#filterSupplier');
+        const filterSta = container.querySelector('#filterStatus');
+        const filterTyp = container.querySelector('#filterType');
+
+        filterSup.addEventListener('change', () => {
+            currentFilterSupplier = filterSup.value;
+            renderDeck();
+        });
+        filterSta.addEventListener('change', () => {
+            currentFilterStatus = filterSta.value;
+            renderDeck();
+        });
+        filterTyp.addEventListener('change', () => {
+            currentFilterType = filterTyp.value;
+            renderDeck();
+        });
+
+        const historyPurchaseBtn = document.getElementById('historyPurchaseBtn');
+        if (historyPurchaseBtn) {
+            historyPurchaseBtn.addEventListener('click', () => {
+                renderHistoryDeck();
+            });
+        }
+
+        container.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const templateId = e.currentTarget.dataset.id;
+                const template = expenseTemplates.find(t => t.id === templateId);
+                if (template) {
+                    renderForm('GASTO_SERVICIO', {
+                        templateId: template.id,
+                        creditorId: template.creditorId,
+                        categoryId: template.categoryId,
+                        description: template.description,
+                        recurrenceType: template.recurrenceType,
+                        amountUsd: template.amountUsd
+                    });
+                }
+            });
+        });
+
+        const resumePausedBtn = container.querySelector('#resumePausedBtn');
+        if (resumePausedBtn) {
+            resumePausedBtn.addEventListener('click', () => {
+                const dataStr = localStorage.getItem('pausedPurchaseState');
+                if (dataStr) {
+                    try {
+                        const data = JSON.parse(dataStr);
+                        localStorage.removeItem('pausedPurchaseState');
+                        window.tempPurchaseState = data;
+                        renderForm(data.purchaseType || 'PRODUCTO');
+                    } catch (e) {
+                        console.error('Error parsing paused state', e);
+                    }
+                }
+            });
+        }
+
+        const discardPausedBtn = container.querySelector('#discardPausedBtn');
+        if (discardPausedBtn) {
+            discardPausedBtn.addEventListener('click', () => {
+                localStorage.removeItem('pausedPurchaseState');
+                renderDeck();
+            });
+        }
+
+        const addBtn = container.querySelector('#addPurchaseBtn');
+        if (addBtn) addBtn.addEventListener('click', () => renderTypeSelector());
+        
+        const viewEqBtn = container.querySelector('#viewEquipmentBtn');
+        if (viewEqBtn) {
+            viewEqBtn.addEventListener('click', () => {
+                renderEquipmentInventory();
+            });
+        }
+        
+        const backBtn = container.querySelector('#backToDashboardBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    if (toggleIcon && toggleIcon.innerText === '▶') {
+                        document.getElementById('sidebarToggle')?.click();
+                    }
+                } else {
+                    window.location.hash = '#dashboard';
+                }
+            });
+        }
+
+        container.querySelectorAll('.supplier-debt-card').forEach(card => {
+            card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
+            card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
+            card.addEventListener('click', () => {
+                renderSupplierDetail(card.dataset.id);
+            });
+        });
+    }
+
+    function renderHistoryDeck() {
+        currentView = 'history';
+        let html = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
+                <button class="btn btn-outline" id="backToPurchasesBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📜 Historial de Compras</h2>
+            </div>
+            
+            <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                     <label style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Desde:</label>
                     <input type="date" id="filterStartDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterStartDate}">
                     <label style="font-size: 0.85rem; color: var(--text-muted); margin: 0; margin-left: 0.5rem;">Hasta:</label>
                     <input type="date" id="filterEndDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterEndDate}">
                 </div>
             </div>
-            <div class="card" style="padding: 0; overflow-x: auto; max-height: 400px; overflow-y: auto;">
+
+            <div class="card" style="padding: 0; overflow-x: auto; max-height: calc(100vh - 250px); overflow-y: auto;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
                     <thead style="position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                         <tr style="background-color: var(--background); border-bottom: 1px solid var(--border);">
@@ -313,7 +509,7 @@ export function renderPurchases(container) {
                     <tbody>
         `;
 
-        let tablePurchases = filteredPurchases;
+        let tablePurchases = purchases;
         if (currentFilterStartDate) {
             tablePurchases = tablePurchases.filter(p => {
                 const pDate = p.receptionDate || p.emissionDate || (p.createdAt ? p.createdAt.split('T')[0] : '');
@@ -352,7 +548,7 @@ export function renderPurchases(container) {
                 const displayDays = diffDays >= 0 ? diffDays : 0;
 
                 html += `
-                    <tr class="purchase-row" data-id="${p.id}" style="border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;">
+                    <tr class="purchase-row" data-id="${p.id}" style="border-bottom: 1px solid var(--border); transition: background 0.2s;">
                         <td style="padding: 1rem;">${formatDateToDDMMYYYY(p.receptionDate || p.emissionDate)}</td>
                         <td style="padding: 1rem;"><span style="color: var(--text-muted); font-size: 0.85rem;">${displayDays}</span></td>
                         <td style="padding: 1rem;"><strong>${p.docType}</strong></td>
@@ -363,9 +559,9 @@ export function renderPurchases(container) {
                                 ${p.status}
                             </span>
                         </td>
-                        <td style="padding: 1rem; font-weight: bold;">$ ${(p.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
-                        <td style="padding: 1rem; color: ${p.pendingBalanceUsd > 0 ? 'var(--danger)' : 'var(--success)'};">
-                            $ ${(p.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}
+                        <td style="padding: 1rem; font-weight: bold;">$ ${parseFloat(p.totalUsd || p.totalAmount || p.total || 0).toFixed(2)}</td>
+                        <td style="padding: 1rem; color: ${p.pendingBalanceUsd > 0 ? 'var(--danger)' : 'var(--success)'}; font-weight: bold;">
+                            $ ${parseFloat(p.pendingBalanceUsd || 0).toFixed(2)}
                         </td>
                         <td style="padding: 1rem;">
                             <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
@@ -377,7 +573,7 @@ export function renderPurchases(container) {
                 `;
             });
         }
-
+        
         html += `
                     </tbody>
                 </table>
@@ -386,115 +582,28 @@ export function renderPurchases(container) {
 
         container.innerHTML = html;
 
-        // Listeners Filtros
-        const filterSup = container.querySelector('#filterSupplier');
-        const filterSta = container.querySelector('#filterStatus');
-        const filterTyp = container.querySelector('#filterType');
-
-        filterSup.addEventListener('change', () => {
-            currentFilterSupplier = filterSup.value;
-            renderDeck();
-        });
-        filterSta.addEventListener('change', () => {
-            currentFilterStatus = filterSta.value;
-            renderDeck();
-        });
-        filterTyp.addEventListener('change', () => {
-            currentFilterType = filterTyp.value;
-            renderDeck();
-        });
+        const backBtn = container.querySelector('#backToPurchasesBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                renderDeck();
+            });
+        }
 
         const filterStart = container.querySelector('#filterStartDate');
         const filterEnd = container.querySelector('#filterEndDate');
         if (filterStart) {
             filterStart.addEventListener('change', () => {
                 currentFilterStartDate = filterStart.value;
-                renderDeck();
+                renderHistoryDeck();
             });
         }
         if (filterEnd) {
             filterEnd.addEventListener('change', () => {
                 currentFilterEndDate = filterEnd.value;
-                renderDeck();
-            });
-        }
-
-        container.querySelectorAll('.template-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const templateId = e.currentTarget.dataset.id;
-                const template = expenseTemplates.find(t => t.id === templateId);
-                if (template) {
-                    renderForm('GASTO_SERVICIO', {
-                        templateId: template.id,
-                        creditorId: template.creditorId,
-                        categoryId: template.categoryId,
-                        description: template.description,
-                        recurrenceType: template.recurrenceType,
-                        amountUsd: template.amountUsd
-                    });
-                }
-            });
-        });
-
-        const addBtn = container.querySelector('#addPurchaseBtn');
-        if (addBtn) addBtn.addEventListener('click', () => renderTypeSelector());
-        
-        const viewEqBtn = container.querySelector('#viewEquipmentBtn');
-        if (viewEqBtn) {
-            viewEqBtn.addEventListener('click', () => {
-                renderEquipmentInventory();
+                renderHistoryDeck();
             });
         }
         
-        const resumePausedBtn = container.querySelector('#resumePausedBtn');
-        if (resumePausedBtn) {
-            resumePausedBtn.addEventListener('click', () => {
-                const dataStr = localStorage.getItem('pausedPurchaseState');
-                if (dataStr) {
-                    try {
-                        const data = JSON.parse(dataStr);
-                        localStorage.removeItem('pausedPurchaseState');
-                        window.tempPurchaseState = data;
-                        renderForm(data.purchaseType || 'PRODUCTO');
-                    } catch (e) {
-                        console.error('Error parsing paused state', e);
-                    }
-                }
-            });
-        }
-
-        const discardPausedBtn = container.querySelector('#discardPausedBtn');
-        if (discardPausedBtn) {
-            discardPausedBtn.addEventListener('click', () => {
-                localStorage.removeItem('pausedPurchaseState');
-                renderDeck();
-            });
-        }
-        
-        const backBtn = container.querySelector('#backToDashboardBtn');
-        if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                const navHome = document.getElementById('navHome');
-                if (navHome) {
-                    navHome.click();
-                    const toggleIcon = document.getElementById('toggleIcon');
-                    if (toggleIcon && toggleIcon.innerText === '▶') {
-                        document.getElementById('sidebarToggle')?.click();
-                    }
-                } else {
-                    window.location.hash = '#dashboard';
-                }
-            });
-        }
-
-        container.querySelectorAll('.supplier-debt-card').forEach(card => {
-            card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
-            card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
-            card.addEventListener('click', () => {
-                renderSupplierDetail(card.dataset.id);
-            });
-        });
-
         container.querySelectorAll('.purchase-row').forEach(row => {
             row.addEventListener('mouseover', () => row.style.backgroundColor = 'var(--background)');
             row.addEventListener('mouseout', () => row.style.backgroundColor = 'transparent');
@@ -526,6 +635,7 @@ export function renderPurchases(container) {
                             await deleteDoc(doc(db, "businesses", businessId, "purchases", purchaseId));
                             showToast('Compra eliminada exitosamente', 'success');
                             await loadData();
+                            renderHistoryDeck();
                         } catch (err) {
                             console.error('Error deleting purchase:', err);
                             showToast('Error al eliminar la compra', 'error');
@@ -540,6 +650,7 @@ export function renderPurchases(container) {
     }
 
     function renderEditMetadataForm(purchase) {
+        currentView = 'editMetadata';
         const supList = purchase.purchaseType === 'GASTO_SERVICIO' ? creditors : suppliers;
         let html = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
@@ -601,8 +712,8 @@ export function renderPurchases(container) {
             flatpickr(container.querySelector('#eReceptionDate'), fpConfig);
         }
 
-        container.querySelector('#backToDeckBtn').addEventListener('click', renderDeck);
-        container.querySelector('#cancelEditBtn').addEventListener('click', renderDeck);
+        container.querySelector('#backToDeckBtn').addEventListener('click', goBackToDeck);
+        container.querySelector('#cancelEditBtn').addEventListener('click', goBackToDeck);
 
         container.querySelector('#editMetadataForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -630,6 +741,7 @@ export function renderPurchases(container) {
                 await updateDoc(doc(db, "businesses", businessId, "purchases", purchase.id), updateData);
                 showToast('Factura actualizada correctamente.', 'success');
                 await loadData();
+                renderHistoryDeck();
             } catch (err) {
                 console.error("Error updating metadata:", err);
                 showToast('Error al actualizar la factura.', 'error');
@@ -640,6 +752,7 @@ export function renderPurchases(container) {
     }
 
     function renderEquipmentInventory() {
+        currentView = 'equipment';
         let html = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                 <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
@@ -701,7 +814,7 @@ export function renderPurchases(container) {
         
         container.querySelector('#backToDeckBtn')?.addEventListener('click', () => {
             currentFilterType = 'EQUIPO_UTENSILIO';
-            renderDeck();
+            goBackToDeck();
         });
         
         container.querySelectorAll('.discharge-btn').forEach(btn => {
@@ -818,7 +931,7 @@ export function renderPurchases(container) {
 
         container.innerHTML = html;
 
-        container.querySelector('#backToDeckBtn').addEventListener('click', renderDeck);
+        container.querySelector('#backToDeckBtn').addEventListener('click', goBackToDeck);
 
         container.querySelectorAll('.pay-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -827,19 +940,11 @@ export function renderPurchases(container) {
                 if (purchase) renderPaymentForm(purchase);
             });
         });
-
-        container.querySelectorAll('.purchase-row').forEach(row => {
-            row.addEventListener('mouseover', () => row.style.backgroundColor = 'var(--background)');
-            row.addEventListener('mouseout', () => row.style.backgroundColor = 'transparent');
-            row.addEventListener('click', () => {
-                const purchase = purchases.find(p => p.id === row.dataset.id);
-                if (purchase) renderDetail(purchase);
-            });
-        });
     }
 
     function renderPaymentForm(purchase) {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const localNow = new Date();
+        const todayStr = localNow.getFullYear() + '-' + String(localNow.getMonth() + 1).padStart(2, '0') + '-' + String(localNow.getDate()).padStart(2, '0');
         const supObj = suppliers.find(s => s.id === purchase.supplierId);
         const supName = supObj ? supObj.name : 'Desconocido';
         const docRate = purchase.bcvRate || bcvRate || 1;
@@ -978,9 +1083,11 @@ export function renderPurchases(container) {
                     pBcvRateInput.readOnly = true;
                     pBcvRateInput.style.background = 'var(--background)';
                 } else {
-                    pBcvRateInput.value = fmtNum(bcvRate);
+                    pBcvRateInput.value = '';
                     pBcvRateInput.readOnly = false;
                     pBcvRateInput.style.background = 'var(--surface)';
+                    showToast('Por favor, ingrese la Tasa BCV para esta fecha.', 'warning');
+                    setTimeout(() => pBcvRateInput.focus(), 100);
                 }
                 updateCalc();
             } catch (error) {
@@ -991,6 +1098,26 @@ export function renderPurchases(container) {
                 updateCalc();
             }
         };
+
+        pBcvRateInput.addEventListener('change', async () => {
+            const currentRate = parseNum(pBcvRateInput.value);
+            const businessId = localStorage.getItem('businessId');
+            if (currentRate > 0 && !pBcvRateInput.readOnly && pPaymentDate.value) {
+                const safeDateStr = pPaymentDate.value.replace(/\//g, '-');
+                try {
+                    await setDoc(doc(db, "businesses", businessId, "bcv_history", safeDateStr), {
+                        rate: currentRate,
+                        date: safeDateStr,
+                        createdAt: new Date().toISOString()
+                    });
+                    pBcvRateInput.readOnly = true;
+                    pBcvRateInput.style.background = 'var(--background)';
+                    showToast('Tasa BCV guardada para la fecha ' + safeDateStr, 'success');
+                } catch (error) {
+                    console.error("Error saving BCV rate:", error);
+                }
+            }
+        });
 
         pMethod.addEventListener('change', async () => {
             const val = pMethod.value;
@@ -1158,7 +1285,7 @@ export function renderPurchases(container) {
         container.innerHTML = html;
         
         container.querySelector('#backToDeckBtnType').addEventListener('click', () => {
-            renderDeck();
+            goBackToDeck();
         });
 
         container.querySelectorAll('.type-btn').forEach(btn => {
@@ -1170,13 +1297,14 @@ export function renderPurchases(container) {
     }
 
     function renderForm(purchaseType = 'PRODUCTO', prefillData = null) {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const localNow = new Date();
+        const todayStr = localNow.getFullYear() + '-' + String(localNow.getMonth() + 1).padStart(2, '0') + '-' + String(localNow.getDate()).padStart(2, '0');
         
         let html = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                 <button type="button" class="btn btn-outline" id="backToTypeSelectorBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">
-                    ${purchaseType === 'PRODUCTO' ? '📦 Cargar Productos' : (purchaseType === 'EQUIPO_UTENSILIO' ? '🔧 Cargar Equipo' : '📋 Cargar Gasto/Servicio')}
+                    ${purchaseType === 'PRODUCTO' ? '📦 Cargar Factura de Compra' : (purchaseType === 'EQUIPO_UTENSILIO' ? '🔧 Cargar Equipo' : '📋 Cargar Gasto/Servicio')}
                 </h2>
             </div>
             
@@ -1615,8 +1743,27 @@ export function renderPurchases(container) {
                 window.currentEquipmentItems = st.equipmentItems;
             }
             
-            if (pSupplier) pSupplier.value = st.supplierId || '';
-            if (pCreditor) pCreditor.value = st.creditorId || '';
+            if (pSupplier && st.supplierId) {
+                let opt = pSupplier.querySelector(`option[value="${st.supplierId}"]`);
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = st.supplierId;
+                    opt.textContent = `Proveedor (${st.supplierId})`;
+                    pSupplier.appendChild(opt);
+                    if (pSupplier.tomselect) {
+                        pSupplier.tomselect.addOption({value: st.supplierId, text: opt.textContent});
+                    }
+                }
+                pSupplier.value = st.supplierId;
+                if (pSupplier.tomselect) pSupplier.tomselect.setValue(st.supplierId);
+            } else if (pSupplier) {
+                pSupplier.value = '';
+                if (pSupplier.tomselect) pSupplier.tomselect.clear();
+            }
+            if (pCreditor) {
+                pCreditor.value = st.creditorId || '';
+                if (pCreditor.tomselect) pCreditor.tomselect.setValue(st.creditorId || '');
+            }
             
             const pCategory = container.querySelector('#pCategory');
             if (pCategory) pCategory.value = st.categoryId || '';
@@ -1637,8 +1784,15 @@ export function renderPurchases(container) {
             if (pExpenseCurrency && st.currency) pExpenseCurrency.value = st.currency;
 
             if (pBcvRate) pBcvRate.value = st.bcvRate || '';
-            if (pEmissionDate) pEmissionDate.value = st.emissionDate || todayStr;
-            if (pReceptionDate) pReceptionDate.value = st.receptionDate || todayStr;
+            
+            if (pEmissionDate) {
+                pEmissionDate.value = st.emissionDate || todayStr;
+                if (pEmissionDate._flatpickr) pEmissionDate._flatpickr.setDate(pEmissionDate.value);
+            }
+            if (pReceptionDate) {
+                pReceptionDate.value = st.receptionDate || todayStr;
+                if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(pReceptionDate.value);
+            }
             if (pDocType) pDocType.value = st.docType || '';
             if (pDocNumber) pDocNumber.value = st.docNumber || '';
             if (pStatus) pStatus.value = st.status || '';
@@ -1667,22 +1821,22 @@ export function renderPurchases(container) {
 
         // Navigation
         container.querySelector('#backToTypeSelectorBtn').addEventListener('click', renderTypeSelector);
-        container.querySelector('#cancelFormBtn').addEventListener('click', renderDeck);
+        container.querySelector('#cancelFormBtn').addEventListener('click', goBackToDeck);
 
         // Save Paused State
         window.savePurchaseStateAndExit = function(overrideProducts = null) {
             let stateData = {
                 purchaseType: purchaseType,
-                supplierId: pSupplier ? pSupplier.value : null,
-                creditorId: pCreditor ? pCreditor.value : null,
+                supplierId: container.querySelector('#pSupplier') ? container.querySelector('#pSupplier').value : null,
+                creditorId: container.querySelector('#pCreditor') ? container.querySelector('#pCreditor').value : null,
                 categoryId: container.querySelector('#pCategory') ? container.querySelector('#pCategory').value : null,
                 description: container.querySelector('#pDescription') ? container.querySelector('#pDescription').value : null,
-                bcvRate: parseNum((pBcvRate && pBcvRate.value) ? pBcvRate.value : (container.querySelector('#pExpenseBcvRate') ? container.querySelector('#pExpenseBcvRate').value : 1)),
-                emissionDate: (pEmissionDate && pEmissionDate.value) ? pEmissionDate.value : (container.querySelector('#pExpenseDate') ? container.querySelector('#pExpenseDate').value : todayStr),
-                receptionDate: (pReceptionDate && pReceptionDate.value) ? pReceptionDate.value : todayStr,
-                docType: pDocType ? pDocType.value : null,
-                docNumber: pDocNumber ? pDocNumber.value : null,
-                status: (pStatus && pStatus.value) ? pStatus.value : (container.querySelector('#pExpenseStatus') ? container.querySelector('#pExpenseStatus').value : ''),
+                bcvRate: parseNum((container.querySelector('#pBcvRate') && container.querySelector('#pBcvRate').value) ? container.querySelector('#pBcvRate').value : (container.querySelector('#pExpenseBcvRate') ? container.querySelector('#pExpenseBcvRate').value : 1)),
+                emissionDate: (container.querySelector('#pEmissionDate') && container.querySelector('#pEmissionDate').value) ? container.querySelector('#pEmissionDate').value : (container.querySelector('#pExpenseDate') ? container.querySelector('#pExpenseDate').value : todayStr),
+                receptionDate: (container.querySelector('#pReceptionDate') && container.querySelector('#pReceptionDate').value) ? container.querySelector('#pReceptionDate').value : todayStr,
+                docType: container.querySelector('#pDocType') ? container.querySelector('#pDocType').value : null,
+                docNumber: container.querySelector('#pDocNumber') ? container.querySelector('#pDocNumber').value : null,
+                status: (container.querySelector('#pStatus') && container.querySelector('#pStatus').value) ? container.querySelector('#pStatus').value : (container.querySelector('#pExpenseStatus') ? container.querySelector('#pExpenseStatus').value : ''),
                 currency: (pCurrency && pCurrency.value) ? pCurrency.value : (container.querySelector('#pExpenseCurrency') ? container.querySelector('#pExpenseCurrency').value : 'BS'),
                 paymentDate: pPaymentDate ? pPaymentDate.value : null,
                 paymentMethod: pPaymentMethod ? pPaymentMethod.value : null,
@@ -1782,10 +1936,27 @@ export function renderPurchases(container) {
             pEmissionDate.addEventListener('change', () => {
                 if (pReceptionDate) {
                     pReceptionDate.value = pEmissionDate.value;
+                    if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(pEmissionDate.value);
                 }
                 if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
                     const pPaymentDate = container.querySelector('#pPaymentDate');
-                    if (pPaymentDate) pPaymentDate.value = pEmissionDate.value;
+                    if (pPaymentDate) {
+                        pPaymentDate.value = pEmissionDate.value;
+                        if (pPaymentDate._flatpickr) pPaymentDate._flatpickr.setDate(pEmissionDate.value);
+                    }
+                }
+            });
+        }
+
+        if (pStatus) {
+            pStatus.addEventListener('change', () => {
+                if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
+                    const pPaymentDate = container.querySelector('#pPaymentDate');
+                    const pEmiDate = container.querySelector('#pEmissionDate');
+                    if (pPaymentDate && pEmiDate) {
+                        pPaymentDate.value = pEmiDate.value;
+                        if (pPaymentDate._flatpickr) pPaymentDate._flatpickr.setDate(pEmiDate.value);
+                    }
                 }
             });
         }
@@ -1805,17 +1976,17 @@ export function renderPurchases(container) {
                 window.tempPurchaseState = {
                     purchaseType: purchaseType,
                     supplierId: '', 
-                    bcvRate: pBcvRate ? pBcvRate.value : '',
-                    emissionDate: pEmissionDate ? pEmissionDate.value : '',
-                    receptionDate: pReceptionDate ? pReceptionDate.value : '',
-                    docType: pDocType ? pDocType.value : '',
-                    docNumber: pDocNumber ? pDocNumber.value : '',
-                    status: pStatus ? pStatus.value : '',
-                    currency: pCurrency?.value || '',
-                    paymentDate: pPaymentDate?.value || '',
-                    paymentMethod: pPaymentMethod?.value || '',
-                    receivedBs: pReceivedBs?.value || '',
-                    receivedUsd: pReceivedUsd?.value || '',
+                    bcvRate: container.querySelector('#pBcvRate') ? container.querySelector('#pBcvRate').value : '',
+                    emissionDate: container.querySelector('#pEmissionDate') ? container.querySelector('#pEmissionDate').value : '',
+                    receptionDate: container.querySelector('#pReceptionDate') ? container.querySelector('#pReceptionDate').value : '',
+                    docType: container.querySelector('#pDocType') ? container.querySelector('#pDocType').value : '',
+                    docNumber: container.querySelector('#pDocNumber') ? container.querySelector('#pDocNumber').value : '',
+                    status: container.querySelector('#pStatus') ? container.querySelector('#pStatus').value : '',
+                    currency: container.querySelector('#pCurrency')?.value || '',
+                    paymentDate: container.querySelector('#pPaymentDate')?.value || '',
+                    paymentMethod: container.querySelector('#pPaymentMethod')?.value || '',
+                    receivedBs: container.querySelector('#pReceivedBs')?.value || '',
+                    receivedUsd: container.querySelector('#pReceivedUsd')?.value || '',
                     products: currentPurchaseProducts
                 };
                 window.openCreateSupplierForPurchase = true;
@@ -2860,18 +3031,18 @@ export function renderPurchases(container) {
             // Save state to window
             window.tempPurchaseState = {
                 purchaseType: 'PRODUCTO',
-                supplierId: pSupplier.value,
-                bcvRate: pBcvRate.value,
-                emissionDate: pEmissionDate.value,
-                receptionDate: pReceptionDate.value,
-                docType: pDocType.value,
-                docNumber: pDocNumber.value,
-                status: pStatus.value,
-                currency: pCurrency.value,
-                paymentDate: pPaymentDate.value,
-                paymentMethod: pPaymentMethod.value,
-                receivedBs: pReceivedBs.value,
-                receivedUsd: pReceivedUsd.value,
+                supplierId: container.querySelector('#pSupplier')?.value || '',
+                bcvRate: container.querySelector('#pBcvRate')?.value || '',
+                emissionDate: container.querySelector('#pEmissionDate')?.value || '',
+                receptionDate: container.querySelector('#pReceptionDate')?.value || '',
+                docType: container.querySelector('#pDocType')?.value || '',
+                docNumber: container.querySelector('#pDocNumber')?.value || '',
+                status: container.querySelector('#pStatus')?.value || '',
+                currency: container.querySelector('#pCurrency')?.value || 'BS',
+                paymentDate: container.querySelector('#pPaymentDate')?.value || '',
+                paymentMethod: container.querySelector('#pPaymentMethod')?.value || '',
+                receivedBs: container.querySelector('#pReceivedBs')?.value || '',
+                receivedUsd: container.querySelector('#pReceivedUsd')?.value || '',
                 products: tempProducts,
                 openProductBuilder: true
             };
@@ -2989,7 +3160,7 @@ export function renderPurchases(container) {
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 2.5fr 1fr; gap: 1.5rem; align-items: stretch; margin-bottom: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.5rem; align-items: stretch; margin-bottom: 1.5rem;">
                 <!-- Productos Recibidos (Izquierda) -->
                 <div class="card" style="padding: 1rem 1.5rem; display: flex; flex-direction: column;">
                     <div style="overflow-x: auto; flex: 1;">
@@ -3086,7 +3257,7 @@ export function renderPurchases(container) {
         `;
 
         container.innerHTML = html;
-        container.querySelector('#backToDeckBtn').addEventListener('click', renderDeck);
+        container.querySelector('#backToDeckBtn').addEventListener('click', goBackToDeck);
 
         container.querySelectorAll('.delete-pay-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -3137,7 +3308,7 @@ export function renderPurchases(container) {
                     await loadData();
                     const freshPurchase = purchases.find(p => p.id === purchase.id);
                     if (freshPurchase) renderDetail(freshPurchase);
-                    else renderDeck();
+                    else goBackToDeck();
                 } catch (err) {
                     console.error("Error eliminando pago:", err);
                     showToast("Error al revertir pago", "error");

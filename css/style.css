@@ -383,3 +383,92 @@ input[type=number] {
 .animate-pulse-text-red {
     animation: pulse-red-white 1.5s ease-in-out infinite;
 }
+
+/* --- FILTER DROPDOWNS --- */
+.filter-dropdown {
+    width: auto !important;
+    min-width: 180px;
+    max-width: 220px;
+    height: 42px !important;
+    padding: 0 2.5rem 0 1rem !important;
+    font-size: 0.85rem !important;
+    border-radius: 10px !important;
+    text-overflow: ellipsis;
+}
+
+/* --- TOM SELECT THEME OVERRIDES --- */
+.ts-wrapper.form-control.ts-filter {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    height: auto !important;
+    min-width: 230px !important;
+    max-width: 280px !important;
+}
+
+.ts-wrapper.ts-filter .ts-control {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-main) !important;
+    border-radius: 10px !important;
+    min-height: 42px !important;
+    height: 42px !important;
+    padding: 0 2rem 0 1rem !important;
+    display: flex;
+    align-items: center;
+    box-shadow: none !important;
+}
+
+.ts-control:focus, .ts-control.focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
+}
+
+.ts-wrapper.single .ts-control, 
+.ts-wrapper.single .ts-control input,
+.ts-wrapper.single .ts-control .item {
+    color: var(--text-main) !important;
+    font-size: 0.85rem;
+}
+
+.ts-wrapper.single .ts-control input::placeholder {
+    color: var(--text-main) !important;
+    opacity: 1 !important;
+}
+
+.ts-wrapper.single .ts-control::after {
+    content: "▼";
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7em;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.ts-wrapper.single.dropdown-active .ts-control::after {
+    content: "▲";
+}
+
+.ts-dropdown {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-main) !important;
+    box-shadow: var(--shadow-md) !important;
+    border-radius: 10px !important;
+    margin-top: 4px !important;
+}
+
+.ts-dropdown .option, .ts-dropdown .optgroup-header {
+    color: var(--text-main) !important;
+    padding: 10px 14px !important;
+    font-size: 0.85rem;
+    transition: background 0.15s ease;
+}
+
+.ts-dropdown .active {
+    background-color: var(--border) !important;
+    color: var(--text-main) !important;
+}

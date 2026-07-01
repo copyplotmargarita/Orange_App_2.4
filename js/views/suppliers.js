@@ -1,5 +1,5 @@
 import { auth, db } from '../services/firebase.js';
-import { toTitleCase, showNotification } from '../utils.js';
+import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
 import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderSuppliers(container) {
@@ -82,28 +82,16 @@ export function renderSuppliers(container) {
                 const supplierId = btn.dataset.id;
                 const supplier = suppliers.find(s => s.id === supplierId);
                 
-                if (window.Swal) {
-                    const result = await Swal.fire({
-                        title: '¿Eliminar proveedor?',
-                        text: `Se eliminará el proveedor "${supplier.name}". Esta acción no se puede deshacer.`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#ef4444',
-                        cancelButtonColor: '#6b7280',
-                        confirmButtonText: 'Sí, eliminar',
-                        cancelButtonText: 'Cancelar',
-                        background: 'var(--surface)',
-                        color: 'var(--text-main)'
-                    });
-                    
-                    if (result.isConfirmed) {
+                showConfirmModal(
+                    '¿Eliminar proveedor?',
+                    `Se eliminará el proveedor "${supplier.name}". Esta acción no se puede deshacer.`,
+                    () => {
                         deleteSupplierDoc(supplierId);
-                    }
-                } else {
-                    if (confirm(`¿Estás seguro de que deseas eliminar al proveedor "${supplier.name}"?`)) {
-                        deleteSupplierDoc(supplierId);
-                    }
-                }
+                    },
+                    'Sí, eliminar',
+                    'Cancelar',
+                    '🗑️'
+                );
             });
         });
     }
