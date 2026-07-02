@@ -722,8 +722,13 @@ export function renderDashboard() {
         targetStart.setHours(0,0,0,0);
         
         const shiftStartStr = localStorage.getItem('shiftStartTime');
-        if (isEmployee && shiftStartStr) {
-            targetStart = new Date(shiftStartStr);
+        if (isEmployee) {
+            if (shiftStartStr) {
+                targetStart = new Date(shiftStartStr);
+            } else {
+                // If employee has no active shift, force future date so queries return empty (showing zeros)
+                targetStart = new Date('2099-01-01T00:00:00Z');
+            }
         }
 
         if (!businessId) return;
