@@ -202,7 +202,7 @@ export function renderSales(container, preSelectedClient = null) {
                 if (role !== 'admin') {
                     return sale.employeeEmail === userEmail;
                 } else {
-                    return (sale.storeId === 'general') || (!sale.storeId) || (sale.storeName === 'Almacén General');
+                    return (activeStoreId === 'general') || (sale.storeId === activeStoreId);
                 }
             }).map(sale => {
                 const salePayments = (allPayments || []).filter(p => p.saleId === sale.id);
@@ -278,8 +278,7 @@ export function renderSales(container, preSelectedClient = null) {
                 if (role !== 'admin') {
                     pass = (p.employeeEmail === userEmail);
                 } else {
-                    // For admin, show ONLY the main warehouse (general store) in this personal view
-                    pass = (p.storeId === 'general') || (!p.storeId) || (p.storeName === 'Almacén General');
+                    pass = (activeStoreId === 'general') || (p.storeId === activeStoreId);
                 }
 
                 if (pass) {
@@ -2867,7 +2866,7 @@ export function renderSales(container, preSelectedClient = null) {
             if (role !== 'admin') {
                 pass = (p.employeeEmail === userEmail);
             } else {
-                pass = (p.storeId === 'general') || (!p.storeId) || (p.storeName === 'Almacén General');
+                pass = (activeStoreId === 'general') || (p.storeId === activeStoreId);
             }
 
             if (!pass) return;

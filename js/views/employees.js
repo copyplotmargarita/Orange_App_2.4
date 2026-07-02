@@ -1,6 +1,6 @@
 import { auth as mainAuth, db, firebaseConfig } from '../services/firebase.js';
-import { toTitleCase, showNotification } from '../utils.js';
-import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
+import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 
@@ -53,8 +53,9 @@ export function renderEmployees(container) {
             filteredEmployees.forEach(emp => {
                 const statusColor = emp.status === 'ACTIVO' ? 'var(--success)' : (emp.status === 'INACTIVO' ? 'var(--danger)' : 'var(--warning)');
                 html += `
-                    <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--primary);">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${emp.name}</h3>
+                    <div class="card employee-card" data-id="${emp.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--primary); position: relative;">
+                        <button class="delete-employee-btn material-symbols-outlined hover:text-error transition-colors" data-id="${emp.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; font-size: 1.25rem; background: none; border: none; cursor: pointer; z-index: 10; color: var(--text-muted);">delete</button>
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 1.5rem;">${emp.name}</h3>
                         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">💼 ${emp.role}</p>
                         <p style="font-size: 0.85rem; color: ${statusColor}; font-weight: bold;">🏷️ ${emp.status}</p>
                     </div>
@@ -64,9 +65,39 @@ export function renderEmployees(container) {
         listGrid.innerHTML = html;
         
         listGrid.querySelectorAll('.employee-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-employee-btn')) {
+                    e.stopPropagation();
+                    return;
+                }
                 const emp = employees.find(e => e.id === card.dataset.id);
                 if(emp) renderDetail(emp);
+            });
+        });
+
+        listGrid.querySelectorAll('.delete-employee-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                showConfirmModal(
+                    "Eliminar Empleado",
+                    "¿Estás seguro de que deseas eliminar este empleado? Esta acción es irreversible y se eliminará de la base de datos.",
+                    async () => {
+                        try {
+                            const businessId = localStorage.getItem('businessId');
+                            const empRef = doc(db, "businesses", businessId, "employees", id);
+                            await deleteDoc(empRef);
+                            showNotification("Empleado eliminado exitosamente.");
+                            await loadEmployees();
+                        } catch (error) {
+                            console.error(error);
+                            showNotification("Error al eliminar el empleado.", "error");
+                        }
+                    },
+                    "Eliminar",
+                    "Cancelar",
+                    "🗑️"
+                );
             });
         });
     }
@@ -78,7 +109,7 @@ export function renderEmployees(container) {
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👤 Empleados</h2>
                 <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
                     <input type="text" id="searchEmployeeInput" class="form-control" placeholder="🔍 Buscar empleado..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    <button class="btn btn-primary" id="addEmployeeBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Empleado</button>
+                    <button class="btn btn-primary" id="addEmployeeBtn" style="width: auto; min-width: 180px; padding: 0 1rem; white-space: nowrap; flex-shrink: 0; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Empleado</button>
                 </div>
             </div>
             <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
@@ -140,7 +171,14 @@ export function renderEmployees(container) {
 
                         <div class="form-group">
                             <label>💼 Cargo</label>
-                            <input type="text" id="empRole" class="form-control" placeholder="Ej. Vendedor, Cajero, Almacenero..." required>
+                            <select id="empRole" class="form-control" required>
+                                <option value="" disabled selected>Selecciona un cargo</option>
+                                <option value="Administrador">Administrador</option>
+                                <option value="Vendedor">Vendedor</option>
+                                <option value="Cajero">Cajero</option>
+                                <option value="Almacén">Almacén</option>
+                                <option value="Personalizado">Personalizado</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
@@ -255,11 +293,47 @@ export function renderEmployees(container) {
         container.querySelectorAll('.profile-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 applyProfile(btn.dataset.profile);
-                // Auto-rellenar el cargo si está vacío
                 const roleInput = container.querySelector('#empRole');
-                if (!roleInput.value) {
-                    const labels = { vendedor: 'Vendedor', cajero: 'Cajero', almacen: 'Almacenero', personalizado: '' };
-                    roleInput.value = labels[btn.dataset.profile] || '';
+                const labels = { vendedor: 'Vendedor', cajero: 'Cajero', almacen: 'Almacén', personalizado: 'Personalizado' };
+                roleInput.value = labels[btn.dataset.profile] || '';
+            });
+        });
+
+        const roleSelect = container.querySelector('#empRole');
+        roleSelect.addEventListener('change', (e) => {
+            const role = e.target.value;
+            if (role === 'Administrador') {
+                container.querySelectorAll('input[name="modules"]').forEach(cb => cb.checked = true);
+                container.querySelectorAll('.profile-btn').forEach(btn => {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline');
+                });
+            } else if (role === 'Vendedor') {
+                applyProfile('vendedor');
+            } else if (role === 'Cajero') {
+                applyProfile('cajero');
+            } else if (role === 'Almacén') {
+                applyProfile('almacen');
+            } else if (role === 'Personalizado') {
+                applyProfile('personalizado');
+            }
+        });
+
+        // Event listener for manual checkbox changes to switch to "Personalizado" automatically
+        container.querySelectorAll('input[name="modules"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const currentRole = roleSelect.value;
+                if (currentRole === 'Administrador' || currentRole === 'Vendedor' || currentRole === 'Cajero' || currentRole === 'Almacén') {
+                    roleSelect.value = 'Personalizado';
+                    // Clear the active profile button styles
+                    container.querySelectorAll('.profile-btn').forEach(btn => {
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-outline');
+                        if (btn.dataset.profile === 'personalizado') {
+                            btn.classList.add('btn-primary');
+                            btn.classList.remove('btn-outline');
+                        }
+                    });
                 }
             });
         });
@@ -405,6 +479,10 @@ export function renderEmployees(container) {
                         <div class="form-group">
                             <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Teléfono</label>
                             <input type="text" value="${emp.phone}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">Cargo</label>
+                            <input type="text" value="${emp.role || '---'}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit;" readonly>
                         </div>
                         <div class="form-group">
                             <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">PIN de Acceso</label>

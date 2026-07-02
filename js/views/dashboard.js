@@ -758,7 +758,7 @@ export function renderDashboard() {
 
                 // Strict session filter: ALWAYS filter by the logged-in user and their active store
                 let pass = (data.employeeEmail === auth.currentUser?.email);
-                if (storeId && data.storeId && data.storeId !== storeId) pass = false;
+                if (storeId && storeId !== 'general' && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 
                 count++;
@@ -821,7 +821,7 @@ export function renderDashboard() {
 
                 // Strict session filter (same as sales)
                 let pass = (data.employeeEmail === auth.currentUser?.email);
-                if (storeId && data.storeId && data.storeId !== storeId) pass = false;
+                if (storeId && storeId !== 'general' && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 
                 if (data.currency === 'USD') totalUSD += (data.amount || 0);
@@ -1088,7 +1088,7 @@ export function renderDashboard() {
             const empNameLocal = localStorage.getItem('employeeName');
             const empName = empNameLocal || cachedName || (auth.currentUser?.displayName || "Empleado");
             
-            greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${empName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
+            greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">👤 ${empName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
             
             // Guardar solo en caché vinculada al correo
             if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
@@ -1142,14 +1142,14 @@ export function renderDashboard() {
                     const ownerName = ownerDocSnap.exists() ? (ownerDocSnap.data().ownerName || "Propietario") : "Propietario";
                     const businessName = ownerDocSnap.exists() ? ownerDocSnap.data().name : "Mi Negocio";
                     
-                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${ownerName}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${businessName}">${businessName}</div>`;
+                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">👤 ${ownerName}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${businessName}">${businessName}</div>`;
                     
                     if (userEmail) localStorage.setItem(`userName_${userEmail}`, ownerName);
                 } else {
-                    const empName = cachedName || auth.currentUser?.displayName || "Administrador";
+                    const empName = localStorage.getItem('employeeName') || cachedName || auth.currentUser?.displayName || "Administrador";
                     const storeName = localStorage.getItem('storeName') || 'Sede Principal';
                     
-                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${empName}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>`;
+                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">👤 ${empName}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>`;
                     
                     if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
                 }
@@ -1267,7 +1267,7 @@ export function renderDashboard() {
             snapSales.forEach(sDoc => {
                 const s = sDoc.data();
                 if (s.employeeEmail !== userEmail) return;
-                if (s.storeId && s.storeId !== currentStoreId) return;
+                if (currentStoreId !== 'general' && s.storeId && s.storeId !== currentStoreId) return;
                 const sDate = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
                 if (sDate >= startTimestamp) {
                     totalTickets++;
@@ -1299,7 +1299,7 @@ export function renderDashboard() {
             snapPayments.forEach(pDoc => {
                 const p = pDoc.data();
                 if (p.employeeEmail !== userEmail) return;
-                if (p.storeId && p.storeId !== currentStoreId) return;
+                if (currentStoreId !== 'general' && p.storeId && p.storeId !== currentStoreId) return;
                 
                 // Filtro manual por fecha del turno
                 const pDate = p.createdAt?.toDate ? p.createdAt.toDate() : new Date(p.createdAt);
@@ -1701,6 +1701,26 @@ export function renderDashboard() {
         
         const fondoSetKey = 'fondoDeCajaSet_' + currentShiftId;
         if (localStorage.getItem(fondoSetKey) === 'true') return;
+
+        // Check Firestore to see if it was already set (e.g., from another PC)
+        const businessId = localStorage.getItem('businessId');
+        if (businessId) {
+            try {
+                const shiftSnap = await getDoc(doc(db, "businesses", businessId, "sessions", currentShiftId));
+                if (shiftSnap.exists()) {
+                    const data = shiftSnap.data();
+                    // Si ya se cargó en la base de datos, sincronizar y evitar el modal
+                    if (data.fondoBs !== undefined || data.fondoUSD !== undefined) {
+                        localStorage.setItem(fondoSetKey, 'true');
+                        localStorage.setItem('fondoBs', data.fondoBs || 0);
+                        localStorage.setItem('fondoUSD', data.fondoUSD || 0);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn("Error verificando fondo en BD:", err);
+            }
+        }
         
         // Modal para Fondo de Caja
         const modal = document.createElement('div');

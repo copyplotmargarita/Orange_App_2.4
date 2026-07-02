@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
-import { toTitleCase, showNotification } from '../utils.js';
-import { collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
+import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderStores(container) {
     let stores = [];
@@ -36,8 +36,9 @@ export function renderStores(container) {
         } else {
             filteredStores.forEach(store => {
                 html += `
-                    <div class="card store-card" data-id="${store.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--success);">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${store.name}</h3>
+                    <div class="card store-card" data-id="${store.id}" style="cursor: pointer; padding: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); transition: transform 0.2s; border-left: 4px solid var(--success); position: relative;">
+                        <button class="delete-store-btn material-symbols-outlined hover:text-error transition-colors" data-id="${store.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; font-size: 1.25rem; background: none; border: none; cursor: pointer; z-index: 10; color: var(--text-muted);">delete</button>
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 1.5rem;">${store.name}</h3>
                         <p style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📍 ${store.address}</p>
                     </div>
                 `;
@@ -46,9 +47,39 @@ export function renderStores(container) {
         gridContainer.innerHTML = html;
         
         gridContainer.querySelectorAll('.store-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-store-btn')) {
+                    e.stopPropagation();
+                    return;
+                }
                 const store = stores.find(s => s.id === card.dataset.id);
                 if(store) renderDetail(store);
+            });
+        });
+
+        gridContainer.querySelectorAll('.delete-store-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                showConfirmModal(
+                    "Eliminar Sucursal",
+                    "¿Estás seguro de que deseas eliminar esta sucursal? Esta acción es irreversible y eliminará el registro de la base de datos.",
+                    async () => {
+                        try {
+                            const businessId = localStorage.getItem('businessId');
+                            const storeRef = doc(db, "businesses", businessId, "stores", id);
+                            await deleteDoc(storeRef);
+                            showNotification("Sucursal eliminada exitosamente.");
+                            await loadStores();
+                        } catch (error) {
+                            console.error(error);
+                            showNotification("Error al eliminar la sucursal.", "error");
+                        }
+                    },
+                    "Eliminar",
+                    "Cancelar",
+                    "🗑️"
+                );
             });
         });
     }

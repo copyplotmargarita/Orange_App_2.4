@@ -123,31 +123,99 @@ export function renderLogin() {
                 localStorage.setItem('deviceId', deviceId);
             }
             
-            // 1. ¿Es el dueño principal del negocio?
-            let businessDoc = null;
+            let empData = null;
+            let businessId = null;
+            let cargo = "Administrador";
+            let isEmployee = false;
             let businessExists = false;
-            let retryCount = 0;
-            const maxRetries = 3;
-            
-            while (retryCount < maxRetries) {
-                try {
-                    businessDoc = await getDoc(doc(db, "businesses", uid));
-                    businessExists = businessDoc.exists();
-                    break; // Éxito, salir del bucle
-                } catch (err) {
-                    console.warn(`Intento ${retryCount + 1} de leer negocio falló:`, err);
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, 250)); // Esperar antes de reintentar
-                    } else {
-                        businessExists = false;
+
+            // 1. PRIORIDAD: Buscar si el correo pertenece a un Empleado en algún negocio
+            try {
+                const q = query(collectionGroup(db, "employees"), where("email", "==", email));
+                const empSnap = await getDocs(q);
+                
+                if (!empSnap.empty) {
+                    for (const docSnap of empSnap.docs) {
+                        const bId = docSnap.ref.parent.parent.id;
+                        const bDoc = await getDoc(doc(db, "businesses", bId));
+                        if (bDoc.exists() && bDoc.data().status === 'active') {
+                            empData = docSnap.data();
+                            businessId = bId;
+                            isEmployee = true;
+                            break;
+                        }
+                    }
+                    if (!isEmployee) {
+                        // Fallback si no está en un negocio activo, tomamos el primero
+                        const empDoc = empSnap.docs[0];
+                        empData = empDoc.data();
+                        businessId = empDoc.ref.parent.parent.id;
+                        isEmployee = true;
                     }
                 }
+            } catch (grpErr) {
+                console.error("Error al buscar empleado en grupo de colecciones:", grpErr);
+                await signOut(auth);
+                throw new Error("Error DB al buscar empleado: " + grpErr.message);
             }
 
-            // AUTO-CREACIÓN DE NEGOCIO (Si no existe en Firestore y se autentica como administrador)
-            if (!businessExists && role === 'admin') {
-                try {
+            if (isEmployee) {
+                // El usuario es un empleado
+                cargo = empData.role;
+                
+                if (role === 'admin' && cargo !== 'Administrador') {
+                    await signOut(auth);
+                    throw new Error("Acceso denegado: Tu cargo (" + cargo + ") no tiene privilegios de Administrador.");
+                }
+
+                if (empData.status !== 'ACTIVO') {
+                    await signOut(auth);
+                    throw new Error(`Acceso denegado: Tu estado actual es "${empData.status}". Contacte al administrador.`);
+                }
+                
+                localStorage.setItem('userRole', role);
+                localStorage.setItem('businessId', businessId);
+                localStorage.setItem('employeeName', empData.name || email);
+            } else {
+                // 2. Si no es empleado, verificamos si es el dueño principal del negocio
+                let businessDoc = null;
+                let retryCount = 0;
+                const maxRetries = 3;
+                
+                while (retryCount < maxRetries) {
+                    try {
+                        businessDoc = await getDoc(doc(db, "businesses", uid));
+                        businessExists = businessDoc.exists();
+                        if (businessExists) {
+                            businessId = uid;
+                        }
+                        break;
+                    } catch (err) {
+                        console.warn(`Intento ${retryCount + 1} de leer negocio falló:`, err);
+                        retryCount++;
+                        if (retryCount < maxRetries) {
+                            await new Promise(resolve => setTimeout(resolve, 250));
+                        }
+                    }
+                }
+
+                // 2.5 Buscar negocio por email si no se halló por UID
+                if (!businessExists) {
+                    try {
+                        const qBus = query(collection(db, "businesses"), where("email", "==", email));
+                        const busSnap = await getDocs(qBus);
+                        if (!busSnap.empty) {
+                            const bDoc = busSnap.docs[0];
+                            businessId = bDoc.id;
+                            businessExists = true;
+                        }
+                    } catch (busErr) {
+                        console.warn("No se pudo buscar negocio por email:", busErr);
+                    }
+                }
+
+                // 3. AUTO-CREACIÓN DE NEGOCIO (Solo si es Admin, no es empleado y no existe negocio)
+                if (!businessExists && role === 'admin') {
                     console.log("Iniciando auto-creación de negocio por ausencia en Firestore...");
                     const defaultBusinessData = {
                         name: "Mi Negocio",
@@ -160,85 +228,22 @@ export function renderLogin() {
                         createdAt: new Date().toISOString()
                     };
                     await setDoc(doc(db, "businesses", uid), defaultBusinessData);
-                    
-                    // Volver a leer para confirmar la existencia
-                    businessDoc = await getDoc(doc(db, "businesses", uid));
-                    businessExists = businessDoc.exists();
-                } catch (createErr) {
-                    console.error("Error al auto-crear negocio default:", createErr);
+                    businessId = uid;
+                    businessExists = true;
                 }
-            }
 
-            let empData = null;
-            let businessId = null;
-            let cargo = "Administrador";
+                if (!businessExists) {
+                    await signOut(auth);
+                    throw new Error("No se encontró un negocio activo para esta cuenta. Asegúrese de registrarse primero o ser invitado como empleado.");
+                }
 
-            if (businessExists) {
-                // Es el dueño, forzamos su rol a admin
-                businessId = uid;
-                const bData = businessDoc.data();
-                empData = { name: bData.name || 'Administrador', role: 'Administrador' };
+                // Configurar sesión para el dueño
+                cargo = 'Administrador';
+                empData = { name: 'Administrador', role: 'Administrador' };
+                
                 localStorage.setItem('userRole', 'admin');
-                localStorage.setItem('businessId', businessId);
+                localStorage.setItem('businessId', businessId || uid);
                 localStorage.setItem('employeeName', empData.name);
-            } else {
-                // 1.5 ¿Existe un negocio registrado con este email pero bajo un ID diferente (ej. por respaldos)?
-                try {
-                    const qBus = query(collection(db, "businesses"), where("email", "==", email));
-                    const busSnap = await getDocs(qBus);
-                    if (!busSnap.empty) {
-                        const bDoc = busSnap.docs[0];
-                        businessId = bDoc.id;
-                        const bData = bDoc.data();
-                        empData = { name: bData.name || 'Administrador', role: 'Administrador' };
-                        localStorage.setItem('userRole', 'admin');
-                        localStorage.setItem('businessId', businessId);
-                        localStorage.setItem('employeeName', empData.name);
-                        businessExists = true; // Marcamos como encontrado
-                    }
-                } catch (busErr) {
-                    console.warn("No se pudo buscar negocio por email:", busErr);
-                }
-            }
-
-            if (!businessExists) {
-                // 2. Si no es el dueño, debe ser un empleado. Buscamos su cargo en la BD usando una consulta de grupo de colecciones
-                try {
-                    const q = query(collectionGroup(db, "employees"), where("email", "==", email));
-                    const empSnap = await getDocs(q);
-                    if (!empSnap.empty) {
-                        const empDoc = empSnap.docs[0];
-                        empData = empDoc.data();
-                        businessId = empDoc.ref.parent.parent.id;
-                    }
-                } catch (grpErr) {
-                    console.error("Error al buscar empleado en grupo de colecciones:", grpErr);
-                    throw new Error("No se encontró un negocio activo para esta cuenta. Si borró y recreó su cuenta en la consola, por favor use el enlace 'Regístrate aquí' para volver a vincular su negocio.");
-                }
-                
-                if (!empData) {
-                    await signOut(auth);
-                    throw new Error("No se encontró un negocio activo para esta cuenta. Si borró y recreó su cuenta en la consola, por favor use el enlace 'Regístrate aquí' para volver a vincular su negocio.");
-                }
-                
-                // 3. Validar privilegios contra el rol seleccionado en el formulario
-                cargo = empData.role; // "Administrador", "Cajero", "Vendedor", etc.
-                
-                if (role === 'admin' && cargo !== 'Administrador') {
-                    await signOut(auth);
-                    throw new Error("Acceso denegado: Tu cargo (" + cargo + ") no tiene privilegios de Administrador.");
-                }
-
-                // VALIDACIÓN DE ESTADO: Solo permitir si está ACTIVO
-                if (empData.status !== 'ACTIVO') {
-                    await signOut(auth);
-                    throw new Error(`Acceso denegado: Tu estado actual es "${empData.status}". Contacte al administrador.`);
-                }
-                
-                // Si todo está bien, guardamos el rol localmente
-                localStorage.setItem('userRole', role);
-                localStorage.setItem('businessId', businessId);
-                localStorage.setItem('employeeName', empData ? (empData.name || email) : email);
             }
 
             if (role === 'employee') {
