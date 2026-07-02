@@ -722,13 +722,11 @@ export function renderDashboard() {
         targetStart.setHours(0,0,0,0);
         
         const shiftStartStr = localStorage.getItem('shiftStartTime');
-        if (isEmployee) {
-            if (shiftStartStr) {
-                targetStart = new Date(shiftStartStr);
-            } else {
-                // If employee has no active shift, force future date so queries return empty (showing zeros)
-                targetStart = new Date('2099-01-01T00:00:00Z');
-            }
+        if (shiftStartStr) {
+            targetStart = new Date(shiftStartStr);
+        } else {
+            // Force future date if no active shift to show zeros
+            targetStart = new Date('2099-01-01T00:00:00Z');
         }
 
         if (!businessId) return;
@@ -736,7 +734,7 @@ export function renderDashboard() {
         // Helper para UI
         const setVal = (id, val) => { const el = mainContentArea.querySelector('#'+id); if(el) el.textContent = val; };
         
-        if (isEmployee && shiftStartStr) {
+        if (shiftStartStr) {
             setVal('lblTurnoVentas', 'Turno Actual');
             setVal('lblTurnoCredito', 'Deuda en este turno');
         }
@@ -758,16 +756,9 @@ export function renderDashboard() {
             snap.forEach(doc => {
                 const data = doc.data();
 
-                // Strict session filter
-                let pass = false;
-                if (isEmployee) {
-                    // Employee: must match their email AND their store
-                    pass = (data.employeeEmail === auth.currentUser?.email);
-                    if (storeId && data.storeId && data.storeId !== storeId) pass = false;
-                } else {
-                    // Admin: only Almacén General
-                    pass = (data.storeId === 'general') || (!data.storeId) || (data.storeName === 'Almacén General');
-                }
+                // Strict session filter: ALWAYS filter by the logged-in user and their active store
+                let pass = (data.employeeEmail === auth.currentUser?.email);
+                if (storeId && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 
                 count++;
@@ -829,13 +820,8 @@ export function renderDashboard() {
                 const data = doc.data();
 
                 // Strict session filter (same as sales)
-                let pass = false;
-                if (isEmployee) {
-                    pass = (data.employeeEmail === auth.currentUser?.email);
-                    if (storeId && data.storeId && data.storeId !== storeId) pass = false;
-                } else {
-                    pass = (data.storeId === 'general') || (!data.storeId) || (data.storeName === 'Almacén General');
-                }
+                let pass = (data.employeeEmail === auth.currentUser?.email);
+                if (storeId && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 
                 if (data.currency === 'USD') totalUSD += (data.amount || 0);
