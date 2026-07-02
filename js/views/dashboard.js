@@ -618,7 +618,7 @@ export function renderDashboard() {
                 <div class="card" style="border-left: 4px solid var(--primary);">
                     <p class="card-label">Cantidad de Ventas</p>
                     <p class="card-value" id="metricSalesCount">0</p>
-                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;">Hoy</p>
+                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;" id="lblTurnoVentas">Hoy</p>
                 </div>
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <p class="card-label">Total Recaudado</p>
@@ -628,7 +628,7 @@ export function renderDashboard() {
                 <div class="card" style="border-left: 4px solid var(--warning);">
                     <p class="card-label">Pendiente por Cobrar</p>
                     <p class="card-value" id="metricCreditSales">$ 0.00</p>
-                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;">Deuda generada hoy</p>
+                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;" id="lblTurnoCredito">Deuda generada hoy</p>
                 </div>
             </div>
 
@@ -716,19 +716,33 @@ export function renderDashboard() {
         const businessId = localStorage.getItem('businessId');
         const storeId = localStorage.getItem('storeId');
         const role = localStorage.getItem('userRole');
-        const todayStr = new Date().toLocaleDateString('sv-SE');
-        const todayStart = new Date();
-        todayStart.setHours(0,0,0,0);
+        const isEmployee = role === 'empleado' || role === 'cajero';
+        
+        let targetStart = new Date();
+        targetStart.setHours(0,0,0,0);
+        
+        const shiftStartStr = localStorage.getItem('shiftStartTime');
+        if (shiftStartStr) {
+            targetStart = new Date(shiftStartStr);
+        } else {
+            // Force future date if no active shift to show zeros
+            targetStart = new Date('2099-01-01T00:00:00Z');
+        }
 
         if (!businessId) return;
 
         // Helper para UI
         const setVal = (id, val) => { const el = mainContentArea.querySelector('#'+id); if(el) el.textContent = val; };
+        
+        if (shiftStartStr) {
+            setVal('lblTurnoVentas', 'Turno Actual');
+            setVal('lblTurnoCredito', 'Deuda en este turno');
+        }
 
         // 1. Listen for Sales
         const salesQ = query(
             collection(db, "businesses", businessId, "sales"),
-            where("createdAt", ">=", todayStart)
+            where("createdAt", ">=", targetStart)
         );
 
         onSnapshot(salesQ, (snap) => {
@@ -742,16 +756,9 @@ export function renderDashboard() {
             snap.forEach(doc => {
                 const data = doc.data();
 
-                // Strict session filter
-                let pass = false;
-                if (isEmployee) {
-                    // Employee: must match their email AND their store
-                    pass = (data.employeeEmail === auth.currentUser?.email);
-                    if (storeId && data.storeId && data.storeId !== storeId) pass = false;
-                } else {
-                    // Admin: only Almacén General
-                    pass = (data.storeId === 'general') || (!data.storeId) || (data.storeName === 'Almacén General');
-                }
+                // Strict session filter: ALWAYS filter by the logged-in user and their active store
+                let pass = (data.employeeEmail === auth.currentUser?.email);
+                if (storeId && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 
                 count++;
@@ -803,7 +810,7 @@ export function renderDashboard() {
         // 2. Listen for Payments (Total Cash Collected)
         const paymentsQ = query(
             collection(db, "businesses", businessId, "payments"),
-            where("createdAt", ">=", todayStart)
+            where("createdAt", ">=", targetStart)
         );
 
         onSnapshot(paymentsQ, (snap) => {
@@ -813,13 +820,8 @@ export function renderDashboard() {
                 const data = doc.data();
 
                 // Strict session filter (same as sales)
-                let pass = false;
-                if (isEmployee) {
-                    pass = (data.employeeEmail === auth.currentUser?.email);
-                    if (storeId && data.storeId && data.storeId !== storeId) pass = false;
-                } else {
-                    pass = (data.storeId === 'general') || (!data.storeId) || (data.storeName === 'Almacén General');
-                }
+                let pass = (data.employeeEmail === auth.currentUser?.email);
+                if (storeId && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 
                 if (data.currency === 'USD') totalUSD += (data.amount || 0);

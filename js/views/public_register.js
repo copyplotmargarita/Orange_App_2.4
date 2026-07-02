@@ -127,6 +127,10 @@ export function renderPublicRegister() {
                 .form-control:focus { border-color: ${color}; box-shadow: 0 0 0 4px ${isClient ? 'rgba(249, 115, 22, 0.1)' : 'rgba(245, 158, 11, 0.1)'}; outline: none; }
                 .btn { border-radius: 12px; transition: all 0.3s ease; border: 1px solid transparent; cursor: pointer; color: white; }
                 .btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+                .iti__country-list { background-color: var(--surface) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; }
+                .iti__country:hover { background-color: var(--background) !important; }
+                .iti__country-name, .iti__dial-code { color: var(--text-main) !important; }
+                .iti__divider { border-bottom: 1px solid var(--border) !important; }
             </style>
         </div>
     `;
