@@ -708,8 +708,20 @@ export function renderPurchases(container) {
                 altFormat: "d/m/Y",
                 dateFormat: "Y-m-d"
             };
-            flatpickr(container.querySelector('#eEmissionDate'), fpConfig);
-            flatpickr(container.querySelector('#eReceptionDate'), fpConfig);
+            const eEmission = container.querySelector('#eEmissionDate');
+            const eReception = container.querySelector('#eReceptionDate');
+            flatpickr(eEmission, fpConfig);
+            const fpReception = flatpickr(eReception, fpConfig);
+            
+            if (eEmission && eReception) {
+                fpReception.set('minDate', eEmission.value);
+                eEmission.addEventListener('change', () => {
+                    if (eReception.value < eEmission.value) {
+                        fpReception.setDate(eEmission.value);
+                    }
+                    fpReception.set('minDate', eEmission.value);
+                });
+            }
         }
 
         container.querySelector('#backToDeckBtn').addEventListener('click', goBackToDeck);
@@ -1675,6 +1687,12 @@ export function renderPurchases(container) {
             container.querySelectorAll('input[type="date"]').forEach(el => {
                 flatpickr(el, fpConfig);
             });
+            
+            const fpEmission = container.querySelector('#pEmissionDate');
+            const fpReception = container.querySelector('#pReceptionDate');
+            if (fpEmission && fpReception && fpReception._flatpickr) {
+                fpReception._flatpickr.set('minDate', fpEmission.value);
+            }
         }
 
         // Variables de estado interno
@@ -1936,7 +1954,10 @@ export function renderPurchases(container) {
             pEmissionDate.addEventListener('change', () => {
                 if (pReceptionDate) {
                     pReceptionDate.value = pEmissionDate.value;
-                    if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(pEmissionDate.value);
+                    if (pReceptionDate._flatpickr) {
+                        pReceptionDate._flatpickr.setDate(pEmissionDate.value);
+                        pReceptionDate._flatpickr.set('minDate', pEmissionDate.value);
+                    }
                 }
                 if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
                     const pPaymentDate = container.querySelector('#pPaymentDate');
