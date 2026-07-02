@@ -42,8 +42,9 @@ export function renderClients(container, onFinish = null, initialName = '') {
         } else {
             filteredClients.forEach(client => {
                 html += `
-                    <div class="card client-card" data-id="${client.id}" style="cursor: pointer; border-left: 4px solid var(--primary); padding: 1rem;">
-                        <div style="margin-bottom: 0.75rem;">
+                    <div class="card client-card" data-id="${client.id}" style="cursor: pointer; border-left: 4px solid var(--primary); padding: 1rem; position: relative;">
+                        <button type="button" class="btn-delete-client" data-id="${client.id}" data-name="${client.fullName}" style="position: absolute; top: 0.5rem; right: 0.5rem; background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--danger); padding: 0.2rem; transition: transform 0.2s;" title="Eliminar Cliente">🗑️</button>
+                        <div style="margin-bottom: 0.75rem; padding-right: 1.5rem;">
                             <h3 class="card-title" style="margin-bottom: 0; font-size: 1.1rem; color: var(--primary);">${client.fullName}</h3>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.25rem;">
@@ -57,11 +58,63 @@ export function renderClients(container, onFinish = null, initialName = '') {
         gridContainer.innerHTML = html;
 
         gridContainer.querySelectorAll('.client-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-delete-client')) return;
                 const client = clients.find(c => c.id === card.dataset.id);
                 if (client) renderDetail(client);
             });
         });
+
+        gridContainer.querySelectorAll('.btn-delete-client').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const clientId = btn.dataset.id;
+                const clientName = btn.dataset.name;
+                showDeleteClientModal(clientId, clientName);
+            });
+            btn.addEventListener('mouseenter', () => btn.style.transform = 'scale(1.2)');
+            btn.addEventListener('mouseleave', () => btn.style.transform = 'scale(1)');
+        });
+    }
+
+    function showDeleteClientModal(clientId, clientName) {
+        const modal = document.createElement('div');
+        modal.style = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1.5rem;";
+        
+        modal.innerHTML = `
+            <div class="card" style="width: 100%; max-width: 400px; padding: 2rem; border-top: 4px solid var(--danger); text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+                <h3 style="color: var(--danger); font-weight: 800; margin-bottom: 1rem;">¿Eliminar Cliente?</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">¿Estás seguro de que deseas eliminar permanentemente a <strong style="color: var(--text-main);">${clientName}</strong>? Esta acción no se puede deshacer.</p>
+                
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-outline" id="cancelDeleteClient" style="flex: 1;">Cancelar</button>
+                    <button class="btn btn-primary" id="confirmDeleteClient" style="flex: 1; background: var(--danger); border-color: var(--danger);">Eliminar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector('#cancelDeleteClient').onclick = () => modal.remove();
+        
+        modal.querySelector('#confirmDeleteClient').onclick = async () => {
+            const btn = modal.querySelector('#confirmDeleteClient');
+            btn.disabled = true;
+            btn.textContent = "Eliminando...";
+            
+            try {
+                const businessId = localStorage.getItem('businessId');
+                await deleteDoc(doc(db, "businesses", businessId, "clients", clientId));
+                showNotification("Cliente eliminado exitosamente.", "success");
+                modal.remove();
+                await loadClients();
+            } catch (error) {
+                console.error("Error al eliminar:", error);
+                showNotification("Error: No tienes permisos o hubo un fallo de red.", "error");
+                btn.disabled = false;
+                btn.textContent = "Eliminar";
+            }
+        };
     }
 
     function renderList() {
