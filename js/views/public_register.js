@@ -202,6 +202,12 @@ export function renderPublicRegister() {
         });
 
         gpsBtn.addEventListener('click', () => {
+            // En móviles, el GPS requiere HTTPS o Localhost.
+            if (window.isSecureContext === false) {
+                showNotification("El GPS requiere una conexión segura (HTTPS) para funcionar en tu celular.", "error");
+                return;
+            }
+
             if (navigator.geolocation) {
                 gpsBtn.textContent = 'Buscando ubicación...';
                 navigator.geolocation.getCurrentPosition((position) => {
@@ -213,11 +219,20 @@ export function renderPublicRegister() {
                     gpsBtn.textContent = '📍 Usar mi ubicación actual (GPS)';
                 }, (err) => {
                     console.warn("GPS Error", err);
-                    showNotification("No pudimos obtener tu ubicación, por favor mueve el mapa manualmente.", "error");
+                    let errorMsg = "No pudimos obtener tu ubicación.";
+                    if (err.code === 1) errorMsg = "Permiso denegado. Activa el GPS de tu navegador.";
+                    else if (err.code === 2) errorMsg = "Ubicación no disponible por el momento.";
+                    else if (err.code === 3) errorMsg = "Se agotó el tiempo de espera. Intenta de nuevo.";
+                    
+                    showNotification(errorMsg + " Por favor mueve el mapa manualmente.", "error");
                     gpsBtn.textContent = '📍 Usar mi ubicación actual (GPS)';
+                }, {
+                    enableHighAccuracy: true, 
+                    timeout: 10000, 
+                    maximumAge: 0
                 });
             } else {
-                showNotification("Geolocalización no soportada en este navegador.", "error");
+                showNotification("Geolocalización no soportada o bloqueada por tu navegador.", "error");
             }
         });
     }
