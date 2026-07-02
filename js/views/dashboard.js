@@ -618,7 +618,7 @@ export function renderDashboard() {
                 <div class="card" style="border-left: 4px solid var(--primary);">
                     <p class="card-label">Cantidad de Ventas</p>
                     <p class="card-value" id="metricSalesCount">0</p>
-                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;">Hoy</p>
+                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;" id="lblTurnoVentas">Hoy</p>
                 </div>
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <p class="card-label">Total Recaudado</p>
@@ -628,7 +628,7 @@ export function renderDashboard() {
                 <div class="card" style="border-left: 4px solid var(--warning);">
                     <p class="card-label">Pendiente por Cobrar</p>
                     <p class="card-value" id="metricCreditSales">$ 0.00</p>
-                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;">Deuda generada hoy</p>
+                    <p class="text-muted" style="font-size: 0.75rem; margin-top: 0.5rem;" id="lblTurnoCredito">Deuda generada hoy</p>
                 </div>
             </div>
 
@@ -716,19 +716,30 @@ export function renderDashboard() {
         const businessId = localStorage.getItem('businessId');
         const storeId = localStorage.getItem('storeId');
         const role = localStorage.getItem('userRole');
-        const todayStr = new Date().toLocaleDateString('sv-SE');
-        const todayStart = new Date();
-        todayStart.setHours(0,0,0,0);
+        const isEmployee = role === 'empleado' || role === 'cajero';
+        
+        let targetStart = new Date();
+        targetStart.setHours(0,0,0,0);
+        
+        const shiftStartStr = localStorage.getItem('shiftStartTime');
+        if (isEmployee && shiftStartStr) {
+            targetStart = new Date(shiftStartStr);
+        }
 
         if (!businessId) return;
 
         // Helper para UI
         const setVal = (id, val) => { const el = mainContentArea.querySelector('#'+id); if(el) el.textContent = val; };
+        
+        if (isEmployee && shiftStartStr) {
+            setVal('lblTurnoVentas', 'Turno Actual');
+            setVal('lblTurnoCredito', 'Deuda en este turno');
+        }
 
         // 1. Listen for Sales
         const salesQ = query(
             collection(db, "businesses", businessId, "sales"),
-            where("createdAt", ">=", todayStart)
+            where("createdAt", ">=", targetStart)
         );
 
         onSnapshot(salesQ, (snap) => {
@@ -803,7 +814,7 @@ export function renderDashboard() {
         // 2. Listen for Payments (Total Cash Collected)
         const paymentsQ = query(
             collection(db, "businesses", businessId, "payments"),
-            where("createdAt", ">=", todayStart)
+            where("createdAt", ">=", targetStart)
         );
 
         onSnapshot(paymentsQ, (snap) => {
