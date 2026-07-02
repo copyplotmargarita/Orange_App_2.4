@@ -51,6 +51,32 @@ export function renderDashboard() {
             }
         });
     }
+
+    // Listener para cierre de turno remoto
+    const currentShiftId = localStorage.getItem('currentShiftId');
+    if (businessId && currentShiftId) {
+        onSnapshot(doc(db, "businesses", businessId, "sessions", currentShiftId), (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.turnoStatus === 'CERRADO') {
+                    // El turno fue cerrado en otro dispositivo, forzar cierre de sesión aquí
+                    localStorage.clear();
+                    auth.signOut().then(() => {
+                        window.location.hash = '#entrar';
+                        window.location.reload();
+                    });
+                } else if (data.activeDeviceId && data.activeDeviceId !== localStorage.getItem('deviceId')) {
+                    // Se inició sesión en otro dispositivo, forzar cierre aquí
+                    localStorage.clear();
+                    auth.signOut().then(() => {
+                        alert("Su sesión fue abierta en otro dispositivo. Por seguridad, se ha cerrado en esta pantalla.");
+                        window.location.hash = '#entrar';
+                        window.location.reload();
+                    });
+                }
+            }
+        });
+    }
     
     container.innerHTML = `
         <aside id="sidebar" class="sidebar">
@@ -1223,22 +1249,56 @@ export function renderDashboard() {
 
         try {
             const startTimestamp = new Date(shiftStartTime);
+            const currentStoreId = localStorage.getItem('storeId');
             
-            // 1. Consultar Pagos recibidos por este usuario (Filtro base para evitar índice compuesto)
+            // 1. Consultar número de tickets y ventas del turno (Filtro por fecha para optimizar velocidad)
+            const qSales = query(
+                collection(db, "businesses", businessId, "sales"),
+                where("createdAt", ">=", startTimestamp)
+            );
+            const snapSales = await getDocs(qSales);
+            
+            let totalTickets = 0;
+            let creditosUSD = 0;
+            const currentShiftSaleIds = new Set();
+            
+            snapSales.forEach(sDoc => {
+                const s = sDoc.data();
+                if (s.employeeEmail !== userEmail) return;
+                if (s.storeId && s.storeId !== currentStoreId) return;
+                const sDate = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+                if (sDate >= startTimestamp) {
+                    totalTickets++;
+                    currentShiftSaleIds.add(sDoc.id);
+                    
+                    if (s.status === 'credito' || s.status === 'abono') {
+                        creditosUSD += (s.remainingUSD || 0);
+                    }
+                }
+            });
+            
+            // 2. Consultar Pagos del turno (Filtro por fecha para optimizar velocidad)
             const qPayments = query(
                 collection(db, "businesses", businessId, "payments"),
-                where("employeeEmail", "==", userEmail)
+                where("createdAt", ">=", startTimestamp)
             );
             const snapPayments = await getDocs(qPayments);
 
             const totals = {
-                BS: { EFECTIVO: 0, PUNTO: 0, PAGO_MOVIL: 0, TRANSFERENCIA: 0 },
+                BS: { EFECTIVO: 0, PUNTO: 0, PAGO_MOVIL: 0, BIO_PAGO: 0, TRANSFERENCIA: 0 },
                 USD: { EFECTIVO: 0, ZELLE: 0, PAYPAL: 0, BINANCE: 0 }
             };
-            let totalTickets = 0;
+            
+            let ventasBs = 0;
+            let ventasUSD = 0;
+            let recaudacionBs = 0;
+            let recaudacionUSD = 0;
 
             snapPayments.forEach(pDoc => {
                 const p = pDoc.data();
+                if (p.employeeEmail !== userEmail) return;
+                if (p.storeId && p.storeId !== currentStoreId) return;
+                
                 // Filtro manual por fecha del turno
                 const pDate = p.createdAt?.toDate ? p.createdAt.toDate() : new Date(p.createdAt);
                 if (pDate < startTimestamp) return;
@@ -1248,26 +1308,25 @@ export function renderDashboard() {
                 if (totals[cur][method] !== undefined) {
                     totals[cur][method] += p.amount;
                 }
-            });
-
-            // 2. Consultar número de tickets
-            const qSales = query(
-                collection(db, "businesses", businessId, "sales"),
-                where("employeeEmail", "==", userEmail)
-            );
-            const snapSales = await getDocs(qSales);
-            
-            snapSales.forEach(sDoc => {
-                const s = sDoc.data();
-                const sDate = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
-                if (sDate >= startTimestamp) {
-                    totalTickets++;
+                
+                // Clasificar en Ventas o Recaudación
+                if (p.saleId && currentShiftSaleIds.has(p.saleId)) {
+                    if (cur === 'BS') ventasBs += p.amount;
+                    else ventasUSD += p.amount;
+                } else {
+                    if (cur === 'BS') recaudacionBs += p.amount;
+                    else recaudacionUSD += p.amount;
                 }
             });
 
             // 3. Mostrar Modal de Resumen
             showShiftSummaryModal({
                 totalTickets,
+                ventasBs,
+                ventasUSD,
+                recaudacionBs,
+                recaudacionUSD,
+                creditosUSD,
                 totals,
                 onConfirm: async () => {
                     // Cierre formal en Firestore
@@ -1276,6 +1335,11 @@ export function renderDashboard() {
                         endTime: new Date().toISOString(),
                         summary: {
                             totalTickets,
+                            ventasBs,
+                            ventasUSD,
+                            recaudacionBs,
+                            recaudacionUSD,
+                            creditosUSD,
                             totals
                         }
                     });
@@ -1299,11 +1363,14 @@ export function renderDashboard() {
         }
     });
 
-    function showShiftSummaryModal({ totalTickets, totals, onConfirm, onCancel }) {
+    function showShiftSummaryModal({ totalTickets, ventasBs, ventasUSD, recaudacionBs, recaudacionUSD, creditosUSD, totals, onConfirm, onCancel }) {
         const modal = document.createElement('div');
         modal.style = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1.5rem;";
         
-        const fmt = (n) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmt = (n) => (n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        const fondoBs = parseFloat(localStorage.getItem('fondoBs')) || 0;
+        const fondoUSD = parseFloat(localStorage.getItem('fondoUSD')) || 0;
 
         modal.innerHTML = `
             <div class="card" style="width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; border-top: 5px solid #f59e0b;">
@@ -1312,28 +1379,55 @@ export function renderDashboard() {
                     <p class="text-muted">Verifique sus totales antes de confirmar</p>
                 </div>
 
-                <div style="background: rgba(245, 158, 11, 0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
-                    <p style="margin: 0; font-size: 0.9rem; opacity: 0.8;">Ventas / Tickets Realizados</p>
-                    <p style="margin: 0; font-size: 1.8rem; font-weight: 800; color: var(--primary);">${totalTickets}</p>
+                <div style="background: rgba(59, 130, 246, 0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: bold; color: var(--primary);">Fondo de Caja (Efectivo Inicial)</p>
+                    <div style="display: flex; justify-content: space-around;">
+                        <div>
+                            <p style="margin: 0; font-size: 0.85rem; opacity: 0.8;">Bs.</p>
+                            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--text-main);">Bs. ${fmt(fondoBs)}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0; font-size: 0.85rem; opacity: 0.8;">USD ($)</p>
+                            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--success);">$ ${fmt(fondoUSD)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(245, 158, 11, 0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; border: 1px solid rgba(245, 158, 11, 0.2);">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0; align-items: end;">
+                        <div>
+                            <p style="margin: 0; font-size: 0.8rem; opacity: 0.8; line-height: 1.2;">Ventas<br>Realizadas</p>
+                            <p style="margin: 0.2rem 0 0 0; font-size: 1.3rem; font-weight: 800; color: var(--primary);">${totalTickets}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0; font-size: 0.8rem; opacity: 0.8; line-height: 1.2;">Total<br>Ventas Bs</p>
+                            <p style="margin: 0.2rem 0 0 0; font-size: 1.1rem; font-weight: bold; color: var(--text-main);">Bs. ${fmt(ventasBs + recaudacionBs)}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0; font-size: 0.8rem; opacity: 0.8; line-height: 1.2;">Total<br>Ventas $</p>
+                            <p style="margin: 0.2rem 0 0 0; font-size: 1.1rem; font-weight: bold; color: var(--success);">$ ${fmt(ventasUSD + recaudacionUSD)}</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                     <div>
-                        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Bolívares (Bs.)</h4>
+                        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Detalle Bs.</h4>
                         <div style="display: grid; gap: 0.4rem; font-size: 0.9rem;">
                             <div style="display: flex; justify-content: space-between;"><span>Efectivo:</span> <strong>${fmt(totals.BS.EFECTIVO)}</strong></div>
                             <div style="display: flex; justify-content: space-between;"><span>Punto:</span> <strong>${fmt(totals.BS.PUNTO)}</strong></div>
                             <div style="display: flex; justify-content: space-between;"><span>P. Móvil:</span> <strong>${fmt(totals.BS.PAGO_MOVIL)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Bio Pago:</span> <strong>${fmt(totals.BS.BIO_PAGO)}</strong></div>
                             <div style="display: flex; justify-content: space-between;"><span>Transf:</span> <strong>${fmt(totals.BS.TRANSFERENCIA)}</strong></div>
                         </div>
                     </div>
                     <div>
-                        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Dólares ($)</h4>
+                        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Detalle $</h4>
                         <div style="display: grid; gap: 0.4rem; font-size: 0.9rem;">
-                            <div style="display: flex; justify-content: space-between;"><span>Efectivo:</span> <strong style="color: var(--success);">${fmt(totals.USD.EFECTIVO)}</strong></div>
-                            <div style="display: flex; justify-content: space-between;"><span>Zelle:</span> <strong style="color: #3b82f6;">${fmt(totals.USD.ZELLE)}</strong></div>
-                            <div style="display: flex; justify-content: space-between;"><span>PayPal:</span> <strong style="color: #003087;">${fmt(totals.USD.PAYPAL)}</strong></div>
-                            <div style="display: flex; justify-content: space-between;"><span>Binance:</span> <strong style="color: #f3ba2f;">${fmt(totals.USD.BINANCE)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Efectivo:</span> <strong>${fmt(totals.USD.EFECTIVO)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Zelle:</span> <strong>${fmt(totals.USD.ZELLE)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>PayPal:</span> <strong>${fmt(totals.USD.PAYPAL)}</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Binance:</span> <strong>${fmt(totals.USD.BINANCE)}</strong></div>
                         </div>
                     </div>
                 </div>
@@ -1444,6 +1538,9 @@ export function renderDashboard() {
             // Recargar para que los precios se actualicen
             const evt = new Event('hashchange');
             window.dispatchEvent(evt);
+            
+            checkFondoDeCaja();
+            
             return { success: true };
         } catch (error) {
             console.error("Error guardando tasa BCV:", error);
@@ -1591,8 +1688,90 @@ export function renderDashboard() {
             // Si es administrador (el que ve la ventana de confirmación), deshabilitar auto-guardado
             // para que revise y cierre manualmente. Si es empleado, intentar guardar en background.
             fetchBcvRate(!isAdmin);
+        } else {
+            checkFondoDeCaja();
         }
     }, 1500);
+
+    async function checkFondoDeCaja() {
+        const currentShiftId = localStorage.getItem('currentShiftId');
+        if (!currentShiftId) return;
+        
+        const fondoSetKey = 'fondoDeCajaSet_' + currentShiftId;
+        if (localStorage.getItem(fondoSetKey) === 'true') return;
+        
+        // Modal para Fondo de Caja
+        const modal = document.createElement('div');
+        modal.style = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1.5rem;";
+        
+        modal.innerHTML = `
+            <div class="card" style="width: 100%; max-width: 400px; border-top: 5px solid var(--primary); padding-top: 2rem;">
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <h2 style="color: var(--primary);">Fondo de Caja</h2>
+                    <p class="text-muted">Ingrese el efectivo inicial para dar vueltos</p>
+                </div>
+                <form id="fondoCajaForm">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label>Efectivo en Caja (Bs.)</label>
+                        <input type="text" id="fondoBs" class="form-control" value="0,00" required style="font-size: 1.2rem; text-align: center;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Efectivo en Caja ($)</label>
+                        <input type="text" id="fondoUSD" class="form-control" value="0,00" required style="font-size: 1.2rem; text-align: center;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1.1rem;">Guardar Fondo</button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        const fBsInput = modal.querySelector('#fondoBs');
+        const fUSDInput = modal.querySelector('#fondoUSD');
+        
+        // Resaltar al enfocar
+        fBsInput.addEventListener('focus', function() { this.select(); });
+        fUSDInput.addEventListener('focus', function() { this.select(); });
+        
+        const applyAtmFormat = (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value === '') { e.target.value = '0,00'; return; }
+            let floatValue = parseFloat(value) / 100;
+            e.target.value = floatValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+        
+        fBsInput.addEventListener('input', applyAtmFormat);
+        fUSDInput.addEventListener('input', applyAtmFormat);
+        
+        modal.querySelector('#fondoCajaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = "Guardando...";
+            
+            const fBs = parseFloat(fBsInput.value.replace(/\./g, '').replace(',', '.')) || 0;
+            const fUSD = parseFloat(fUSDInput.value.replace(/\./g, '').replace(',', '.')) || 0;
+            
+            try {
+                const businessId = localStorage.getItem('businessId');
+                await updateDoc(doc(db, "businesses", businessId, "sessions", currentShiftId), {
+                    fondoBs: fBs,
+                    fondoUSD: fUSD
+                });
+                
+                localStorage.setItem(fondoSetKey, 'true');
+                localStorage.setItem('fondoBs', fBs);
+                localStorage.setItem('fondoUSD', fUSD);
+                
+                modal.remove();
+                showNotification("Fondo de caja guardado con éxito.", "success");
+            } catch (err) {
+                console.error("Error guardando fondo de caja:", err);
+                showNotification("Error al guardar: " + err.message, "error");
+                btn.disabled = false;
+                btn.textContent = "Guardar Fondo";
+            }
+        });
+    }
 
     // Toggle Chat y Lógica de Inactividad
     const chatSidebar = container.querySelector('#chatSidebar');
@@ -1857,9 +2036,70 @@ export function renderDashboard() {
             }
         });
     }
+    function setupSystemNotifications() {
+        const notifBadge = container.querySelector('#notifBadge');
+        const notifList = container.querySelector('#notifList');
+        if (!notifBadge || !notifList) return;
+
+        const businessId = localStorage.getItem('businessId');
+        if (!businessId) return;
+
+        const q = query(
+            collection(db, "businesses", businessId, "system_notifications"),
+            where("read", "==", false)
+        );
+
+        onSnapshot(q, (snap) => {
+            snap.docChanges().forEach(change => {
+                if (change.type === "added") {
+                    const notif = change.doc.data();
+                    const notifId = change.doc.id;
+                    
+                    playBeep();
+                    unreadCount++;
+                    const countText = unreadCount > 99 ? '99+' : unreadCount;
+                    if (notifBadge) {
+                        notifBadge.textContent = countText;
+                        notifBadge.style.display = 'flex';
+                    }
+
+                    if (notifList) {
+                        const emptyMsg = notifList.querySelector('div[style*="text-align: center"]');
+                        if (emptyMsg) emptyMsg.remove();
+                        
+                        const item = document.createElement('div');
+                        item.style = "padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; transition: background 0.2s;";
+                        item.innerHTML = `
+                            <div style="font-weight: bold; margin-bottom: 2px; color: var(--success);">📢 ${notif.title}</div>
+                            <div style="color: var(--text-muted); font-size: 0.8rem;">${notif.message}</div>
+                            <div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 4px; text-align: right;">(Haz clic para marcar como leída)</div>
+                        `;
+                        item.onmouseover = () => item.style.background = 'rgba(34, 197, 94, 0.05)';
+                        item.onmouseout = () => item.style.background = 'transparent';
+                        item.onclick = async (e) => {
+                            e.stopPropagation();
+                            try {
+                                await updateDoc(doc(db, "businesses", businessId, "system_notifications", notifId), { read: true });
+                                item.remove();
+                                unreadCount = Math.max(0, unreadCount - 1);
+                                if (unreadCount === 0) {
+                                    notifBadge.style.display = 'none';
+                                    notifList.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No hay notificaciones pendientes</div>';
+                                } else {
+                                    notifBadge.textContent = unreadCount;
+                                }
+                            } catch(err) { console.error(err); }
+                        };
+                        notifList.insertBefore(item, notifList.firstChild);
+                    }
+                }
+            });
+        });
+    }
 
     // Renderizar página inicial al montar
     loadUserName();
+    setupSystemNotifications();
     renderHome();
 
     return container;

@@ -95,7 +95,6 @@ export function renderSales(container, preSelectedClient = null) {
     const getToday = () => new Date().toLocaleDateString('sv-SE');
 
 
-
     async function loadData() {
         container.innerHTML = '<div style="padding: 2rem; text-align: center;">Cargando catálogo y clientes...</div>';
         const businessId = localStorage.getItem('businessId');
@@ -105,56 +104,123 @@ export function renderSales(container, preSelectedClient = null) {
         }
         
         try {
-            // Load products
-            try {
-                const snapProd = await getDocs(collection(db, "businesses", businessId, "products"));
-                products = snapProd.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            } catch(e) { throw new Error("products: " + e.message); }
+            const todayStr = new Date().toLocaleDateString('sv-SE');
+            const todayStart = new Date();
+            todayStart.setHours(0,0,0,0);
+            const localStoreId = localStorage.getItem('storeId');
 
-            // If employee, merge local store stock
-            if (role === 'employee') {
-                const localStoreId = localStorage.getItem('storeId');
-                if (localStoreId) {
-                    try {
-                        const snapStoreInv = await getDocs(collection(db, "businesses", businessId, "stores", localStoreId, "inventory"));
+            // Arreglo de promesas para ejecutar en paralelo y ahorrar tiempo de carga
+            const promises = [];
+
+            // 0: Products
+            promises.push(getDocs(collection(db, "businesses", businessId, "products")).then(snap => {
+                const prods = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                prods.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                return prods;
+            }));
+
+            // 1: Local Inventory (if employee)
+            if (role === 'employee' && localStoreId) {
+                promises.push(getDocs(collection(db, "businesses", businessId, "stores", localStoreId, "inventory"))
+                    .then(snap => {
                         const storeStockMap = {};
-                        snapStoreInv.forEach(doc => {
-                            storeStockMap[doc.id] = doc.data().qty || 0;
-                        });
-                        products = products.map(p => ({
-                            ...p,
-                            stockGeneral: storeStockMap[p.id] || 0
-                        }));
-                    } catch(e) { 
-                        console.warn("No se pudo cargar el inventario local (probablemente por reglas de Firebase):", e.message); 
-                    }
-                }
+                        snap.forEach(doc => storeStockMap[doc.id] = doc.data().qty || 0);
+                        return storeStockMap;
+                    })
+                    .catch(e => {
+                        console.warn("No se pudo cargar inventario local:", e.message);
+                        return {};
+                    })
+                );
+            } else {
+                promises.push(Promise.resolve(null));
             }
 
-            products.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+            // 2: Clients
+            promises.push(getDocs(collection(db, "businesses", businessId, "clients")).then(snap => {
+                const clis = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                clis.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')));
+                return clis;
+            }));
 
-            // Load clients
-            try {
-                const snapCli = await getDocs(collection(db, "businesses", businessId, "clients"));
-                clients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                clients.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')));
-            } catch(e) { throw new Error("clients: " + e.message); }
-
-            // Load stores for admin filtering
+            // 3: Stores (if admin)
             if (role === 'admin') {
-                try {
-                    const snapStores = await getDocs(collection(db, "businesses", businessId, "stores"));
-                    stores = snapStores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    stores.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-                } catch(e) { throw new Error("stores: " + e.message); }
+                promises.push(getDocs(collection(db, "businesses", businessId, "stores")).then(snap => {
+                    const sts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    sts.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                    return sts;
+                }));
+            } else {
+                promises.push(Promise.resolve(null));
             }
 
-            // Load daily sales
-            try {
-                await loadDailySales();
-                await loadPedidos(selectedPedidoDate);
-            } catch(e) { throw new Error("sales: " + e.message); }
+            // 4: Daily Sales
+            let qSales = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
+            if (role !== 'admin') {
+                qSales = query(qSales, where("employeeEmail", "==", userEmail));
+            }
+            promises.push(getDocs(qSales).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
 
+            // 5: Payments
+            let pq = query(collection(db, "businesses", businessId, "payments"), where("createdAt", ">=", todayStart));
+            promises.push(getDocs(pq).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+
+            // 6: Pedidos
+            let qPed = query(collection(db, "businesses", businessId, "sales"), where("deliveryDate", "==", selectedPedidoDate));
+            promises.push(getDocs(qPed).then(snap => {
+                let p = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (role !== 'admin') p = p.filter(s => s.employeeEmail === userEmail);
+                return p;
+            }).catch(async e => {
+                let qFallback = query(collection(db, "businesses", businessId, "sales"), where("isOrder", "==", true));
+                const snap = await getDocs(qFallback);
+                let p = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (role !== 'admin') p = p.filter(s => s.employeeEmail === userEmail);
+                return p.filter(s => s.deliveryDate === selectedPedidoDate);
+            }));
+
+            // Esperar que todas las peticiones terminen SIMULTANEAMENTE
+            const [prodsRes, storeStockMap, clisRes, stsRes, allSales, allPayments, pedidosRes] = await Promise.all(promises);
+
+            // Asignar variables globales
+            products = prodsRes || [];
+            clients = clisRes || [];
+            if (stsRes) stores = stsRes;
+            allPedidos = pedidosRes || [];
+
+            // Merge local inventory
+            if (role === 'employee' && storeStockMap) {
+                products = products.map(p => ({
+                    ...p,
+                    stockGeneral: storeStockMap[p.id] || 0
+                }));
+            }
+
+            // Process Daily Sales
+            const activeStoreId = role === 'admin' ? 'general' : (localStorage.getItem('storeId') || 'general');
+            dailySales = (allSales || []).filter(sale => {
+                if (role !== 'admin') {
+                    return sale.employeeEmail === userEmail;
+                } else {
+                    return (sale.storeId === 'general') || (!sale.storeId) || (sale.storeName === 'Almacén General');
+                }
+            }).map(sale => {
+                const salePayments = (allPayments || []).filter(p => p.saleId === sale.id);
+                const methods = [...new Set(salePayments.map(p => {
+                    let m = p.method || 'Efectivo';
+                    if (m.includes('EFECTIVO')) return 'Efectivo';
+                    if (m === 'PAGO_MOVIL') return 'Pago Móvil';
+                    if (m === 'TRANSFERENCIA') return 'Transferencia';
+                    if (m === 'PUNTO') return 'Punto';
+                    return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+                }))];
+                let paymentMethodStr = methods.length === 0 ? '--' : (methods.length > 1 ? 'Múltiple' : methods[0]);
+                if (sale.status === 'presupuesto') paymentMethodStr = '--';
+                return { ...sale, paymentMethodStr };
+            });
+            dailySales.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+            // Renderizar la vista principal
             if (window.openOrderRecovery) {
                 delete window.openOrderRecovery;
                 setTimeout(() => {
@@ -168,7 +234,7 @@ export function renderSales(container, preSelectedClient = null) {
 
             // Listen for paused sales to toggle pulse animation
             const pausedQuery = query(collection(db, "businesses", businessId, "paused_sales"));
-            const unsubscribePaused = onSnapshot(pausedQuery, (snap) => {
+            onSnapshot(pausedQuery, (snap) => {
                 const btn = container.querySelector('#recoverSaleBtn');
                 if (btn) {
                     if (!snap.empty) {
@@ -182,73 +248,6 @@ export function renderSales(container, preSelectedClient = null) {
         } catch (error) {
             console.error("Error cargando datos:", error);
             container.innerHTML = `<div class="text-danger">Error al cargar los datos. Detalle: ${error.message}</div>`;
-        }
-    }
-
-    async function loadDailySales() {
-        const todayStr = new Date().toLocaleDateString('sv-SE');
-        const businessId = localStorage.getItem('businessId');
-        if (!businessId) return;
-
-        let q = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
-        if (role !== 'admin') {
-            q = query(q, where("employeeEmail", "==", userEmail));
-        }
-        const snap = await getDocs(q);
-        const allSales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const todayStart = new Date();
-        todayStart.setHours(0,0,0,0);
-        let pq = query(collection(db, "businesses", businessId, "payments"), where("createdAt", ">=", todayStart));
-        const pSnap = await getDocs(pq);
-        const allPayments = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const activeStoreId = role === 'admin' ? 'general' : (localStorage.getItem('storeId') || 'general');
-
-        dailySales = allSales.filter(sale => {
-            if (role !== 'admin') {
-                return sale.employeeEmail === userEmail;
-            } else {
-                // Admin sees ONLY "Almacén General" in this view as requested
-                return (sale.storeId === 'general') || (!sale.storeId) || (sale.storeName === 'Almacén General');
-            }
-        }).map(sale => {
-            const salePayments = allPayments.filter(p => p.saleId === sale.id);
-            const methods = [...new Set(salePayments.map(p => {
-                let m = p.method || 'Efectivo';
-                if (m.includes('EFECTIVO')) return 'Efectivo';
-                if (m === 'PAGO_MOVIL') return 'Pago Móvil';
-                if (m === 'TRANSFERENCIA') return 'Transferencia';
-                if (m === 'PUNTO') return 'Punto';
-                return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
-            }))];
-            let paymentMethodStr = methods.length === 0 ? '--' : (methods.length > 1 ? 'Múltiple' : methods[0]);
-            if (sale.status === 'presupuesto') paymentMethodStr = '--';
-
-            return { ...sale, paymentMethodStr };
-        });
-
-        dailySales.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    }
-
-    async function loadPedidos(dateStr) {
-        const businessId = localStorage.getItem('businessId');
-        if (!businessId) return;
-        try {
-            let q = query(collection(db, "businesses", businessId, "sales"), where("deliveryDate", "==", dateStr));
-            const snap = await getDocs(q);
-            let orders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            if (role !== 'admin') {
-                orders = orders.filter(sale => sale.employeeEmail === userEmail);
-            }
-            allPedidos = orders;
-        } catch (e) {
-            console.error("Error loading pedidos (might need index): ", e);
-            let qFallback = query(collection(db, "businesses", businessId, "sales"), where("isOrder", "==", true));
-            const snap = await getDocs(qFallback);
-            let orders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            allPedidos = orders.filter(o => o.deliveryDate === dateStr);
         }
     }
 

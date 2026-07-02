@@ -9,6 +9,7 @@ import { renderClients } from './views/clients.js';
 import { renderSuppliers } from './views/suppliers.js';
 import { renderSales } from './views/sales.js';
 import { renderResetPassword } from './views/reset_password.js';
+import { renderPublicRegister } from './views/public_register.js';
 
 const routes = {
     '': renderLogin,
@@ -21,7 +22,8 @@ const routes = {
     '#inventory': renderInventory,
     '#clients': renderClients,
     '#suppliers': renderSuppliers,
-    '#sales': renderSales
+    '#sales': renderSales,
+    '#public_register': renderPublicRegister
 };
 
 function router() {
@@ -53,8 +55,8 @@ function router() {
                 return;
             }
         } else {
-            // Si NO está logueado, solo permitir login y register
-            if (hash !== '#entrar' && hash !== '#register') {
+            // Si NO está logueado, solo permitir login, register o rutas públicas
+            if (hash !== '#entrar' && hash !== '#register' && !hash.startsWith('#public_register')) {
                 window.location.hash = '#entrar';
                 return;
             }
@@ -62,8 +64,9 @@ function router() {
         
         const mainContent = document.getElementById('mainContentArea');
         
-        if (mainContent && hash !== '#entrar' && hash !== '#register' && hash !== '#dashboard') {
-            const renderFunc = routes[hash];
+        if (mainContent && hash !== '#entrar' && hash !== '#register' && hash !== '#dashboard' && !hash.startsWith('#public_register')) {
+            const routeKey = hash.split('?')[0];
+            const renderFunc = routes[routeKey];
             if (renderFunc) {
                 const view = renderFunc(mainContent);
                 if (view && view !== mainContent) {
@@ -73,7 +76,8 @@ function router() {
             }
         } else {
             app.innerHTML = ''; // Clear current view
-            const renderFunc = routes[hash] || renderLogin;
+            const routeKey = hash.split('?')[0];
+            const renderFunc = routes[routeKey] || renderLogin;
             const view = renderFunc(app);
             if (view && view !== app) {
                 app.appendChild(view);

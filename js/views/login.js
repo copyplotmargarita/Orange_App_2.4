@@ -1,7 +1,7 @@
 import { navigate, showPromptModal, showConfirmModal } from '../utils.js';
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderLogin() {
     const container = document.createElement('div');
@@ -115,6 +115,13 @@ export function renderLogin() {
             
             // Verificación estricta de seguridad
             const uid = auth.currentUser.uid;
+            
+            // Asegurar deviceId único globalmente para esta sesión de navegador
+            let deviceId = localStorage.getItem('deviceId');
+            if (!deviceId) {
+                deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+                localStorage.setItem('deviceId', deviceId);
+            }
             
             // 1. ¿Es el dueño principal del negocio?
             let businessDoc = null;
@@ -255,6 +262,12 @@ export function renderLogin() {
                 if (!turnoSnap.empty) {
                     const tDoc = turnoSnap.docs[0];
                     const tData = tDoc.data();
+                    
+                    // Actualizar el activeDeviceId para este turno
+                    await updateDoc(doc(db, "businesses", businessId, "sessions", tDoc.id), {
+                        activeDeviceId: deviceId
+                    });
+
                     localStorage.setItem('currentShiftId', tDoc.id);
                     localStorage.setItem('shiftStartTime', tData.startTime);
                     localStorage.setItem('storeId', tData.storeId);
@@ -307,7 +320,8 @@ export function renderLogin() {
                             role: cargo,
                             startTime: startTime,
                             turnoStatus: 'ABIERTO',
-                            status: 'active'
+                            status: 'active',
+                            activeDeviceId: deviceId
                         });
 
                         localStorage.setItem('currentShiftId', docRef.id);
@@ -339,6 +353,12 @@ export function renderLogin() {
             if (!adminTurnoSnap.empty) {
                 const tDoc = adminTurnoSnap.docs[0];
                 const tData = tDoc.data();
+                
+                // Actualizar el activeDeviceId para este turno
+                await updateDoc(doc(db, "businesses", businessId, "sessions", tDoc.id), {
+                    activeDeviceId: deviceId
+                });
+
                 localStorage.setItem('currentShiftId', tDoc.id);
                 localStorage.setItem('shiftStartTime', tData.startTime);
                 // Si el admin tenía una tienda específica (poco común pero posible), la respetamos
@@ -355,7 +375,8 @@ export function renderLogin() {
                     role: cargo,
                     startTime: startTime,
                     turnoStatus: 'ABIERTO',
-                    status: 'active'
+                    status: 'active',
+                    activeDeviceId: deviceId
                 });
                 localStorage.setItem('currentShiftId', docRef.id);
                 localStorage.setItem('shiftStartTime', startTime);

@@ -71,7 +71,8 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👥 Cartera de Clientes</h2>
                 <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
                     <input type="text" id="searchClientInput" class="form-control" placeholder="🔍 Buscar cliente..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    <button class="btn btn-primary" id="addClientBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Cliente</button>
+                    <button class="btn btn-outline" id="copyClientLinkBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;" title="Copiar enlace para autoregistro">🔗 Enlace Público</button>
+                    <button class="btn btn-primary" id="addClientBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Cliente</button>
                 </div>
             </div>
             <div id="clientsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
@@ -88,6 +89,17 @@ export function renderClients(container, onFinish = null, initialName = '') {
         });
 
         container.querySelector('#addClientBtn').addEventListener('click', () => renderForm());
+        
+        container.querySelector('#copyClientLinkBtn').addEventListener('click', () => {
+            const businessId = localStorage.getItem('businessId');
+            const url = `${window.location.origin}${window.location.pathname}#public_register?type=client&bid=${businessId}`;
+            navigator.clipboard.writeText(url).then(() => {
+                showNotification("¡Enlace público copiado al portapapeles!");
+            }).catch(err => {
+                console.error("Error copiando enlace: ", err);
+                prompt("Copia este enlace manualmente:", url);
+            });
+        });
         
         container.querySelector('#backToDashboardBtn').addEventListener('click', () => {
             const navHome = document.getElementById('navHome');

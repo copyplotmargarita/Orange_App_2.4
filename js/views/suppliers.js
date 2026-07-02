@@ -115,7 +115,8 @@ export function renderSuppliers(container) {
                 <h2 style="color: var(--warning); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏭 Proveedores</h2>
                 <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
                     <input type="text" id="searchSupplierInput" class="form-control" placeholder="🔍 Buscar proveedor..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    <button class="btn btn-primary" id="addSupplierBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Proveedor</button>
+                    <button class="btn btn-outline" id="copySupplierLinkBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;" title="Copiar enlace para autoregistro">🔗 Enlace Público</button>
+                    <button class="btn btn-primary" id="addSupplierBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Proveedor</button>
                 </div>
             </div>
             <div id="suppliersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
@@ -132,6 +133,17 @@ export function renderSuppliers(container) {
         });
 
         container.querySelector('#addSupplierBtn').addEventListener('click', renderForm);
+        
+        container.querySelector('#copySupplierLinkBtn').addEventListener('click', () => {
+            const businessId = localStorage.getItem('businessId');
+            const url = `${window.location.origin}${window.location.pathname}#public_register?type=supplier&bid=${businessId}`;
+            navigator.clipboard.writeText(url).then(() => {
+                showNotification("¡Enlace público copiado al portapapeles!");
+            }).catch(err => {
+                console.error("Error copiando enlace: ", err);
+                prompt("Copia este enlace manualmente:", url);
+            });
+        });
         
         const backBtn = container.querySelector('#backToDashboardBtn');
         if (backBtn) {
