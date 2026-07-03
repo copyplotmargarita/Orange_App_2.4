@@ -176,6 +176,7 @@ export function renderLogin() {
                 localStorage.setItem('userRole', role);
                 localStorage.setItem('businessId', businessId);
                 localStorage.setItem('employeeName', empData.name || email);
+                localStorage.setItem('isOwner', 'false');
             } else {
                 // 2. Si no es empleado, verificamos si es el dueño principal del negocio
                 let businessDoc = null;
@@ -244,6 +245,7 @@ export function renderLogin() {
                 localStorage.setItem('userRole', 'admin');
                 localStorage.setItem('businessId', businessId || uid);
                 localStorage.setItem('employeeName', empData.name);
+                localStorage.setItem('isOwner', 'true');
             }
 
             if (role === 'employee') {

@@ -52,7 +52,7 @@ export function renderCorporateReports(container) {
                         <option value="este">Centro Comercial Este</option>
                         <option value="norte">Plaza Norte</option>
                     </select>
-                    <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().toISOString().split('T')[0]}">
+                    <input type="date" id="dateFilter" class="form-control" style="height: 38px; width: auto; font-size: 0.85rem;" value="${new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')}">
                 </div>
 
                 <!-- Contenido Dinámico -->

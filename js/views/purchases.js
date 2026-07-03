@@ -591,6 +591,18 @@ export function renderPurchases(container) {
 
         const filterStart = container.querySelector('#filterStartDate');
         const filterEnd = container.querySelector('#filterEndDate');
+        
+        if (typeof flatpickr !== 'undefined') {
+            const fpConfig = { locale: "es", altInput: true, altFormat: "d/m/Y", dateFormat: "Y-m-d", altInputClass: "form-control" };
+            if (filterStart) {
+                const fp1 = flatpickr(filterStart, fpConfig);
+                if (fp1.altInput) fp1.altInput.style.cssText = filterStart.style.cssText;
+            }
+            if (filterEnd) {
+                const fp2 = flatpickr(filterEnd, fpConfig);
+                if (fp2.altInput) fp2.altInput.style.cssText = filterEnd.style.cssText;
+            }
+        }
         if (filterStart) {
             filterStart.addEventListener('change', () => {
                 currentFilterStartDate = filterStart.value;

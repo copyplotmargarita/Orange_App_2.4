@@ -9,7 +9,7 @@ import { renderInventory } from './inventory.js';
 import { renderStoreReceive } from './storeReceive.js';
 import { renderSales } from './sales.js';
 import { renderReports } from './reports.js';
-import { renderMaintenance } from './maintenance.js';
+
 import { renderSettings } from './settings.js';
 import { renderReceivables } from './receivables.js';
 
@@ -24,10 +24,20 @@ export function renderDashboard() {
     
     const roleRaw = localStorage.getItem('userRole') || '';
     const isAdmin = roleRaw.toLowerCase() === 'admin' || roleRaw.toLowerCase() === 'administrador';
-    const isEmployee = roleRaw.toLowerCase() === 'employee' || roleRaw.toLowerCase() === 'empleado';
+    
+    // Check if the user is explicitly marked as the Real Owner
+    const isOwnerStr = localStorage.getItem('isOwner');
+    const isRealOwner = isOwnerStr === 'true' || (isOwnerStr === null && !['employee', 'empleado'].includes(roleRaw.toLowerCase()));
+    
+    // Anyone who is NOT the Real Owner is treated as an employee for UI/module restrictions.
+    const isEmployee = !isRealOwner;
+    
+    const storeId = localStorage.getItem('storeId') || '';
+    const storeName = (localStorage.getItem('storeName') || '').toLowerCase();
+    const isMainBranch = storeId === 'general' || storeName.includes('principal');
     
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
     let bcvRateLoaded = localStorage.getItem('bcvRate') !== null && localStorage.getItem('bcvDate') === todayStr;
 
     // Intentar recuperar la tasa desde Firebase si no está en LocalStorage
@@ -176,8 +186,8 @@ export function renderDashboard() {
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navCobros" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
-                    ${isAdmin ? '<li><a href="#" id="navMantenimiento" class="sidebar-link" style="color: var(--danger);">⚙️ Mantenimiento</a></li>' : ''}
-                    ${isEmployee ? '<li><a href="#" id="navRecibirProductos" class="sidebar-link" style="color:#f97316;">📥 Recibir Productos</a></li>' : ''}
+
+                    ${(isEmployee && !isMainBranch) ? '<li><a href="#" id="navRecibirProductos" class="sidebar-link" style="color:#f97316;">📥 Recibir Productos</a></li>' : ''}
                 </ul>
             </nav>
 
@@ -930,10 +940,7 @@ export function renderDashboard() {
         renderReports(mainContentArea);
     });
 
-    container.querySelector('#navMantenimiento')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        renderMaintenance(mainContentArea);
-    });
+
 
     container.querySelectorAll('.sidebar-link').forEach(link => {
         if (!link.id) {
@@ -1500,15 +1507,24 @@ export function renderDashboard() {
                 return { success: false, error: "Sesión expirada o usuario no autenticado" };
             }
 
-            const dateId = new Date().toISOString().split('T')[0];
+            const d = new Date();
+            const dateId = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             
             // Si es automático, verificar PRIMERO si ya existe en Firebase
             if (isAutomatic) {
                 const existingSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", dateId));
                 if (existingSnap.exists()) {
                     console.log("BCV: Ya existe una tasa para hoy en Firebase. Omitiendo guardado automático.");
-                    localStorage.setItem('bcvRate', existingSnap.data().rate);
+                    const existingRate = existingSnap.data().rate;
+                    localStorage.setItem('bcvRate', existingRate);
                     localStorage.setItem('bcvDate', dateId);
+                    bcvRateLoaded = true;
+                    if (bcvOverlay) bcvOverlay.style.display = 'none';
+                    if (bcvDisplay) {
+                        bcvDisplay.textContent = `Bs. ${parseFloat(existingRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        bcvDisplay.className = 'bcv-value success';
+                    }
+                    checkFondoDeCaja();
                     return { success: true };
                 }
             }
@@ -1591,7 +1607,7 @@ export function renderDashboard() {
         bcvForm.appendChild(bcvStatusMsg);
 
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         const isHoliday = isVenezuelaHoliday(now);
         
         if (isHoliday) {
@@ -1687,9 +1703,8 @@ export function renderDashboard() {
     // Ejecutar la búsqueda de tasa con un pequeño delay
     setTimeout(() => {
         if (!bcvRateLoaded) {
-            // Si es administrador (el que ve la ventana de confirmación), deshabilitar auto-guardado
-            // para que revise y cierre manualmente. Si es empleado, intentar guardar en background.
-            fetchBcvRate(!isAdmin);
+            // Auto-guardar siempre, independientemente del rol, para no detener al usuario
+            fetchBcvRate(true);
         } else {
             checkFondoDeCaja();
         }

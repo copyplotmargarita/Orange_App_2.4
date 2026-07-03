@@ -748,7 +748,8 @@ export function renderInventory(container) {
         if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
 
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const d = new Date();
+            const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
             for (const item of items) {
                 const prodRef = doc(db, "businesses", businessId, "products", item.productId);
@@ -1035,7 +1036,8 @@ export function renderInventory(container) {
                 : (currentAdjProduct.stockGeneral ?? currentAdjProduct.stock ?? 0);
                 
             const adjustment = newStock - currentStock;
-            const today = new Date().toISOString().split('T')[0];
+            const d = new Date();
+            const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
             if (currentAdjProduct.isStore) {
                 const storeProdRef = doc(db, "businesses", businessId, "stores", currentAdjProduct.storeId, "inventory", currentAdjProduct.id);
@@ -1102,7 +1104,8 @@ export function renderInventory(container) {
         btn.disabled = true; btn.textContent = 'Procesando...';
 
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const d = new Date();
+            const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             for (const item of items) {
                 const prodRef = doc(db, "businesses", businessId, "products", item.productId);
                 const snap = await getDoc(prodRef);
@@ -1138,7 +1141,8 @@ export function renderInventory(container) {
         if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
 
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const d = new Date();
+            const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             for (const { recipe, qty: qtyProduced } of productionList) {
                 const ingredients = recipe.recipeIngredients || [];
                 const ingredientsConsumed = [];
