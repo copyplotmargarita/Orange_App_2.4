@@ -491,6 +491,28 @@ export function renderEmployees(container) {
                     </div>
                 </div>
 
+
+                <!-- Módulos con Acceso -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📄 Módulos con Acceso</h3>
+                    <div id="editModulesGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; background: var(--background); padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border);">
+                        ${['ventas', 'clientes', 'cobros', 'productos', 'compras', 'inventario', 'proveedores', 'reportes', 'tiendas', 'empleados'].map(mod => {
+                            const modNames = {
+                                'ventas': '💰 Ventas', 'clientes': '👥 Clientes', 'cobros': '📋 Cobros',
+                                'productos': '🛍️ Productos', 'compras': '🧾 Compras', 'inventario': '📦 Inventario',
+                                'proveedores': '🏭 Proveedores', 'reportes': '📊 Reportes', 'tiendas': '🏪 Tiendas',
+                                'empleados': '👤 Empleados'
+                            };
+                            const isChecked = (emp.modules || []).includes(mod) ? 'checked' : '';
+                            return `
+                                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500; color:var(--text-main); cursor:pointer;">
+                                    <input type="checkbox" name="edit_modules" value="${mod}" ${isChecked} style="width: 16px; height: 16px; accent-color: var(--primary);"> ${modNames[mod]}
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
                 <!-- Gestión de Estado -->
                 <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
                     <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">⚙️ Acciones y Estado</h3>
@@ -545,18 +567,25 @@ export function renderEmployees(container) {
         container.querySelector('#cancelBtnDetail').addEventListener('click', renderList);
         
         container.querySelector('#saveStatusBtn').addEventListener('click', async () => {
-            if (currentStatus !== emp.status) {
-                const btn = container.querySelector('#saveStatusBtn');
-                btn.disabled = true;
-                btn.textContent = 'Guardando...';
+            const btn = container.querySelector('#saveStatusBtn');
+            btn.disabled = true;
+            btn.textContent = 'Guardando...';
+            
+            const selectedModules = [...container.querySelectorAll('input[name="edit_modules"]:checked')].map(cb => cb.value);
+            const oldModules = emp.modules || [];
+            const modulesChanged = JSON.stringify(selectedModules.sort()) !== JSON.stringify([...oldModules].sort());
+            
+            if (currentStatus !== emp.status || modulesChanged) {
                 const businessId = localStorage.getItem('businessId');
                 try {
                     await updateDoc(doc(db, "businesses", businessId, "employees", emp.id), {
-                        status: currentStatus
+                        status: currentStatus,
+                        modules: selectedModules
                     });
+                    showNotification("Cambios guardados exitosamente.", "success");
                 } catch (err) {
                     console.error(err);
-                    showNotification("Error al actualizar estado");
+                    showNotification("Error al guardar cambios", "error");
                 }
             }
             await loadEmployees();

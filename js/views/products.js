@@ -90,8 +90,7 @@ export function renderProducts(container) {
 
                 html += `
                     <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative" data-id="${prod.id}">
-                        ${role !== 'employee' ? `<button class="delete-product-btn" data-id="${prod.id}" style="position: absolute; top: 0.5rem; left: 0.5rem; background: rgba(239, 68, 68, 0.9); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; z-index: 10; font-weight: bold; border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">×</button>` : ''}
-                        ${stock <= 0 ? '<div class="absolute top-sm right-sm bg-error text-on-error px-xs py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm z-10">Agotado</div>' : ''}
+                        ${role !== 'employee' ? `<button class="delete-product-btn" data-id="${prod.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; background: transparent; color: var(--danger); border: none; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 0.2rem; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Eliminar Producto">🗑️</button>` : ''}
                         <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
                             ${prod.image ? `<img src="${prod.image}" alt="${prod.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
                         </div>
@@ -175,14 +174,14 @@ export function renderProducts(container) {
             </div>
             
             <!-- Modal Eliminar Producto -->
-            <div id="deleteProductModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;">
-                <div class="card" style="width: 90%; max-width: 400px; padding: 1.5rem; text-align: center; background: var(--surface);">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🗑️</div>
-                    <h3 style="margin-bottom: 0.5rem; font-size: 1.2rem; font-weight: 800;">¿Eliminar Producto?</h3>
-                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">¿Eliminar permanentemente "<span id="deleteProdName"></span>"?</p>
-                    <div style="display: flex; gap: 0.75rem;">
-                        <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem;">Cancelar</button>
-                        <button type="button" class="btn btn-primary" id="confirmDeleteBtn" style="flex: 1; height: 36px; font-size: 0.85rem; background: var(--danger); border-color: var(--danger); font-weight: 700;">Eliminar</button>
+            <div id="deleteProductModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); z-index: 2000; align-items: center; justify-content: center; padding: 1.5rem;">
+                <div class="card" style="width: 100%; max-width: 400px; padding: 2rem; border-top: 4px solid var(--danger); text-align: center; background: var(--surface);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+                    <h3 style="color: var(--danger); font-weight: 800; margin-bottom: 1rem;">¿Eliminar Producto?</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">¿Estás seguro de que deseas eliminar permanentemente <strong style="color: var(--text-main);"><span id="deleteProdName"></span></strong>? Esta acción no se puede deshacer.</p>
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex: 1;">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="confirmDeleteBtn" style="flex: 1; background: var(--danger); border-color: var(--danger);">Eliminar</button>
                     </div>
                 </div>
             </div>
