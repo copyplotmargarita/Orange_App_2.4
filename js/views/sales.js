@@ -156,9 +156,7 @@ export function renderSales(container, preSelectedClient = null) {
 
             // 4: Daily Sales
             let qSales = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
-            if (role !== 'admin') {
-                qSales = query(qSales, where("employeeEmail", "==", userEmail));
-            }
+            qSales = query(qSales, where("employeeEmail", "==", userEmail));
             promises.push(getDocs(qSales).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
 
             // 5: Payments
@@ -169,13 +167,13 @@ export function renderSales(container, preSelectedClient = null) {
             let qPed = query(collection(db, "businesses", businessId, "sales"), where("deliveryDate", "==", selectedPedidoDate));
             promises.push(getDocs(qPed).then(snap => {
                 let p = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (role !== 'admin') p = p.filter(s => s.employeeEmail === userEmail);
+                p = p.filter(s => s.employeeEmail === userEmail);
                 return p;
             }).catch(async e => {
                 let qFallback = query(collection(db, "businesses", businessId, "sales"), where("isOrder", "==", true));
                 const snap = await getDocs(qFallback);
                 let p = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (role !== 'admin') p = p.filter(s => s.employeeEmail === userEmail);
+                p = p.filter(s => s.employeeEmail === userEmail);
                 return p.filter(s => s.deliveryDate === selectedPedidoDate);
             }));
 
@@ -199,11 +197,7 @@ export function renderSales(container, preSelectedClient = null) {
             // Process Daily Sales
             const activeStoreId = role === 'admin' ? 'general' : (localStorage.getItem('storeId') || 'general');
             dailySales = (allSales || []).filter(sale => {
-                if (role !== 'admin') {
-                    return sale.employeeEmail === userEmail;
-                } else {
-                    return (activeStoreId === 'general') || (sale.storeId === activeStoreId);
-                }
+                return sale.employeeEmail === userEmail;
             }).map(sale => {
                 const salePayments = (allPayments || []).filter(p => p.saleId === sale.id);
                 const methods = [...new Set(salePayments.map(p => {
@@ -275,11 +269,7 @@ export function renderSales(container, preSelectedClient = null) {
                 const p = doc.data();
 
                 let pass = false;
-                if (role !== 'admin') {
-                    pass = (p.employeeEmail === userEmail);
-                } else {
-                    pass = (activeStoreId === 'general') || (p.storeId === activeStoreId);
-                }
+                pass = (p.employeeEmail === userEmail);
 
                 if (pass) {
                     const method = p.method || 'EFECTIVO';
@@ -2849,9 +2839,7 @@ export function renderSales(container, preSelectedClient = null) {
         let pq = query(collection(db, "businesses", businessId, "payments"), 
                        where("date", "==", todayStr));
         
-        if (role !== 'admin') {
-            pq = query(pq, where("employeeEmail", "==", userEmail));
-        }
+        pq = query(pq, where("employeeEmail", "==", userEmail));
 
         const pSnap = await getDocs(pq);
         const totals = {
@@ -2863,11 +2851,7 @@ export function renderSales(container, preSelectedClient = null) {
             const p = doc.data();
             // Strict filter based on session
             let pass = false;
-            if (role !== 'admin') {
-                pass = (p.employeeEmail === userEmail);
-            } else {
-                pass = (activeStoreId === 'general') || (p.storeId === activeStoreId);
-            }
+            pass = (p.employeeEmail === userEmail);
 
             if (!pass) return;
 

@@ -79,9 +79,21 @@ export function renderDashboard() {
                     // Se inició sesión en otro dispositivo, forzar cierre aquí
                     localStorage.clear();
                     auth.signOut().then(() => {
-                        alert("Su sesión fue abierta en otro dispositivo. Por seguridad, se ha cerrado en esta pantalla.");
-                        window.location.hash = '#entrar';
-                        window.location.reload();
+                        const m = document.createElement('div');
+                        m.style = "position:fixed;inset:0;background:rgba(15,23,42,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);";
+                        m.innerHTML = `
+                            <div class="card" style="max-width:400px;text-align:center;padding:2rem;animation: modalIn 0.3s ease-out;">
+                                <div style="font-size:3rem;margin-bottom:1rem;">⚠️</div>
+                                <h3 style="color:var(--danger);margin-bottom:1rem;">Sesión Cerrada</h3>
+                                <p style="color:var(--text-muted);margin-bottom:2rem;">Su sesión fue abierta en otro dispositivo. Por seguridad, se ha cerrado en esta pantalla.</p>
+                                <button class="btn btn-primary" id="btnOkSesion" style="width:100%;background:var(--danger);border-color:var(--danger);">Entendido</button>
+                            </div>
+                        `;
+                        document.body.appendChild(m);
+                        m.querySelector('#btnOkSesion').onclick = () => {
+                            window.location.hash = '#entrar';
+                            window.location.reload();
+                        };
                     });
                 }
             }
