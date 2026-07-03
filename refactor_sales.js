@@ -25,7 +25,7 @@ function renderSingleView() {
     const currentChangeUSD = Math.max(0, paidUSD - effectiveTotalUSD);
     const saleStatus = container.querySelector('#saleStatus')?.value || (payments.length === 0 ? 'contado' : 'abono');
 
-    container.innerHTML = \`
+    container.innerHTML = `
     <div class="app-container text-on-surface bg-background" style="font-family: 'Inter', sans-serif;">
         <!-- Top System Header Bar -->
         <header class="w-full shrink-0 h-10 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-container-margin">
@@ -37,7 +37,7 @@ function renderSingleView() {
                 <div class="h-4 w-[1px] bg-outline-variant"></div>
                 <div class="flex items-center gap-xs">
                     <span class="text-label-sm text-outline uppercase">Tasa BCV:</span>
-                    <span class="text-label-sm font-bold text-secondary">Bs. \${fmt(bcvRate)}</span>
+                    <span class="text-label-sm font-bold text-secondary">Bs. ${fmt(bcvRate)}</span>
                 </div>
             </div>
             <div class="flex items-center gap-sm">
@@ -65,11 +65,11 @@ function renderSingleView() {
                         </div>
                         <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant md:w-96">
                             <span class="material-symbols-outlined text-outline">search</span>
-                            <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="\${searchProductTerm}">
+                            <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
                         </div>
                     </div>
                     <div id="productList" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md content-start pb-20">
-                        \${renderProductList()}
+                        ${renderProductList()}
                     </div>
                 </section>
             </main>
@@ -83,16 +83,16 @@ function renderSingleView() {
                         <div class="form-group">
                             <label class="text-label-bold font-label-bold text-outline uppercase">Operación</label>
                             <select id="saleType" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
-                                <option value="venta" \${settings.type === 'venta' ? 'selected' : ''}>Venta</option>
-                                <option value="presupuesto" \${settings.type === 'presupuesto' ? 'selected' : ''}>Presupuesto</option>
+                                <option value="venta" ${settings.type === 'venta' ? 'selected' : ''}>Venta</option>
+                                <option value="presupuesto" ${settings.type === 'presupuesto' ? 'selected' : ''}>Presupuesto</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="text-label-bold font-label-bold text-outline uppercase">Tipo Precio</label>
                             <select id="priceType" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
-                                <option value="precioDetal" \${settings.priceType === 'precioDetal' ? 'selected' : ''}>Detal</option>
-                                <option value="precioMayor" \${settings.priceType === 'precioMayor' ? 'selected' : ''}>Mayor</option>
-                                <option value="precioSpecial" \${settings.priceType === 'precioSpecial' ? 'selected' : ''}>Especial</option>
+                                <option value="precioDetal" ${settings.priceType === 'precioDetal' ? 'selected' : ''}>Detal</option>
+                                <option value="precioMayor" ${settings.priceType === 'precioMayor' ? 'selected' : ''}>Mayor</option>
+                                <option value="precioSpecial" ${settings.priceType === 'precioSpecial' ? 'selected' : ''}>Especial</option>
                             </select>
                         </div>
                     </div>
@@ -100,20 +100,20 @@ function renderSingleView() {
                     <div class="grid grid-cols-2 gap-sm mb-md">
                         <div class="form-group">
                             <label class="text-label-bold font-label-bold text-outline uppercase">Estado de Venta</label>
-                            <select id="saleStatus" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" \${settings.type === 'presupuesto' ? 'disabled' : ''}>
-                                \${settings.type === 'presupuesto' ? '<option value="presupuesto" selected>PRESUPUESTO</option>' : \`
-                                <option value="contado" \${saleStatus === 'contado' ? 'selected' : ''}>Contado</option>
-                                <option value="abono" \${saleStatus === 'abono' ? 'selected' : ''}>Abono</option>
-                                <option value="credito" \${saleStatus === 'credito' ? 'selected' : ''}>Crédito</option>
-                                \`}
+                            <select id="saleStatus" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" ${settings.type === 'presupuesto' ? 'disabled' : ''}>
+                                ${settings.type === 'presupuesto' ? '<option value="presupuesto" selected>PRESUPUESTO</option>' : 
+                                '<option value="contado" ' + (saleStatus === 'contado' ? 'selected' : '') + '>Contado</option>\\n' +
+                                '<option value="abono" ' + (saleStatus === 'abono' ? 'selected' : '') + '>Abono</option>\\n' +
+                                '<option value="credito" ' + (saleStatus === 'credito' ? 'selected' : '') + '>Crédito</option>'
+                                }
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="text-label-bold font-label-bold text-outline uppercase">Ubicación</label>
                             <select id="saleTarget" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
-                                <option value="tienda" \${settings.target === 'tienda' ? 'selected' : ''}>Tienda</option>
-                                <option value="delivery" \${settings.target === 'delivery' ? 'selected' : ''}>Delivery</option>
-                                <option value="envio" \${settings.target === 'envio' ? 'selected' : ''}>Envío</option>
+                                <option value="tienda" ${settings.target === 'tienda' ? 'selected' : ''}>Tienda</option>
+                                <option value="delivery" ${settings.target === 'delivery' ? 'selected' : ''}>Delivery</option>
+                                <option value="envio" ${settings.target === 'envio' ? 'selected' : ''}>Envío</option>
                             </select>
                         </div>
                     </div>
@@ -123,15 +123,15 @@ function renderSingleView() {
                         <div class="flex items-center gap-sm mt-xs p-sm bg-surface-container-high rounded-lg border border-outline-variant focus-within:border-primary transition-colors group">
                             <span class="material-symbols-outlined text-outline group-focus-within:text-primary">person</span>
                             <div class="flex-1 relative">
-                                <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-on-surface w-full p-0 outline-none" placeholder="Buscar cliente..." type="text" value="\${selectedClient ? selectedClient.fullName : ''}"/>
-                                \${selectedClient ? \`<p class="text-label-sm text-outline mt-1">\${selectedClient.id}</p>\` : ''}
+                                <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-on-surface w-full p-0 outline-none" placeholder="Buscar cliente..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
+                                ${selectedClient ? '<p class="text-label-sm text-outline font-bold mt-xs">' + (selectedClient.phone || 'Sin teléfono') + '</p>' : ''}
                                 <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-lg shadow-xl mt-1 hidden"></div>
                             </div>
-                            \${selectedClient ? \`
-                            <button id="removeClientBtn" class="material-symbols-outlined text-error cursor-pointer hover:bg-error/10 rounded-full p-1 transition-colors" title="Remover cliente">close</button>
-                            \` : \`
-                            <button id="createNewClientBtn" class="material-symbols-outlined text-primary cursor-pointer hover:bg-primary/10 rounded-full p-1 transition-colors" title="Crear cliente">person_add</button>
-                            \`}
+                            ${selectedClient ? 
+                                '<button id="removeClientBtn" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-error/10 text-outline hover:text-error transition-colors" title="Quitar cliente"><span class="material-symbols-outlined text-[18px]">close</span></button>'
+                             : 
+                                '<button id="createNewClientBtn" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/10 text-primary transition-colors" title="Nuevo cliente rápido"><span class="material-symbols-outlined text-[18px]">person_add</span></button>'
+                            }
                         </div>
                     </div>
                 </div>
@@ -139,24 +139,24 @@ function renderSingleView() {
                 <div class="flex-1 overflow-y-auto p-md hide-scrollbar">
                     <div class="flex justify-between items-center mb-sm">
                         <label class="text-label-bold font-label-bold text-outline uppercase">Carrito</label>
-                        \${cart.length > 0 ? '<button id="cancelCartBtn" class="text-error text-label-sm font-bold uppercase hover:underline">Vaciar</button>' : ''}
+                        ${cart.length > 0 ? '<button id="cancelCartBtn" class="text-error text-label-sm font-bold uppercase hover:underline">Vaciar</button>' : ''}
                     </div>
                     <div class="flex flex-col gap-sm">
-                        \${cart.length === 0 ? '<p class="text-outline text-center py-4 text-body-md">El carrito está vacío</p>' : ''}
-                        \${cart.map((item, index) => {
+                        ${cart.length === 0 ? '<p class="text-outline text-center py-4 text-body-md">El carrito está vacío</p>' : ''}
+                        ${cart.map((item, index) => {
                             const prod = products.find(p => p.id === item.id);
-                            return \`
+                            return `
                             <div class="flex justify-between items-center p-sm rounded-lg bg-surface-container-lowest hover:bg-surface-container transition-colors border border-outline-variant group">
                                 <div class="flex-1 min-w-0 pr-2">
-                                    <p class="text-body-md font-semibold text-on-surface truncate cursor-pointer edit-qty hover:text-primary" data-index="\${index}">\${item.name}</p>
-                                    <p class="text-label-sm text-outline">\${item.qty} \${item.sellUnit || 'ud'} x $\${fmt(item.price)}</p>
+                                    <p class="text-body-md font-semibold text-on-surface truncate cursor-pointer edit-qty hover:text-primary" data-index="${index}">${item.name}</p>
+                                    <p class="text-label-sm text-outline">${item.qty} ${item.sellUnit || 'ud'} x $${fmt(item.price)}</p>
                                 </div>
                                 <div class="flex items-center gap-sm">
-                                    <p class="font-label-sm text-primary font-bold">$\${fmt(item.total)}</p>
-                                    <button class="material-symbols-outlined text-outline hover:text-error transition-colors btn-remove" data-index="\${index}" style="font-size: 18px;">delete</button>
+                                    <p class="font-label-sm text-primary font-bold">$${fmt(item.total)}</p>
+                                    <button class="material-symbols-outlined text-outline hover:text-error transition-colors btn-remove" data-index="${index}" style="font-size: 18px;">delete</button>
                                 </div>
                             </div>
-                            \`;
+                            `;
                         }).join('')}
                     </div>
                 </div>
@@ -168,42 +168,42 @@ function renderSingleView() {
             <div class="flex gap-md h-full items-center">
                 <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
                     <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ITEMS</p>
-                    <p class="text-display-metrics text-primary" style="font-size: 24px;">\${totalItems}</p>
+                    <p class="text-display-metrics text-primary" style="font-size: 24px;">${totalItems}</p>
                 </div>
                 
                 <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 border-l-primary flex flex-col justify-center">
                     <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN $</p>
-                    <p class="text-headline-md font-display-metrics text-primary whitespace-nowrap">$ \${fmt(effectiveTotalUSD)}</p>
+                    <p class="text-headline-md font-display-metrics text-primary whitespace-nowrap">$ ${fmt(effectiveTotalUSD)}</p>
                 </div>
                 
                 <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
                     <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN BS</p>
-                    <p class="text-headline-md font-display-metrics text-primary whitespace-nowrap leading-tight text-[18px]">Bs \${fmt(totalBs)}</p>
+                    <p class="text-headline-md font-display-metrics text-primary whitespace-nowrap leading-tight text-[18px]">Bs ${fmt(totalBs)}</p>
                 </div>
                 
-                <div id="pullDebtBtn" class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 \${clientDebt > 0 ? 'border-l-error cursor-pointer hover:bg-error/10' : 'border-l-outline'} flex flex-col justify-center transition-colors">
-                    <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">DEUDA CLIENTE \${includeOldDebt ? '(CARGADA)' : ''}</p>
-                    <p class="text-headline-md font-display-metrics \${clientDebt > 0 && !includeOldDebt ? 'text-error' : 'text-on-surface'} whitespace-nowrap">$ \${fmt(clientDebt)}</p>
+                <div id="pullDebtBtn" class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 ${clientDebt > 0 ? 'border-l-error cursor-pointer hover:bg-error/10' : 'border-l-outline'} flex flex-col justify-center transition-colors">
+                    <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">DEUDA CLIENTE ${includeOldDebt ? '(CARGADA)' : ''}</p>
+                    <p class="text-headline-md font-display-metrics ${clientDebt > 0 && !includeOldDebt ? 'text-error' : 'text-on-surface'} whitespace-nowrap">$ ${fmt(clientDebt)}</p>
                 </div>
                 
                 <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
                     <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ENTREGADO</p>
                     <div class="flex flex-col">
-                        <p class="text-body-lg font-bold text-primary">$ \${fmt(paidUSD)}</p>
-                        <p class="text-label-sm text-outline">Bs \${fmt(paidUSD * bcvRate)}</p>
+                        <p class="text-body-lg font-bold text-primary">$ ${fmt(paidUSD)}</p>
+                        <p class="text-label-sm text-outline">Bs ${fmt(paidUSD * bcvRate)}</p>
                     </div>
                 </div>
                 
                 <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center border-l-4 border-l-secondary">
-                    <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">\${currentChangeUSD > 0 ? 'VUELTO' : 'RESTA'}</p>
+                    <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">${currentChangeUSD > 0 ? 'VUELTO' : 'RESTA'}</p>
                     <div class="flex flex-col">
-                        <p class="text-body-lg font-bold \${currentChangeUSD > 0 ? 'text-secondary' : 'text-error'}">$ \${currentChangeUSD > 0 ? fmt(currentChangeUSD) : fmt(currentRemainingUSD)}</p>
-                        <p class="text-label-sm \${currentChangeUSD > 0 ? 'text-secondary' : 'text-error'}">Bs \${currentChangeUSD > 0 ? fmt(currentChangeUSD * bcvRate) : fmt(currentRemainingUSD * bcvRate)}</p>
+                        <p class="text-body-lg font-bold ${currentChangeUSD > 0 ? 'text-secondary' : 'text-error'}">$ ${currentChangeUSD > 0 ? fmt(currentChangeUSD) : fmt(currentRemainingUSD)}</p>
+                        <p class="text-label-sm ${currentChangeUSD > 0 ? 'text-secondary' : 'text-error'}">Bs ${currentChangeUSD > 0 ? fmt(currentChangeUSD * bcvRate) : fmt(currentRemainingUSD * bcvRate)}</p>
                     </div>
                 </div>
                 
-                <button id="openPaymentModalBtn" class="flex-1 h-full bg-primary text-white rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/90 transition-all shadow-lg active:scale-[0.98]" \${settings.type === 'presupuesto' ? 'disabled style="opacity:0.5"' : ''}>CARGAR PAGO</button>
-                <button id="finishBtn" class="flex-1 h-full border-2 border-primary text-primary rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98]">\${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
+                <button id="openPaymentModalBtn" class="flex-1 h-full bg-primary text-white rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/90 transition-all shadow-lg active:scale-[0.98]" ${settings.type === 'presupuesto' ? 'disabled style="opacity:0.5"' : ''}>CARGAR PAGO</button>
+                <button id="finishBtn" class="flex-1 h-full border-2 border-primary text-primary rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98]">${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
             </div>
         </footer>
 
@@ -213,7 +213,7 @@ function renderSingleView() {
             <span id="toastMsg" class="font-body-lg">Acción completada</span>
         </div>
     </div>
-    \`;
+    `;
 
     // Clock and Date
     const clockSpan = container.querySelector('#clockSpan');
@@ -266,7 +266,7 @@ function renderSingleView() {
 
     container.querySelector('#pullDebtBtn')?.addEventListener('click', () => {
         if (clientDebt > 0 && !includeOldDebt) {
-            showConfirmModal("Cargar Deuda Previa", \`¿Desea agregar la deuda de $\${fmt(clientDebt)} a esta cuenta?\`, () => {
+            showConfirmModal("Cargar Deuda Previa", `¿Desea agregar la deuda de $${fmt(clientDebt)} a esta cuenta?`, () => {
                 includeOldDebt = true;
                 render();
             }, "Sí, Cargar", "Cancelar");
@@ -297,12 +297,12 @@ function renderSingleView() {
                 (c.phone && c.phone.includes(term))
             );
             
-            clientResults.innerHTML = filtered.map(c => \`
-                <div class="client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant last:border-0" data-id="\${c.id}">
-                    <p class="font-bold text-on-surface">\${c.fullName}</p>
-                    <p class="text-label-sm text-outline">\${c.id} | \${c.phone || 'Sin tel.'}</p>
+            clientResults.innerHTML = filtered.map(c => `
+                <div class="client-option p-sm hover:bg-surface-variant cursor-pointer border-b border-outline-variant last:border-0" data-id="${c.id}">
+                    <p class="font-bold text-on-surface">${c.fullName}</p>
+                    <p class="text-label-sm text-outline">${c.id} | ${c.phone || 'Sin tel.'}</p>
                 </div>
-            \`).join('');
+            `).join('');
             
             clientResults.style.display = filtered.length > 0 ? 'block' : 'none';
             
@@ -393,7 +393,7 @@ function showPaymentModal(remainingUSD) {
     // Default currency to what was used last or BS
     const amountBS = remainingUSD * bcvRate;
     
-    modal.innerHTML = \`
+    modal.innerHTML = `
         <div class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg p-lg shadow-2xl flex flex-col gap-md">
             <div class="flex justify-between items-center border-b border-outline-variant pb-sm">
                 <h3 class="text-headline-md font-bold text-primary">Cargar Pago</h3>
@@ -404,8 +404,8 @@ function showPaymentModal(remainingUSD) {
                 <div class="form-group">
                     <label class="text-label-bold font-label-bold text-outline uppercase">Moneda</label>
                     <select id="payCurrency" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none">
-                        <option value="BS" \${activePayCurrency === 'BS' ? 'selected' : ''}>Bolívares (Bs)</option>
-                        <option value="USD" \${activePayCurrency === 'USD' ? 'selected' : ''}>Dólares ($)</option>
+                        <option value="BS" ${activePayCurrency === 'BS' ? 'selected' : ''}>Bolívares (Bs)</option>
+                        <option value="USD" ${activePayCurrency === 'USD' ? 'selected' : ''}>Dólares ($)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -426,7 +426,7 @@ function showPaymentModal(remainingUSD) {
             <div class="mt-sm">
                 <h4 class="text-label-sm uppercase text-outline mb-xs border-b border-outline-variant pb-xs">Pagos Actuales</h4>
                 <div id="paymentsList" class="flex flex-col gap-xs max-h-32 overflow-y-auto hide-scrollbar">
-                    \${payments.length === 0 ? '<p class="text-body-md text-outline text-center py-2">Ninguno</p>' : ''}
+                    ${payments.length === 0 ? '<p class="text-body-md text-outline text-center py-2">Ninguno</p>' : ''}
                 </div>
             </div>
 
@@ -435,7 +435,7 @@ function showPaymentModal(remainingUSD) {
                 <button id="donePayBtn" class="flex-1 bg-primary text-white rounded-lg font-bold py-2 hover:bg-primary/90 transition-colors">LISTO</button>
             </div>
         </div>
-    \`;
+    `;
     
     document.body.appendChild(modal);
 
@@ -451,15 +451,15 @@ function showPaymentModal(remainingUSD) {
             paymentsList.innerHTML = '<p class="text-body-md text-outline text-center py-2">Ninguno</p>';
             return;
         }
-        paymentsList.innerHTML = payments.map((p, i) => \`
+        paymentsList.innerHTML = payments.map((p, i) => `
             <div class="flex justify-between items-center p-xs bg-surface-container-highest rounded border border-outline-variant">
-                <span class="text-label-sm font-bold">\${p.method.replace('_', ' ')} \${p.ref ? '(#'+p.ref+')' : ''}</span>
+                <span class="text-label-sm font-bold">${p.method.replace('_', ' ')} ${p.ref ? '(#'+p.ref+')' : ''}</span>
                 <div class="flex items-center gap-sm">
-                    <span class="text-label-sm text-primary font-bold">\${p.currency} \${fmt(p.amount)}</span>
-                    <button class="material-symbols-outlined text-error hover:text-error/80 text-[18px] btn-rem-pay" data-index="\${i}">close</button>
+                    <span class="text-label-sm text-primary font-bold">${p.currency} ${fmt(p.amount)}</span>
+                    <button class="material-symbols-outlined text-error hover:text-error/80 text-[18px] btn-rem-pay" data-index="${i}">close</button>
                 </div>
             </div>
-        \`).join('');
+        `).join('');
         
         modal.querySelectorAll('.btn-rem-pay').forEach(b => {
             b.onclick = () => {
@@ -477,9 +477,9 @@ function showPaymentModal(remainingUSD) {
     const updatePayMethods = (currRem) => {
         const currency = payCurrency.value;
         if (currency === 'USD') {
-            payMethod.innerHTML = \`<option value="EFECTIVO">Efectivo ($)</option><option value="ZELLE">Zelle</option><option value="BINANCE">Binance</option><option value="PAYPAL">PayPal</option>\`;
+            payMethod.innerHTML = `<option value="EFECTIVO">Efectivo ($)</option><option value="ZELLE">Zelle</option><option value="BINANCE">Binance</option><option value="PAYPAL">PayPal</option>`;
         } else {
-            payMethod.innerHTML = \`<option value="PAGO_MOVIL">Pago Móvil</option><option value="PUNTO">Punto de Venta</option><option value="EFECTIVO">Efectivo (Bs)</option><option value="TRANSFERENCIA">Transferencia</option>\`;
+            payMethod.innerHTML = `<option value="PAGO_MOVIL">Pago Móvil</option><option value="PUNTO">Punto de Venta</option><option value="EFECTIVO">Efectivo (Bs)</option><option value="TRANSFERENCIA">Transferencia</option>`;
         }
         
         const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(payMethod.value);
