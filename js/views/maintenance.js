@@ -2,12 +2,13 @@ import { db } from '../services/firebase.js';
 import { 
     collection, 
     getDocs, 
-    writeBatch, 
-    doc, 
     query, 
-    limit 
+    orderBy,
+    writeBatch,
+    doc,
+    Timestamp 
 } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
-import { showNotification } from '../utils.js';
+import { showNotification, formatDateToDDMMYYYY } from '../utils.js';
 
 export function renderMaintenance(container) {
     const businessId = localStorage.getItem('businessId');
@@ -24,114 +25,22 @@ export function renderMaintenance(container) {
             <h2 style="color: var(--danger); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">⚙️ Mantenimiento</h2>
         </div>
 
-        <div style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--danger); display: flex; flex-direction: column; gap: 0.35rem;" class="card">
-            <div style="text-align: center; margin-bottom: 1.5rem;">
-                <p class="text-muted" style="margin-top: 0;">Limpieza profunda de datos de prueba</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); text-align: center; cursor: pointer; transition: transform 0.2s;" id="btnHistoricoTasa">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
+                <h3 style="color: var(--primary); font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem;">Histórico Tasa BCV</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Consulta todas las tasas guardadas en la base de datos por registro.</p>
             </div>
 
-            <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                <h3 style="color: var(--danger); font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem; text-transform: uppercase;">⚠️ Zona de Peligro</h3>
-                <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                    Esta acción eliminará permanentemente todos los registros seleccionados. Use esta herramienta solo para limpiar datos de prueba antes de iniciar operaciones reales.
-                </p>
+            <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--warning); text-align: center; cursor: pointer; transition: transform 0.2s;" id="btnMigrateBcv">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🧹</div>
+                <h3 style="color: var(--warning); font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem;">Normalizar Histórico</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Corrige IDs antiguos, añade creadores y horas faltantes a los registros.</p>
             </div>
-
-            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="products" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">🛍️ Productos e Inventarios</span>
-                        <small class="text-muted">Elimina catálogo, recetas y existencias actuales.</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="sales" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">💰 Ventas y Pagos</span>
-                        <small class="text-muted">Elimina historial de facturación y cobros recaudados.</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="purchases" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">🧾 Compras y Recepciones</span>
-                        <small class="text-muted">Elimina facturas de proveedores y registros de entrada.</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="transfers" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">🔄 Transferencias y Tasas</span>
-                        <small class="text-muted">Elimina envíos entre tiendas e historial del BCV.</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="clients" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">👥 Clientes</span>
-                        <small class="text-muted">Elimina la base de datos de clientes.</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="suppliers" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">🏭 Proveedores</span>
-                        <small class="text-muted">Elimina el registro de proveedores.</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="employees" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">👨‍💼 Empleados y Permisos</span>
-                        <small class="text-muted">Elimina empleados (excepto el admin actual).</small>
-                    </div>
-                </label>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--background); border-radius: 10px; border: 1px solid var(--border);">
-                    <input type="checkbox" class="reset-check" value="stores" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                    <div>
-                        <span style="display: block; font-weight: 700;">🏪 Tiendas y Cajas</span>
-                        <small class="text-muted">Elimina sucursales adicionales.</small>
-                    </div>
-                </label>
-            </div>
-
-            <div style="margin-bottom: 1.5rem;" class="form-group">
-                <label style="display: block; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Escriba "BORRAR TODO" para confirmar</label>
-                <input type="text" id="confirmInput" class="form-control" placeholder="Escriba aquí..." style="text-align: center; height: 50px; font-weight: 900; letter-spacing: 2px;">
-            </div>
-
-            <button id="btnResetSystem" class="btn btn-primary" disabled style="width: 100%; height: 50px; font-weight: 800; background: var(--danger); border-color: var(--danger);">
-                💥 EJECUTAR LIMPIEZA DE DATOS
-            </button>
-            
-            <p id="resetProgress" style="display: none; text-align: center; margin-top: 1rem; font-weight: bold; color: var(--primary);"></p>
         </div>
 
-        <style>
-            .form-control { 
-                border-radius: 10px; 
-                border: 1px solid var(--border); 
-                padding: 0 1rem; 
-                transition: var(--transition); 
-                background: var(--surface); 
-                color: var(--text-main); 
-                width: 100%;
-                box-sizing: border-box;
-            }
-            .form-control:focus { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); outline: none; }
-        </style>
+        <div id="maintenanceContentArea"></div>
     `;
-
-    const confirmInput = container.querySelector('#confirmInput');
-    const btnReset = container.querySelector('#btnResetSystem');
-    const progressEl = container.querySelector('#resetProgress');
 
     const backBtn = container.querySelector('#backToDashboardBtn');
     if (backBtn) {
@@ -149,83 +58,253 @@ export function renderMaintenance(container) {
         });
     }
 
-    confirmInput.addEventListener('input', (e) => {
-        btnReset.disabled = e.target.value !== 'BORRAR TODO';
-    });
+    const btnHistoricoTasa = container.querySelector('#btnHistoricoTasa');
+    const contentArea = container.querySelector('#maintenanceContentArea');
 
-    btnReset.onclick = async () => {
-        const selected = Array.from(container.querySelectorAll('.reset-check:checked')).map(cb => cb.value);
-        if (selected.length === 0) {
-            showNotification("Seleccione al menos un módulo", "error");
-            return;
-        }
-
-        if (!confirm("⚠️ ¿ESTÁ TOTALMENTE SEGURO?\nEsta acción es irreversible y borrará los datos de producción.")) return;
-
-        btnReset.disabled = true;
-        btnReset.textContent = "BORRANDO...";
-        progressEl.style.display = 'block';
-        progressEl.textContent = "⌛ Iniciando limpieza...";
-
+    btnHistoricoTasa.addEventListener('click', async () => {
+        contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;"><p style="color: var(--text-muted);">Cargando histórico...</p></div>';
+        
         try {
-            const collectionsToWipe = [];
-            if (selected.includes('products')) collectionsToWipe.push('products', 'inventoryMovements', 'productionBatches');
-            if (selected.includes('sales')) collectionsToWipe.push('sales', 'payments');
-            if (selected.includes('purchases')) collectionsToWipe.push('purchases');
-            if (selected.includes('transfers')) collectionsToWipe.push('storeTransfers', 'bcv_history');
-            if (selected.includes('clients')) collectionsToWipe.push('clients');
-            if (selected.includes('suppliers')) collectionsToWipe.push('suppliers');
-            if (selected.includes('employees')) collectionsToWipe.push('employees');
-            if (selected.includes('stores')) collectionsToWipe.push('stores');
+            const bcvRef = collection(db, "businesses", businessId, "bcv_history");
+            const snap = await getDocs(bcvRef);
 
-            for (const colName of collectionsToWipe) {
-                progressEl.textContent = `🧹 Limpiando ${colName}...`;
-                await deleteCollection(colName, businessId);
+            if (snap.empty) {
+                contentArea.innerHTML = '<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--text-muted); margin: 0;">No hay registros de tasas.</p></div>';
+                return;
             }
 
-            progressEl.textContent = "✅ ¡Limpieza completada con éxito!";
-            progressEl.style.color = "var(--success)";
-            showNotification("Sistema reseteado correctamente", "success");
-            
-            setTimeout(() => {
-                location.reload(); // Recargar para limpiar estados locales
-            }, 2000);
+            const records = [];
+            snap.forEach(docSnap => {
+                records.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            if (records.length === 0) {
+                contentArea.innerHTML = '<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--text-muted); margin: 0;">No hay registros de tasas.</p></div>';
+                return;
+            }
+
+            let tableHTML = `
+                <div class="card" style="padding: 1.5rem; overflow-x: auto;">
+                    <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-main);">Registros de Tasa BCV</h3>
+                    <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+                                <th style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">ID (Fecha)</th>
+                                <th style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">Tasa</th>
+                                <th style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">Tipo</th>
+                                <th style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">Creado Por</th>
+                                <th style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            function parseDocIdToDate(idStr) {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(idStr)) return new Date(idStr + 'T12:00:00');
+                if (/^\d{2}-\d{2}-\d{4}$/.test(idStr)) {
+                    const parts = idStr.split('-');
+                    return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+                }
+                if (/^\d{4}\/\d{2}\/\d{2}$/.test(idStr)) return new Date(idStr.replace(/\//g, '-') + 'T12:00:00');
+                if (/^\d{2}\/\d{2}\/\d{4}$/.test(idStr)) {
+                    const parts = idStr.split('/');
+                    return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+                }
+                const fallback = new Date(idStr);
+                return isNaN(fallback.getTime()) ? null : fallback;
+            }
+
+            const recordsMap = {};
+            let minTime = Infinity;
+            let maxTime = -Infinity;
+
+            records.forEach(r => {
+                const d = parseDocIdToDate(r.id);
+                if (d) {
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const normId = `${yyyy}-${mm}-${dd}`;
+                    recordsMap[normId] = r;
+                    const time = d.getTime();
+                    if (time < minTime) minTime = time;
+                    if (time > maxTime) maxTime = time;
+                } else {
+                    recordsMap[r.id] = r; // Fallback
+                }
+            });
+
+            if (minTime === Infinity) {
+                // Failsafe, shouldn't happen unless completely corrupt data
+                minTime = new Date().getTime();
+                maxTime = new Date().getTime();
+            }
+
+            const newestDate = new Date(maxTime);
+            const oldestDate = new Date(minTime);
+
+            function formatFullDateES(dateObj) {
+                const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const dayName = days[dateObj.getDay()];
+                const d = String(dateObj.getDate()).padStart(2, '0');
+                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const y = dateObj.getFullYear();
+                return `${dayName} ${d}/${m}/${y}`;
+            }
+
+            let currentDate = new Date(newestDate);
+
+            while (currentDate >= oldestDate) {
+                const currentStr = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + String(currentDate.getDate()).padStart(2, '0');
+                const displayDate = formatFullDateES(currentDate);
+
+                if (recordsMap[currentStr]) {
+                    const data = recordsMap[currentStr];
+                    const rate = data.rate ? parseFloat(data.rate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
+                    const isManual = data.isManual ? '<span style="color: var(--warning); font-weight: bold;">Manual</span>' : '<span style="color: var(--success); font-weight: bold;">API</span>';
+                    
+                    let createdAtStr = 'N/A';
+                    if (data.createdAt && data.createdAt.toDate) {
+                        const d = data.createdAt.toDate();
+                        createdAtStr = formatDateToDDMMYYYY(d) + ' ' + d.toLocaleTimeString('es-VE');
+                    } else if (typeof data.createdAt === 'string') {
+                        createdAtStr = data.createdAt;
+                    }
+
+                    const createdBy = data.createdBy || 'N/A';
+
+                    tableHTML += `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 0.75rem; font-weight: bold;">${displayDate}</td>
+                            <td style="padding: 0.75rem; color: var(--primary); font-weight: bold;">Bs. ${rate}</td>
+                            <td style="padding: 0.75rem;">${isManual}</td>
+                            <td style="padding: 0.75rem; font-size: 0.9rem; word-break: break-all;">${createdBy}</td>
+                            <td style="padding: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">${createdAtStr}</td>
+                        </tr>
+                    `;
+                } else {
+                    tableHTML += `
+                        <tr style="border-bottom: 1px dashed var(--border); background: rgba(0,0,0,0.015);">
+                            <td style="padding: 0.75rem; font-weight: bold; color: var(--text-muted);">${displayDate}</td>
+                            <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
+                            <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
+                            <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
+                            <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
+                        </tr>
+                    `;
+                }
+
+                currentDate.setDate(currentDate.getDate() - 1);
+            }
+
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            contentArea.innerHTML = tableHTML;
 
         } catch (error) {
-            console.error("Error en reset:", error);
-            showNotification("Error durante el borrado: " + error.message, "error");
-            btnReset.disabled = false;
-            btnReset.textContent = "💥 EJECUTAR LIMPIEZA DE DATOS";
+            console.error("Error consultando histórico:", error);
+            contentArea.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--danger); margin: 0;">Error al cargar el histórico: ${error.message}</p></div>`;
+            showNotification("Error consultando histórico", "error");
         }
-    };
-}
+    });
 
-async function deleteCollection(colName, businessId) {
-    const colRef = collection(db, "businesses", businessId, colName);
-    const userEmail = localStorage.getItem('userEmail');
-    
-    const docsSnap = await getDocs(colRef);
-    const docs = docsSnap.docs;
-    
-    let i = 0;
-    while (i < docs.length) {
-        const batch = writeBatch(db);
-        let currentBatchCount = 0;
+    const btnMigrateBcv = container.querySelector('#btnMigrateBcv');
+    btnMigrateBcv.addEventListener('click', async () => {
+        if (!confirm('¿Estás seguro de que deseas normalizar toda la base de datos de tasas BCV? Esta operación reestructurará los IDs y agregará los datos faltantes.')) return;
         
-        while (currentBatchCount < 500 && i < docs.length) {
-            const d = docs[i];
-            if (colName === 'employees' && d.data().email === userEmail) {
-                // Omitir el usuario/admin actual para que no se auto-elimine
-            } else {
-                batch.delete(d.ref);
-                currentBatchCount++;
+        contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;"><p style="color: var(--warning); font-weight: bold; font-size: 1.1rem;">Normalizando base de datos, por favor espere...</p></div>';
+        
+        try {
+            const bcvRef = collection(db, "businesses", businessId, "bcv_history");
+            const snap = await getDocs(bcvRef);
+            
+            let batch = writeBatch(db);
+            let count = 0;
+            let totalProcessed = 0;
+
+            function getStandardDate(idStr) {
+                let d = null;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(idStr)) d = new Date(idStr + 'T12:00:00');
+                else if (/^\d{2}-\d{2}-\d{4}$/.test(idStr)) {
+                    const parts = idStr.split('-');
+                    d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+                }
+                else if (/^\d{4}\/\d{2}\/\d{2}$/.test(idStr)) d = new Date(idStr.replace(/\//g, '-') + 'T12:00:00');
+                else if (/^\d{2}\/\d{2}\/\d{4}$/.test(idStr)) {
+                    const parts = idStr.split('/');
+                    d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+                }
+                if (!d) {
+                    const fallback = new Date(idStr);
+                    d = isNaN(fallback.getTime()) ? null : fallback;
+                }
+                
+                if (d) {
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    return { normId: `${yyyy}-${mm}-${dd}`, dateObj: d };
+                }
+                return null;
             }
-            i++;
+
+            const docs = snap.docs;
+            for (let i = 0; i < docs.length; i++) {
+                const docSnap = docs[i];
+                const data = docSnap.data();
+                const originalId = docSnap.id;
+                
+                const parsed = getStandardDate(originalId);
+                if (!parsed) continue; 
+                
+                const normId = parsed.normId;
+                const targetDate = new Date(`${normId}T12:01:00`);
+                
+                let finalCreatedAt = data.createdAt;
+                if (!finalCreatedAt || typeof finalCreatedAt === 'string') {
+                    finalCreatedAt = Timestamp.fromDate(targetDate);
+                }
+                
+                const newData = {
+                    rate: data.rate,
+                    date: normId,
+                    createdBy: data.createdBy || 'u7VmYmeLKFgEiUs6EKGLH1BRw4r2',
+                    createdAt: finalCreatedAt,
+                    isManual: data.isManual !== undefined ? data.isManual : true
+                };
+
+                const newDocRef = doc(db, "businesses", businessId, "bcv_history", normId);
+                batch.set(newDocRef, newData);
+                count++;
+                
+                if (originalId !== normId) {
+                    const oldDocRef = doc(db, "businesses", businessId, "bcv_history", originalId);
+                    batch.delete(oldDocRef);
+                    count++;
+                }
+                
+                totalProcessed++;
+                
+                if (count > 450) { 
+                    await batch.commit();
+                    batch = writeBatch(db);
+                    count = 0;
+                }
+            }
+
+            if (count > 0) {
+                await batch.commit();
+            }
+            
+            contentArea.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--success); font-weight: bold; margin: 0; font-size: 1.2rem;">✅ ¡Base de datos normalizada con éxito! (${totalProcessed} registros unificados).</p></div>`;
+            showNotification("Base de datos normalizada", "success");
+            
+        } catch (error) {
+            console.error("Error migrando:", error);
+            contentArea.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--danger); margin: 0;">Error en la migración: ${error.message}</p></div>`;
         }
-        
-        if (currentBatchCount > 0) {
-            await batch.commit();
-            console.log(`Borrados ${currentBatchCount} documentos de ${colName}`);
-        }
-    }
+    });
 }
