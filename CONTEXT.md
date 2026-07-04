@@ -302,7 +302,8 @@ git add -A
 git commit -m "módulo: descripción breve"
 git push
 
-# Al finalizar el día o terminar una funcionalidad
+# Al finalizar el día o terminar una funcionalidad y realizalo
+
 # 1. Empujar la rama al repositorio remoto
 git push origin feature/mi-rama
 
