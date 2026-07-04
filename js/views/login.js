@@ -260,9 +260,9 @@ export function renderLogin() {
 
                 // BUSCAR TURNO ABIERTO PREVIO antes de mostrar selección (por si ya estaba trabajando)
                 const qTurno = query(
-                    collection(db, "businesses", businessId, "sessions"), 
-                    where("employeeEmail", "==", email),
-                    where("turnoStatus", "==", "ABIERTO")
+                    collection(db, "businesses", businessId, "turnos"), 
+                    where("CORREO_USUARIO_LOGUEADO", "==", email),
+                    where("ESTADO_TURNO", "==", "ABIERTO")
                 );
                 const turnoSnap = await getDocs(qTurno);
 
@@ -270,18 +270,32 @@ export function renderLogin() {
                     const tDoc = turnoSnap.docs[0];
                     const tData = tDoc.data();
                     
-                    // Actualizar el activeDeviceId para este turno
-                    await updateDoc(doc(db, "businesses", businessId, "sessions", tDoc.id), {
-                        activeDeviceId: deviceId
-                    });
+                    const shiftStart = new Date(tData.TIMESTAMP_INICIO_TURNO);
+                    const now = new Date();
+                    const hoursPassed = (now - shiftStart) / (1000 * 60 * 60);
 
-                    localStorage.setItem('currentShiftId', tDoc.id);
-                    localStorage.setItem('shiftStartTime', tData.startTime);
-                    localStorage.setItem('storeId', tData.storeId);
-                    localStorage.setItem('storeName', tData.storeName);
-                    localStorage.setItem('userEmail', email);
-                    navigate('#dashboard');
-                    return;
+                    if (hoursPassed >= 16) {
+                        // Auto-cerrar turno olvidado (16 hrs)
+                        await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                            ESTADO_TURNO: 'CERRADO',
+                            TIMESTAMP_CIERRE_TURNO: now.toISOString(),
+                            autoClosed: true
+                        });
+                        // Continúa el flujo hacia abajo para crear uno nuevo
+                    } else {
+                        // Actualizar el activeDeviceId para este turno
+                        await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                            activeDeviceId: deviceId
+                        });
+
+                        localStorage.setItem('currentShiftId', tDoc.id);
+                        localStorage.setItem('shiftStartTime', tData.TIMESTAMP_INICIO_TURNO);
+                        localStorage.setItem('storeId', tData.ID_TIENDA);
+                        localStorage.setItem('storeName', tData.NOMBRE_TIENDA);
+                        localStorage.setItem('userEmail', email);
+                        navigate('#dashboard');
+                        return;
+                    }
                 }
 
                 // Renderizar Selección de Tienda (Solo si no hay turno abierto)
@@ -318,15 +332,16 @@ export function renderLogin() {
 
                     try {
                         const startTime = new Date().toISOString();
-                        // Registrar nuevo turno (session)
-                        const docRef = await addDoc(collection(db, "businesses", businessId, "sessions"), {
-                            storeId: selectedStoreId,
-                            storeName: selectedStoreName,
-                            employeeEmail: email,
-                            employeeName: empData ? (empData.name || email) : email,
-                            role: cargo,
-                            startTime: startTime,
-                            turnoStatus: 'ABIERTO',
+                        // Registrar nuevo turno (turnos)
+                        const docRef = await addDoc(collection(db, "businesses", businessId, "turnos"), {
+                            ID_TIENDA: selectedStoreId,
+                            NOMBRE_TIENDA: selectedStoreName,
+                            CORREO_USUARIO_LOGUEADO: email,
+                            NOMBRE_USUARIO_LOGUEADO: empData ? (empData.name || email) : email,
+                            CARGO_USUARIO_LOGUEADO: cargo,
+                            TIMESTAMP_INICIO_TURNO: startTime,
+                            TIMESTAMP_CIERRE_TURNO: null,
+                            ESTADO_TURNO: 'ABIERTO',
                             status: 'active',
                             activeDeviceId: deviceId
                         });
@@ -351,37 +366,55 @@ export function renderLogin() {
             // SI ES ADMINISTRADOR (Dueño o Empleado con cargo Admin)
             // 1. Buscar turno abierto previo
             const qAdmin = query(
-                collection(db, "businesses", businessId, "sessions"), 
-                where("employeeEmail", "==", email),
-                where("turnoStatus", "==", "ABIERTO")
+                collection(db, "businesses", businessId, "turnos"), 
+                where("CORREO_USUARIO_LOGUEADO", "==", email),
+                where("ESTADO_TURNO", "==", "ABIERTO")
             );
             const adminTurnoSnap = await getDocs(qAdmin);
 
+            let adminHasOpenShift = false;
             if (!adminTurnoSnap.empty) {
                 const tDoc = adminTurnoSnap.docs[0];
                 const tData = tDoc.data();
                 
-                // Actualizar el activeDeviceId para este turno
-                await updateDoc(doc(db, "businesses", businessId, "sessions", tDoc.id), {
-                    activeDeviceId: deviceId
-                });
+                const shiftStart = new Date(tData.TIMESTAMP_INICIO_TURNO);
+                const now = new Date();
+                const hoursPassed = (now - shiftStart) / (1000 * 60 * 60);
 
-                localStorage.setItem('currentShiftId', tDoc.id);
-                localStorage.setItem('shiftStartTime', tData.startTime);
-                // Si el admin tenía una tienda específica (poco común pero posible), la respetamos
-                localStorage.setItem('storeId', tData.storeId || 'general');
-                localStorage.setItem('storeName', tData.storeName || 'Sede Principal');
-            } else {
+                if (hoursPassed >= 16) {
+                    // Auto-cerrar turno olvidado (16 hrs)
+                    await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                        ESTADO_TURNO: 'CERRADO',
+                        TIMESTAMP_CIERRE_TURNO: now.toISOString(),
+                        autoClosed: true
+                    });
+                } else {
+                    adminHasOpenShift = true;
+                    // Actualizar el activeDeviceId para este turno
+                    await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                        activeDeviceId: deviceId
+                    });
+
+                    localStorage.setItem('currentShiftId', tDoc.id);
+                    localStorage.setItem('shiftStartTime', tData.TIMESTAMP_INICIO_TURNO);
+                    // Si el admin tenía una tienda específica (poco común pero posible), la respetamos
+                    localStorage.setItem('storeId', tData.ID_TIENDA || 'general');
+                    localStorage.setItem('storeName', tData.NOMBRE_TIENDA || 'Sede Principal');
+                }
+            }
+
+            if (!adminHasOpenShift) {
                 // Crear nuevo turno para Admin
                 const startTime = new Date().toISOString();
-                const docRef = await addDoc(collection(db, "businesses", businessId, "sessions"), {
-                    storeId: 'general',
-                    storeName: 'Sede Principal',
-                    employeeEmail: email,
-                    employeeName: empData.name || 'Administrador',
-                    role: cargo,
-                    startTime: startTime,
-                    turnoStatus: 'ABIERTO',
+                const docRef = await addDoc(collection(db, "businesses", businessId, "turnos"), {
+                    ID_TIENDA: 'general',
+                    NOMBRE_TIENDA: 'Sede Principal',
+                    CORREO_USUARIO_LOGUEADO: email,
+                    NOMBRE_USUARIO_LOGUEADO: empData.name || 'Administrador',
+                    CARGO_USUARIO_LOGUEADO: cargo,
+                    TIMESTAMP_INICIO_TURNO: startTime,
+                    TIMESTAMP_CIERRE_TURNO: null,
+                    ESTADO_TURNO: 'ABIERTO',
                     status: 'active',
                     activeDeviceId: deviceId
                 });

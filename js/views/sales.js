@@ -31,10 +31,8 @@ export function renderSales(container, preSelectedClient = null) {
             currentView = state.currentView || 'cart';
         }
         
-        // Clear state only if we are returning to the main sales view
-        if (hash === '#sales') {
-            sessionStorage.removeItem('sales_temp_state');
-        }
+        // Clear state once it's been restored
+        sessionStorage.removeItem('sales_temp_state');
     }
 
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
@@ -105,8 +103,9 @@ export function renderSales(container, preSelectedClient = null) {
         
         try {
             const todayStr = new Date().toLocaleDateString('sv-SE');
-            const todayStart = new Date();
-            todayStart.setHours(0,0,0,0);
+            const shiftStartStr = localStorage.getItem('shiftStartTime');
+            // Si hay turno, se usa esa fecha, si no (caso borde), se usa un inicio muy lejano
+            const shiftStart = shiftStartStr ? new Date(shiftStartStr) : new Date('2099-01-01T00:00:00Z');
             const localStoreId = localStorage.getItem('storeId');
 
             // Arreglo de promesas para ejecutar en paralelo y ahorrar tiempo de carga
@@ -154,13 +153,15 @@ export function renderSales(container, preSelectedClient = null) {
                 promises.push(Promise.resolve(null));
             }
 
-            // 4: Daily Sales
-            let qSales = query(collection(db, "businesses", businessId, "sales"), where("date", "==", todayStr));
-            qSales = query(qSales, where("employeeEmail", "==", userEmail));
-            promises.push(getDocs(qSales).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+            // 4: Daily Sales (filtradas por el inicio del turno actual)
+            let qSales = query(collection(db, "businesses", businessId, "sales"), where("createdAt", ">=", shiftStart));
+            promises.push(getDocs(qSales).then(snap => {
+                let s = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                return s.filter(sale => sale.employeeEmail === userEmail);
+            }));
 
-            // 5: Payments
-            let pq = query(collection(db, "businesses", businessId, "payments"), where("createdAt", ">=", todayStart));
+            // 5: Payments (filtrados por el inicio del turno actual)
+            let pq = query(collection(db, "businesses", businessId, "payments"), where("createdAt", ">=", shiftStart));
             promises.push(getDocs(pq).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
 
             // 6: Pedidos
@@ -261,17 +262,14 @@ export function renderSales(container, preSelectedClient = null) {
             const snap = await getDocs(q);
 
             const totals = {
-                'PUNTO': 0, 'PAGO_MOVIL': 0, 'TRANSFERENCIA': 0, 'EFECTIVO_BS': 0,
+                'PUNTO': 0, 'PAGO_MOVIL': 0, 'TRANSFERENCIA': 0, 'EFECTIVO_BS': 0, 'BIO_PAGO': 0,
                 'EFECTIVO_USD': 0, 'ZELLE': 0, 'PAYPAL': 0, 'BINANCE': 0
             };
 
             snap.forEach(doc => {
                 const p = doc.data();
 
-                let pass = false;
-                pass = (p.employeeEmail === userEmail);
-
-                if (pass) {
+                if (role === 'admin' || p.employeeEmail === userEmail) {
                     const method = p.method || 'EFECTIVO';
                     const amount = p.amount || 0;
                     const currency = p.currency || 'USD';
@@ -281,6 +279,7 @@ export function renderSales(container, preSelectedClient = null) {
                         else if (method === 'PAGO_MOVIL') totals.PAGO_MOVIL += amount;
                         else if (method === 'TRANSFERENCIA') totals.TRANSFERENCIA += amount;
                         else if (method === 'EFECTIVO') totals.EFECTIVO_BS += amount;
+                        else if (method === 'BIO_PAGO') totals.BIO_PAGO += amount;
                     } else {
                         if (method === 'EFECTIVO') totals.EFECTIVO_USD += amount;
                         else if (method === 'ZELLE') totals.ZELLE += amount;
@@ -294,9 +293,6 @@ export function renderSales(container, preSelectedClient = null) {
 
             summaryContainer.innerHTML = `
                 <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.25rem; flex: none; margin: 0;">
-                    <h3 style="font-size: 0.75rem; margin-bottom: 0.4rem; color: var(--primary); display: flex; align-items: center; gap: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                        <span>📊</span> Resumen de Recaudación (Caja)
-                    </h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 0.4rem;">
                         <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
                             <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Punto de Venta</p>
@@ -309,6 +305,10 @@ export function renderSales(container, preSelectedClient = null) {
                         <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
                             <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Transferencia</p>
                             <p style="font-weight: 800; font-size: 0.9rem;">Bs. ${fmt(totals.TRANSFERENCIA)}</p>
+                        </div>
+                        <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
+                            <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Bio Pago</p>
+                            <p style="font-weight: 800; font-size: 0.9rem;">Bs. ${fmt(totals.BIO_PAGO)}</p>
                         </div>
                         <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
                             <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Bs. Efectivo</p>
@@ -1836,14 +1836,14 @@ export function renderSales(container, preSelectedClient = null) {
                 payments,
                 settings,
                 includeOldDebt,
-                updatedAt: serverTimestamp()
+                updatedAt: new Date()
             };
 
             if (currentPausedSaleId) {
                 await updateDoc(doc(db, "businesses", businessId, "paused_sales", currentPausedSaleId), dataToSave);
                 showNotification('Venta pausada actualizada.', 'success');
             } else {
-                dataToSave.createdAt = serverTimestamp();
+                dataToSave.createdAt = new Date();
                 await addDoc(collection(db, "businesses", businessId, "paused_sales"), dataToSave);
                 showNotification('Venta pausada correctamente.', 'success');
             }
@@ -2203,7 +2203,7 @@ export function renderSales(container, preSelectedClient = null) {
                             storeName: storeName,
                             bcvRate,
                             settings,
-                            createdAt: serverTimestamp(),
+                            createdAt: new Date(),
                             date: new Date().toLocaleDateString('sv-SE')
                         });
                     }
@@ -2251,7 +2251,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 employeeEmail: userEmail,
                                 employeeName: currentEmployeeName,
                                 date: todayStr,
-                                createdAt: serverTimestamp(),
+                                createdAt: new Date(),
                                 isCombinedPayment: surplus > 0.01,
                                 surplusAppliedToDebt: surplus > 0.01 ? surplus : 0
                             });
@@ -2324,7 +2324,7 @@ export function renderSales(container, preSelectedClient = null) {
         if (historyFilter === 'presupuestos') title = "📝 Presupuestos";
 
         container.innerHTML = `
-            <div style="display: flex; flex-direction: column; height: 100%; gap: 4px;">
+            <div style="position: absolute; top: 0.75rem; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
                 <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
                     <div class="flex items-center flex-stack-mobile" style="gap: 1rem;">
                         <button id="backToCartBtn" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem;">← Volver</button>
@@ -2336,7 +2336,7 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
                 </div>
 
-                <div id="historySummary" style="margin-bottom: 4px; flex: none;"></div>
+                <div id="historySummary" style="flex: none;"></div>
 
                 <div class="card" style="flex: 1; overflow-y: auto; padding: 0.75rem 1.25rem; margin: 0;">
                     ${dailySales.length === 0 
@@ -2476,7 +2476,7 @@ export function renderSales(container, preSelectedClient = null) {
     function renderOrdersView() {
         const displayedPedidos = allPedidos.filter(p => selectedOrderStatusFilter === 'Todos' || p.orderStatus === selectedOrderStatusFilter || (!p.orderStatus && selectedOrderStatusFilter === 'Por Entregar'));
         container.innerHTML = `
-            <div style="display: flex; flex-direction: column; height: 100%; gap: 4px;">
+            <div style="position: absolute; top: 0.75rem; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
                 <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
                     <div class="flex items-center flex-stack-mobile" style="gap: 1rem;">
                         <button id="backToCartBtnOrders" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem;">← Volver</button>
@@ -2834,16 +2834,17 @@ export function renderSales(container, preSelectedClient = null) {
 
     async function loadHistorySummary(summaryContainer) {
         if (!summaryContainer) return;
-        const todayStr = new Date().toLocaleDateString('sv-SE');
+        const shiftStartStr = localStorage.getItem('shiftStartTime');
+        const shiftStart = shiftStartStr ? new Date(shiftStartStr) : new Date('2099-01-01T00:00:00Z');
         
         let pq = query(collection(db, "businesses", businessId, "payments"), 
-                       where("date", "==", todayStr));
-        
-        pq = query(pq, where("employeeEmail", "==", userEmail));
+                       where("createdAt", ">=", shiftStart));
 
         const pSnap = await getDocs(pq);
+        let payments = pSnap.docs.map(doc => doc.data());
+        payments = payments.filter(p => p.employeeEmail === userEmail);
         const totals = {
-            'PUNTO': 0, 'PAGO_MOVIL': 0, 'TRANSFERENCIA': 0, 'EFECTIVO_BS': 0,
+            'PUNTO': 0, 'PAGO_MOVIL': 0, 'TRANSFERENCIA': 0, 'EFECTIVO_BS': 0, 'BIO_PAGO': 0,
             'EFECTIVO_USD': 0, 'ZELLE': 0, 'PAYPAL': 0, 'BINANCE': 0
         };
 
@@ -2863,6 +2864,7 @@ export function renderSales(container, preSelectedClient = null) {
                 else if (method === 'PAGO_MOVIL') totals.PAGO_MOVIL += p.amount;
                 else if (method === 'TRANSFERENCIA') totals.TRANSFERENCIA += p.amount;
                 else if (method === 'EFECTIVO') totals.EFECTIVO_BS += p.amount;
+                else if (method === 'BIO_PAGO') totals.BIO_PAGO += p.amount;
             } else {
                 if (method === 'EFECTIVO') totals.EFECTIVO_USD += p.amount;
                 else if (method === 'ZELLE') totals.ZELLE += p.amount;
@@ -2873,9 +2875,6 @@ export function renderSales(container, preSelectedClient = null) {
 
         summaryContainer.innerHTML = `
             <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.25rem; flex: none; margin: 0;">
-                <h3 style="font-size: 0.75rem; margin-bottom: 0.4rem; color: var(--primary); display: flex; align-items: center; gap: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <span>📊</span> Resumen de Recaudación (Caja)
-                </h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 0.4rem;">
                     <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
                         <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Punto de Venta</p>
@@ -2888,6 +2887,10 @@ export function renderSales(container, preSelectedClient = null) {
                     <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
                         <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Transferencia</p>
                         <p style="font-weight: 800; font-size: 0.9rem;">Bs. ${fmt(totals.TRANSFERENCIA)}</p>
+                    </div>
+                    <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
+                        <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Bio Pago</p>
+                        <p style="font-weight: 800; font-size: 0.9rem;">Bs. ${fmt(totals.BIO_PAGO)}</p>
                     </div>
                     <div style="padding: 0.2rem 0.5rem; border-right: 1px solid var(--border);">
                         <p class="text-muted" style="font-size: 0.6rem; text-transform: uppercase; margin-bottom: 0.1rem;">Bs. Efectivo</p>

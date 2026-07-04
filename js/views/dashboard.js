@@ -64,38 +64,22 @@ export function renderDashboard() {
 
     // Listener para cierre de turno remoto
     const currentShiftId = localStorage.getItem('currentShiftId');
+    const deviceId = localStorage.getItem('deviceId');
     if (businessId && currentShiftId) {
-        onSnapshot(doc(db, "businesses", businessId, "sessions", currentShiftId), (snap) => {
-            if (snap.exists()) {
-                const data = snap.data();
-                if (data.turnoStatus === 'CERRADO') {
-                    // El turno fue cerrado en otro dispositivo, forzar cierre de sesión aquí
-                    localStorage.clear();
-                    auth.signOut().then(() => {
-                        window.location.hash = '#entrar';
-                        window.location.reload();
-                    });
-                } else if (data.activeDeviceId && data.activeDeviceId !== localStorage.getItem('deviceId')) {
-                    // Se inició sesión en otro dispositivo, forzar cierre aquí
-                    localStorage.clear();
-                    auth.signOut().then(() => {
-                        const m = document.createElement('div');
-                        m.style = "position:fixed;inset:0;background:rgba(15,23,42,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);";
-                        m.innerHTML = `
-                            <div class="card" style="max-width:400px;text-align:center;padding:2rem;animation: modalIn 0.3s ease-out;">
-                                <div style="font-size:3rem;margin-bottom:1rem;">⚠️</div>
-                                <h3 style="color:var(--danger);margin-bottom:1rem;">Sesión Cerrada</h3>
-                                <p style="color:var(--text-muted);margin-bottom:2rem;">Su sesión fue abierta en otro dispositivo. Por seguridad, se ha cerrado en esta pantalla.</p>
-                                <button class="btn btn-primary" id="btnOkSesion" style="width:100%;background:var(--danger);border-color:var(--danger);">Entendido</button>
-                            </div>
-                        `;
-                        document.body.appendChild(m);
-                        m.querySelector('#btnOkSesion').onclick = () => {
-                            window.location.hash = '#entrar';
-                            window.location.reload();
-                        };
-                    });
-                }
+        onSnapshot(doc(db, "businesses", businessId, "turnos", currentShiftId), (snap) => {
+            if (!snap.exists()) return;
+            const tData = snap.data();
+            if (tData.ESTADO_TURNO === 'CERRADO') {
+                showNotification("Tu turno ha sido cerrado de forma remota.", "warning");
+                localStorage.clear();
+                window.location.hash = '#entrar';
+                setTimeout(() => window.location.reload(), 2000);
+            }
+            if (tData.activeDeviceId && tData.activeDeviceId !== deviceId) {
+                showNotification("Sesión iniciada en otro dispositivo.", "warning");
+                localStorage.clear();
+                window.location.hash = '#entrar';
+                setTimeout(() => window.location.reload(), 2000);
             }
         });
     }
@@ -507,6 +491,7 @@ export function renderDashboard() {
             }
             
             .content-area {
+                position: relative;
                 padding: 0.75rem;
                 flex: 1;
                 overflow-y: auto;
@@ -806,8 +791,8 @@ export function renderDashboard() {
             });
 
             setVal('metricSalesCount', count);
-            setVal('metricCreditSales', `$ ${pendingTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
-            setVal('metricBestSale', `$ ${bestSaleVal.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
+            setVal('metricCreditSales', `$ ${pendingTotal.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
+            setVal('metricBestSale', `$ ${bestSaleVal.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
             setVal('metricBestSaleStore', bestSaleVal > 0 ? `Tienda: ${bestSaleStore}` : 'Sin datos');
 
             // Find Top Product
@@ -849,7 +834,7 @@ export function renderDashboard() {
                 if (data.currency === 'USD') totalUSD += (data.amount || 0);
                 else if (data.currency === 'BS') totalBs += (data.amount || 0);
             });
-            setVal('metricCashSales', `$ ${totalUSD.toLocaleString('en-US', {minimumFractionDigits: 2})} | Bs. ${totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}`);
+            setVal('metricCashSales', `$ ${totalUSD.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} | Bs. ${totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
         });
     }
 
@@ -1351,9 +1336,9 @@ export function renderDashboard() {
                 totals,
                 onConfirm: async () => {
                     // Cierre formal en Firestore
-                    await updateDoc(doc(db, "businesses", businessId, "sessions", currentShiftId), {
-                        turnoStatus: 'CERRADO',
-                        endTime: new Date().toISOString(),
+                    await updateDoc(doc(db, "businesses", businessId, "turnos", currentShiftId), {
+                        ESTADO_TURNO: 'CERRADO',
+                        TIMESTAMP_CIERRE_TURNO: new Date().toISOString(),
                         summary: {
                             totalTickets,
                             ventasBs,
@@ -1477,8 +1462,19 @@ export function renderDashboard() {
             const btn = modal.querySelector('#confirmShiftClose');
             btn.disabled = true;
             btn.textContent = "Cerrando...";
-            await onConfirm();
-            modal.remove();
+            try {
+                await onConfirm();
+                modal.remove();
+            } catch (error) {
+                console.error("Error confirmando cierre:", error);
+                btn.disabled = false;
+                btn.textContent = "¡Error! Intentar de nuevo";
+                if (typeof showNotification === 'function') {
+                    showNotification("Error: " + error.message, "error");
+                } else {
+                    alert("Error: " + error.message);
+                }
+            }
         };
     }
 
@@ -1733,8 +1729,8 @@ export function renderDashboard() {
         const businessId = localStorage.getItem('businessId');
         if (businessId) {
             try {
-                const shiftSnap = await getDoc(doc(db, "businesses", businessId, "sessions", currentShiftId));
-                if (shiftSnap.exists()) {
+                const shiftSnap = await getDoc(doc(db, "businesses", businessId, "turnos", currentShiftId));
+                if (shiftSnap.exists() && shiftSnap.data().ESTADO_TURNO === 'ABIERTO') {
                     const data = shiftSnap.data();
                     // Si ya se cargó en la base de datos, sincronizar y evitar el modal
                     if (data.fondoBs !== undefined || data.fondoUSD !== undefined) {
@@ -1802,10 +1798,13 @@ export function renderDashboard() {
             
             try {
                 const businessId = localStorage.getItem('businessId');
-                await updateDoc(doc(db, "businesses", businessId, "sessions", currentShiftId), {
-                    fondoBs: fBs,
-                    fondoUSD: fUSD
-                });
+                if (currentShiftId) {
+                    await updateDoc(doc(db, "businesses", businessId, "turnos", currentShiftId), {
+                        fondoBs: fBs,
+                        fondoUSD: fUSD,
+                        activeDeviceId: null
+                    });
+                }
                 
                 localStorage.setItem(fondoSetKey, 'true');
                 localStorage.setItem('fondoBs', fBs);
