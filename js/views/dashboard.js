@@ -12,6 +12,7 @@ import { renderReports } from './reports.js';
 
 import { renderSettings } from './settings.js';
 import { renderReceivables } from './receivables.js';
+import { renderMaintenance } from './maintenance.js';
 
 import { auth, db } from '../services/firebase.js';
 import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
@@ -179,6 +180,7 @@ export function renderDashboard() {
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navInventarios" class="sidebar-link">📦 Inventarios</a></li>
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navVentas" class="sidebar-link">💰 Ventas</a></li>
                     ${isAdmin ? '<li><a href="#" id="navReportes" class="sidebar-link">📊 Consultas / Reportes</a></li>' : ''}
+                    ${isAdmin ? '<li><a href="#" id="navMantenimiento" class="sidebar-link">⚙️ Mantenimiento</a></li>' : ''}
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navCobros" class="sidebar-link">📋 Cuentas por Cobrar</a></li>
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navEmpleados" class="sidebar-link">👤 Empleados</a></li>
                     <li style="${isEmployee ? 'display: none;' : ''}"><a href="#" id="navTiendas" class="sidebar-link">🏪 Tiendas</a></li>
@@ -893,6 +895,15 @@ export function renderDashboard() {
         navReportes.addEventListener('click', (e) => {
             e.preventDefault();
             renderReports(mainContentArea);
+            if (sidebarOpen) toggleSidebar();
+        });
+    }
+
+    const navMantenimiento = container.querySelector('#navMantenimiento');
+    if (navMantenimiento) {
+        navMantenimiento.addEventListener('click', (e) => {
+            e.preventDefault();
+            renderMaintenance(mainContentArea);
             if (sidebarOpen) toggleSidebar();
         });
     }
