@@ -1544,7 +1544,8 @@ export function renderDashboard() {
                 rate: parseFloat(formattedRate),
                 date: dateId,
                 createdAt: serverTimestamp(),
-                createdBy: auth.currentUser?.uid || 'admin'
+                createdBy: auth.currentUser?.uid || 'admin',
+                isManual: !isAutomatic
             });
 
             // 2. Actualizar LocalStorage y UI
@@ -1616,6 +1617,37 @@ export function renderDashboard() {
 
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        
+        try {
+            const businessId = localStorage.getItem('businessId');
+            if (businessId) {
+                const existingSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", todayStr));
+                if (existingSnap.exists()) {
+                    const data = existingSnap.data();
+                    if (data.isManual || (data.rate && autoSave)) {
+                        const cleanRate = parseFloat(data.rate).toFixed(2);
+                        bcvInput.value = parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> obtenida de la base de datos.`;
+                        bcvStatusMsg.style.color = "var(--success)";
+                        if (data.isManual) {
+                             bcvStatusMsg.innerHTML += " (Fijada Manualmente)";
+                        }
+                        
+                        localStorage.setItem('bcvRate', cleanRate);
+                        localStorage.setItem('bcvDate', todayStr);
+                        bcvRateLoaded = true;
+                        if (bcvDisplay) {
+                            bcvDisplay.textContent = `Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                            bcvDisplay.className = 'bcv-value success';
+                        }
+                        return; // Evitamos consultar la API para no sobrescribir manual
+                    }
+                }
+            }
+        } catch(err) {
+            console.warn("Error verificando tasa en BD:", err);
+        }
+
         const isHoliday = isVenezuelaHoliday(now);
         
         if (isHoliday) {
@@ -1708,6 +1740,41 @@ export function renderDashboard() {
         }
     }
 
+    // Listener en tiempo real para la tasa BCV
+    function listenToBcvRateUpdates() {
+        const businessId = localStorage.getItem('businessId');
+        if (!businessId) return;
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        
+        onSnapshot(doc(db, "businesses", businessId, "bcv_history", todayStr), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const rate = parseFloat(data.rate).toFixed(2);
+                const currentRate = parseFloat(localStorage.getItem('bcvRate') || 0).toFixed(2);
+                
+                // Si la tasa cambia en Firebase y no es la que tenemos localmente
+                if (rate !== currentRate) {
+                    localStorage.setItem('bcvRate', rate);
+                    localStorage.setItem('bcvDate', todayStr);
+                    bcvRateLoaded = true;
+                    
+                    if (bcvDisplay) {
+                        bcvDisplay.textContent = `Bs. ${parseFloat(rate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        bcvDisplay.className = 'bcv-value success';
+                    }
+                    
+                    // Solo notificar si ya teniamos una tasa previa distinta y válida
+                    if (currentRate !== "0.00" && currentRate !== "NaN") {
+                        showNotification(`Tasa BCV actualizada a Bs. ${parseFloat(rate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'info');
+                        const evt = new Event('hashchange');
+                        window.dispatchEvent(evt);
+                    }
+                }
+            }
+        });
+    }
+
     // Ejecutar la búsqueda de tasa con un pequeño delay
     setTimeout(() => {
         if (!bcvRateLoaded) {
@@ -1716,6 +1783,7 @@ export function renderDashboard() {
         } else {
             checkFondoDeCaja();
         }
+        listenToBcvRateUpdates();
     }, 1500);
 
     async function checkFondoDeCaja() {
