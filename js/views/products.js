@@ -100,8 +100,13 @@ export function renderProducts(container) {
                             </div>
                             <div class="flex flex-col items-end mt-auto pt-2 gap-1">
                                 <span class="text-body-sm font-bold ${stock > minStock ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${sUnit}</span>
+                                ${prod.isSaleable === false ? `
+                                <span class="text-body-md font-bold text-white leading-none">Costo $ ${formatCurrency(prod.cost || 0)}</span>
+                                <span class="text-xs font-medium" style="color: var(--text-muted); opacity: 0.8; margin-top: 2px;">Uso Interno</span>
+                                ` : `
                                 <span class="text-body-md font-bold text-white leading-none">$ ${formatCurrency(prod.priceDetal)}</span>
                                 <span class="text-body-md font-bold text-white leading-none">Bs. ${formatCurrency(priceBsNum)}</span>
+                                `}
                             </div>
                         </div>
                         <div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors pointer-events-none"></div>

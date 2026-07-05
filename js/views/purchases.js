@@ -1610,7 +1610,7 @@ export function renderPurchases(container) {
             </form>
 
             <!-- Sub-view: Cargar Productos Modal -->
-            <div id="productBuilderModal" style="display: none; position: absolute; inset: 0; background: var(--surface); z-index: 100; flex-direction: column;">
+            <div id="productBuilderModal" style="display: none; position: fixed; inset: 0; background: var(--surface); z-index: 9999; flex-direction: column;">
                 <!-- To be rendered inside logic -->
             </div>
 
@@ -2879,6 +2879,8 @@ export function renderPurchases(container) {
         `;
         modal.innerHTML = html;
         modal.style.display = 'flex';
+        // Bugfix: Evitar que si había scroll en el body el modal no se vea completo
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Elements
         const pbSearch = modal.querySelector('#pbSearch');
