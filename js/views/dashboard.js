@@ -44,7 +44,7 @@ export function renderDashboard() {
     // Intentar recuperar la tasa desde Firebase si no está en LocalStorage
     const businessId = localStorage.getItem('businessId');
     if (!bcvRateLoaded && businessId) {
-        getDoc(doc(db, "businesses", businessId, "bcv_history", todayStr)).then(snap => {
+        getDoc(doc(db, "global_bcv_history", todayStr)).then(snap => {
             if (snap.exists()) {
                 const data = snap.data();
                 localStorage.setItem('bcvRate', data.rate);
@@ -1509,7 +1509,7 @@ export function renderDashboard() {
     // Función centralizada para guardar la tasa (reutilizable para manual y automático)
     async function saveBcvRate(rate, isAutomatic = false) {
         const businessId = localStorage.getItem('businessId');
-        if (!rate || !businessId) return { success: false, error: "Datos faltantes" };
+        if (!rate) return { success: false, error: "Datos faltantes" };
 
         try {
             // Asegurar que auth esté listo (útil si la laptop vuelve de suspensión)
@@ -1530,11 +1530,17 @@ export function renderDashboard() {
             const dateId = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             
             // Si es automático, verificar PRIMERO si ya existe en Firebase
-            if (isAutomatic) {
-                const existingSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", dateId));
-                if (existingSnap.exists()) {
+            const globalBcvRef = doc(db, "global_bcv_history", dateId);
+            const existingSnap = await getDoc(globalBcvRef);
+            let currentEditCount = 0;
+            
+            if (existingSnap.exists()) {
+                const data = existingSnap.data();
+                currentEditCount = data.editCount || 1;
+                
+                if (isAutomatic) {
                     console.log("BCV: Ya existe una tasa para hoy en Firebase. Omitiendo guardado automático.");
-                    const existingRate = existingSnap.data().rate;
+                    const existingRate = data.rate;
                     localStorage.setItem('bcvRate', existingRate);
                     localStorage.setItem('bcvDate', dateId);
                     bcvRateLoaded = true;
@@ -1545,19 +1551,27 @@ export function renderDashboard() {
                     }
                     checkFondoDeCaja();
                     return { success: true };
+                } else {
+                    if (currentEditCount >= 3) {
+                        return { success: false, error: "La tasa ya ha sido editada o confirmada el máximo de veces permitido (3) para este día." };
+                    }
+                    currentEditCount++;
                 }
+            } else {
+                if (!isAutomatic) currentEditCount = 1;
             }
 
-            // 1. Guardar en Historial de Firebase (Redondeado a 2 decimales)
+            // 1. Guardar en Historial Global de Firebase (Redondeado a 2 decimales)
             const formattedRate = parseFloat(rate).toFixed(2);
             
-            await setDoc(doc(db, "businesses", businessId, "bcv_history", dateId), {
+            await setDoc(globalBcvRef, {
                 rate: parseFloat(formattedRate),
                 date: dateId,
-                createdAt: serverTimestamp(),
+                createdAt: existingSnap.exists() ? existingSnap.data().createdAt : serverTimestamp(),
                 createdBy: auth.currentUser?.uid || 'admin',
-                isManual: !isAutomatic
-            });
+                isManual: !isAutomatic,
+                editCount: currentEditCount
+            }, { merge: true });
 
             // 2. Actualizar LocalStorage y UI
             localStorage.setItem('bcvRate', formattedRate);
@@ -1630,29 +1644,31 @@ export function renderDashboard() {
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         
         try {
-            const businessId = localStorage.getItem('businessId');
-            if (businessId) {
-                const existingSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", todayStr));
-                if (existingSnap.exists()) {
-                    const data = existingSnap.data();
-                    if (data.isManual || (data.rate && autoSave)) {
-                        const cleanRate = parseFloat(data.rate).toFixed(2);
-                        bcvInput.value = parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                        bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> obtenida de la base de datos.`;
-                        bcvStatusMsg.style.color = "var(--success)";
-                        if (data.isManual) {
-                             bcvStatusMsg.innerHTML += " (Fijada Manualmente)";
-                        }
-                        
-                        localStorage.setItem('bcvRate', cleanRate);
-                        localStorage.setItem('bcvDate', todayStr);
-                        bcvRateLoaded = true;
-                        if (bcvDisplay) {
-                            bcvDisplay.textContent = `Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                            bcvDisplay.className = 'bcv-value success';
-                        }
-                        return; // Evitamos consultar la API para no sobrescribir manual
+            const existingSnap = await getDoc(doc(db, "global_bcv_history", todayStr));
+            if (existingSnap.exists()) {
+                const data = existingSnap.data();
+                if (data.isManual || (data.rate && autoSave)) {
+                    const cleanRate = parseFloat(data.rate).toFixed(2);
+                    bcvInput.value = parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    bcvStatusMsg.innerHTML = `✅ Tasa de <strong>Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> obtenida de la base de datos global.`;
+                    bcvStatusMsg.style.color = "var(--success)";
+                    if (data.isManual) {
+                         bcvStatusMsg.innerHTML += ` (Fijada Manualmente - Ediciones: ${data.editCount || 1}/3)`;
                     }
+                    
+                    if ((data.editCount || 1) >= 3) {
+                        const editBtn = container.querySelector('#editBcvBtn');
+                        if (editBtn) editBtn.style.display = 'none';
+                    }
+                    
+                    localStorage.setItem('bcvRate', cleanRate);
+                    localStorage.setItem('bcvDate', todayStr);
+                    bcvRateLoaded = true;
+                    if (bcvDisplay) {
+                        bcvDisplay.textContent = `Bs. ${parseFloat(cleanRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        bcvDisplay.className = 'bcv-value success';
+                    }
+                    return; // Evitamos consultar la API para no sobrescribir manual
                 }
             }
         } catch(err) {
@@ -1696,7 +1712,6 @@ export function renderDashboard() {
         ];
 
         let bestRate = null;
-        let lastRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
 
         for (const source of sources) {
             try {
@@ -1753,12 +1768,10 @@ export function renderDashboard() {
 
     // Listener en tiempo real para la tasa BCV
     function listenToBcvRateUpdates() {
-        const businessId = localStorage.getItem('businessId');
-        if (!businessId) return;
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         
-        onSnapshot(doc(db, "businesses", businessId, "bcv_history", todayStr), (docSnap) => {
+        onSnapshot(doc(db, "global_bcv_history", todayStr), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 const rate = parseFloat(data.rate).toFixed(2);

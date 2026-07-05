@@ -65,7 +65,7 @@ export function renderMaintenance(container) {
         contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;"><p style="color: var(--text-muted);">Cargando histórico...</p></div>';
         
         try {
-            const bcvRef = collection(db, "businesses", businessId, "bcv_history");
+            const bcvRef = collection(db, "global_bcv_history");
             const snap = await getDocs(bcvRef);
 
             if (snap.empty) {
@@ -213,7 +213,7 @@ export function renderMaintenance(container) {
 
     const btnMigrateBcv = container.querySelector('#btnMigrateBcv');
     btnMigrateBcv.addEventListener('click', async () => {
-        if (!confirm('¿Estás seguro de que deseas normalizar toda la base de datos de tasas BCV? Esta operación reestructurará los IDs y agregará los datos faltantes.')) return;
+        if (!confirm('¿Estás seguro de que deseas migrar toda la base de datos de tasas BCV a la colección GLOBAL? Esta operación unificará las tasas y bloqueará ediciones pasadas.')) return;
         
         contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;"><p style="color: var(--warning); font-weight: bold; font-size: 1.1rem;">Normalizando base de datos, por favor espere...</p></div>';
         
@@ -273,14 +273,15 @@ export function renderMaintenance(container) {
                     date: normId,
                     createdBy: data.createdBy || 'u7VmYmeLKFgEiUs6EKGLH1BRw4r2',
                     createdAt: finalCreatedAt,
-                    isManual: data.isManual !== undefined ? data.isManual : true
+                    isManual: data.isManual !== undefined ? data.isManual : true,
+                    editCount: 3
                 };
 
-                const newDocRef = doc(db, "businesses", businessId, "bcv_history", normId);
+                const newDocRef = doc(db, "global_bcv_history", normId);
                 batch.set(newDocRef, newData);
                 count++;
                 
-                if (originalId !== normId) {
+                if (originalId) { // Eliminamos siempre el original local para completar la migración
                     const oldDocRef = doc(db, "businesses", businessId, "bcv_history", originalId);
                     batch.delete(oldDocRef);
                     count++;
