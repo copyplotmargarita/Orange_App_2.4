@@ -1100,7 +1100,7 @@ export function renderPurchases(container) {
             
             try {
                 const safeDateStr = dateStr.replace(/\//g, '-');
-                const docSnap = await getDoc(doc(db, "businesses", businessId, "bcv_history", safeDateStr));
+                const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
                 if (docSnap.exists()) {
                     const rate = docSnap.data().rate;
                     pBcvRateInput.value = fmtNum(rate);
@@ -1108,10 +1108,17 @@ export function renderPurchases(container) {
                     pBcvRateInput.style.background = 'var(--background)';
                 } else {
                     pBcvRateInput.value = '';
-                    pBcvRateInput.readOnly = false;
-                    pBcvRateInput.style.background = 'var(--surface)';
-                    showToast('Por favor, ingrese la Tasa BCV para esta fecha.', 'warning');
-                    setTimeout(() => pBcvRateInput.focus(), 100);
+                    const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('isOwner') === 'true';
+                    if (isAdmin) {
+                        pBcvRateInput.readOnly = false;
+                        pBcvRateInput.style.background = 'var(--surface)';
+                        showToast('Por favor, ingrese la Tasa BCV para esta fecha.', 'warning');
+                        setTimeout(() => pBcvRateInput.focus(), 100);
+                    } else {
+                        pBcvRateInput.readOnly = true;
+                        pBcvRateInput.style.background = 'var(--background)';
+                        showToast('La tasa BCV para esta fecha no ha sido configurada. Contacte a un administrador.', 'error');
+                    }
                 }
                 updateCalc();
             } catch (error) {
@@ -1125,15 +1132,32 @@ export function renderPurchases(container) {
 
         pBcvRateInput.addEventListener('change', async () => {
             const currentRate = parseNum(pBcvRateInput.value);
-            const businessId = localStorage.getItem('businessId');
-            if (currentRate > 0 && !pBcvRateInput.readOnly && pPaymentDate.value) {
+            const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('isOwner') === 'true';
+            if (currentRate > 0 && !pBcvRateInput.readOnly && pPaymentDate.value && isAdmin) {
                 const safeDateStr = pPaymentDate.value.replace(/\//g, '-');
                 try {
-                    await setDoc(doc(db, "businesses", businessId, "bcv_history", safeDateStr), {
+                    const globalRef = doc(db, "global_bcv_history", safeDateStr);
+                    const snap = await getDoc(globalRef);
+                    let currentEditCount = 1;
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        if (data.editCount >= 3) {
+                            showToast('La tasa ya ha alcanzado el límite de 3 ediciones.', 'error');
+                            pBcvRateInput.value = fmtNum(data.rate);
+                            pBcvRateInput.readOnly = true;
+                            return;
+                        }
+                        currentEditCount = (data.editCount || 1) + 1;
+                    }
+                    
+                    await setDoc(globalRef, {
                         rate: currentRate,
                         date: safeDateStr,
-                        createdAt: new Date().toISOString()
-                    });
+                        createdAt: snap.exists() ? snap.data().createdAt : new Date().toISOString(),
+                        createdBy: localStorage.getItem('employeeName') || 'admin',
+                        isManual: true,
+                        editCount: currentEditCount
+                    }, { merge: true });
                     pBcvRateInput.readOnly = true;
                     pBcvRateInput.style.background = 'var(--background)';
                     showToast('Tasa BCV guardada para la fecha ' + safeDateStr, 'success');
@@ -1899,7 +1923,7 @@ export function renderPurchases(container) {
             
             try {
                 const safeDate = date.replace(/\//g, '-');
-                const docRef = doc(db, "businesses", businessId, "bcv_history", safeDate);
+                const docRef = doc(db, "global_bcv_history", safeDate);
                 const docSnap = await getDoc(docRef);
                 
                 if (docSnap.exists()) {
@@ -1942,11 +1966,31 @@ export function renderPurchases(container) {
                 const enteredRate = parseNum(e.target.value);
                 const selectedDate = pEmissionDate ? pEmissionDate.value : null;
                 const businessId = localStorage.getItem('businessId');
-                if (enteredRate > 0 && selectedDate && businessId) {
+                const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('isOwner') === 'true';
+                if (enteredRate > 0 && selectedDate && businessId && isAdmin) {
                     try {
                         const safeDate = selectedDate.replace(/\//g, '-');
-                        const bcvRef = doc(db, "businesses", businessId, "bcv_history", safeDate);
-                        await setDoc(bcvRef, { rate: enteredRate, updatedAt: new Date().toISOString() }, { merge: true });
+                        const bcvRef = doc(db, "global_bcv_history", safeDate);
+                        const snap = await getDoc(bcvRef);
+                        let currentEditCount = 1;
+                        if (snap.exists()) {
+                            const data = snap.data();
+                            if (data.editCount >= 3) {
+                                showToast('Límite de ediciones de tasa (3) alcanzado.', 'error');
+                                pBcvRate.value = fmtNum(data.rate);
+                                return;
+                            }
+                            currentEditCount = (data.editCount || 1) + 1;
+                        }
+                        
+                        await setDoc(bcvRef, { 
+                            rate: enteredRate, 
+                            updatedAt: new Date().toISOString(),
+                            createdAt: snap.exists() ? snap.data().createdAt : new Date().toISOString(),
+                            createdBy: localStorage.getItem('employeeName') || 'admin',
+                            isManual: true,
+                            editCount: currentEditCount
+                        }, { merge: true });
                         // Ocultar la advertencia ya que ahora existe
                         if (bcvWarning) bcvWarning.style.display = 'none';
                         if (pBcvRate) pBcvRate.classList.remove('input-warning');
@@ -2504,6 +2548,19 @@ export function renderPurchases(container) {
             btn.textContent = 'Procesando...';
 
             const businessId = localStorage.getItem('businessId');
+            const currentShiftId = localStorage.getItem('currentShiftId');
+            let creatorName = localStorage.getItem('employeeName') || localStorage.getItem('userRole') || 'admin';
+            
+            if (currentShiftId) {
+                try {
+                    const shiftDoc = await getDoc(doc(db, "businesses", businessId, "turnos", currentShiftId));
+                    if (shiftDoc.exists() && shiftDoc.data().NOMBRE_USUARIO_LOGUEADO) {
+                        creatorName = shiftDoc.data().NOMBRE_USUARIO_LOGUEADO;
+                    }
+                } catch (e) {
+                    console.error("Error al buscar el turno para el creador:", e);
+                }
+            }
             
             // Build purchase object
             let purchaseData = {};
@@ -2533,7 +2590,7 @@ export function renderPurchases(container) {
                     totalBs: totalPurchaseBs,
                     totalUsd: totalPurchaseUsd,
                     createdAt: new Date().toISOString(),
-                    createdBy: localStorage.getItem('userRole') || 'admin'
+                    createdBy: creatorName
                 };
             } else {
                 purchaseData = {
@@ -2549,7 +2606,7 @@ export function renderPurchases(container) {
                     totalBs: totalPurchaseBs,
                     totalUsd: totalPurchaseUsd,
                     createdAt: new Date().toISOString(),
-                    createdBy: localStorage.getItem('userRole') || 'admin'
+                    createdBy: creatorName
                 };
 
                 if (purchaseType === 'PRODUCTO') {
@@ -2602,10 +2659,28 @@ export function renderPurchases(container) {
                 // 0. Guardar la tasa BCV ingresada en el historial si es válida
                 const selectedDate = purchaseData.emissionDate;
                 const enteredRate = purchaseData.bcvRate;
-                if (selectedDate && enteredRate > 0) {
+                const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('isOwner') === 'true';
+                if (selectedDate && enteredRate > 0 && isAdmin) {
                     const safeDate = selectedDate.replace(/\//g, '-');
-                    const bcvRef = doc(db, "businesses", businessId, "bcv_history", safeDate);
-                    await setDoc(bcvRef, { rate: enteredRate, updatedAt: new Date().toISOString() }, { merge: true });
+                    const bcvRef = doc(db, "global_bcv_history", safeDate);
+                    const snap = await getDoc(bcvRef);
+                    let currentEditCount = 1;
+                    let canEdit = true;
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        if (data.editCount >= 3) canEdit = false;
+                        else currentEditCount = (data.editCount || 1) + 1;
+                    }
+                    if (canEdit) {
+                        await setDoc(bcvRef, { 
+                            rate: enteredRate, 
+                            updatedAt: new Date().toISOString(),
+                            createdAt: snap.exists() ? snap.data().createdAt : new Date().toISOString(),
+                            createdBy: localStorage.getItem('employeeName') || 'admin',
+                            isManual: true,
+                            editCount: currentEditCount
+                        }, { merge: true });
+                    }
                 }
 
                 // 1. Guardar la compra
@@ -2708,7 +2783,7 @@ export function renderPurchases(container) {
                                 purchaseDate: purchaseData.emissionDate,
                                 status: 'ACTIVO',
                                 createdAt: new Date().toISOString(),
-                                createdBy: localStorage.getItem('userRole') || 'admin'
+                                createdBy: creatorName
                             });
                         } catch(err) {
                             throw new Error("Error registrando equipo: " + err.message);

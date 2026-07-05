@@ -297,6 +297,10 @@ git pull origin main
 git checkout feature/mi-rama
 git merge main
 
+# Exclusivo para Dax:
+# Crear Rama (con los parámetros del context.md)
+# Levantar localhost (con parámetros del context.md)
+
 # Mientras trabajas
 git add -A
 git commit -m "módulo: descripción breve"
