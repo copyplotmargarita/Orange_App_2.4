@@ -355,3 +355,22 @@ Para garantizar que los registros existentes en la base de datos sean compatible
 * Esta herramienta estará disponible en el frontend bajo el **Módulo de Mantenimiento**.
 * Solo podrá ser ejecutada por un usuario autorizado (Super Administrador del sistema).
 * Dado que las actualizaciones en Firebase están limitadas a lotes (Batches de a 500 escrituras), el algoritmo de migración deberá iterar y procesar los registros en bloques (chunks) para no exceder los límites de Firebase Firestore.
+
+---
+
+## Anexo: Ajustes post-implementación (Realidad vs Plan)
+
+Durante la implementación en los entornos de prueba, se encontraron tres desafíos técnicos no anticipados en el diseño original que requirieron correcciones y convirtieron el sistema en una solución más robusta:
+
+1. **Permiso de Service Account Token Creator:**
+   La generación de **Custom Tokens** (gafetes virtuales) usando `auth.createCustomToken()` arrojaba un error `INTERNAL`. Esto se debió a que la cuenta de servicio por defecto (`app-ventas-db@appspot.gserviceaccount.com`) no contaba con los permisos necesarios para firmar tokens.
+   **Solución:** Se otorgó explícitamente el rol de `roles/iam.serviceAccountTokenCreator` al Service Account directamente desde Google Cloud IAM.
+
+2. **Cruces en la Migración de PINs (Migración V3):**
+   Al probar la creación de un empleado manual y luego ejecutar la migración masiva de V3 (`migrateV3Data`), el script sobreescribió los PINs recién generados con nuevos valores aleatorios, invalidando las pruebas iniciales.
+   **Solución:** Se incluyó un mecanismo en la interfaz (botón **🔒 Generar Nuevo Código de Acceso**) que permite a los propietarios o administradores regenerar e inspeccionar el nuevo código de acceso de los empleados para subsanar cualquier desincronización y facilitar el acceso a la cuenta.
+
+3. **Inconsistencia de caché local (F5) en el Dashboard:**
+   Originalmente, el Dashboard obtenía el nombre del usuario dependiente puramente del `localStorage`. Al refrescar la página, el navegador eliminaba o perdía la llave temporal y mostraba 'Empleado'.
+   **Solución:** Se cambió la prioridad de la fuente de verdad. Ahora, el `dashboard.js` intenta leer primero el documento del **Turno Activo (ABIERTO)** asociado al dispositivo; si lo encuentra, extrae los campos `NOMBRE_USUARIO_LOGUEADO` y `NOMBRE_TIENDA` directamente desde Firestore, garantizando exactitud independientemente del caché local.
+
