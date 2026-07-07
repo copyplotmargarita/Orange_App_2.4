@@ -58,6 +58,10 @@ export async function renderSettings(mainContentArea) {
                         <label>Dirección Física</label>
                         <input type="text" id="editBusinessAddress" class="form-control sm" required>
                     </div>
+                    <div class="form-group mb-3">
+                        <label>Correo Electrónico <span style="font-size:0.65rem; color:var(--text-muted); font-weight:400; text-transform:none;">🔒 No editable</span></label>
+                        <input type="email" id="editBusinessEmail" class="form-control sm" readonly style="opacity:0.6; cursor:not-allowed; background:var(--background);">
+                    </div>
                     <div class="logo-edit-box">
                         <div id="settingsLogoPreview" class="logo-preview-sm"><span>🖼️</span></div>
                         <div style="flex:1">
@@ -184,6 +188,9 @@ export async function renderSettings(mainContentArea) {
                 const d = businessData;
                 mainContentArea.querySelector('#editBusinessName').value = d.name || '';
                 mainContentArea.querySelector('#editBusinessAddress').value = d.address || '';
+                if (mainContentArea.querySelector('#editBusinessEmail')) {
+                    mainContentArea.querySelector('#editBusinessEmail').value = d.email || auth.currentUser?.email || localStorage.getItem('userEmail') || '';
+                }
                 mainContentArea.querySelector('#editOwnerName').value = d.ownerName || '';
                 if (d.document?.includes('-')) {
                     const p = d.document.split('-');

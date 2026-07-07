@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
 import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
-import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderStores(container) {
     let stores = [];
@@ -188,11 +188,16 @@ export function renderStores(container) {
             const businessId = localStorage.getItem('businessId');
 
             try {
-                await addDoc(collection(db, "businesses", businessId, "stores"), {
+                const docRef = await addDoc(collection(db, "businesses", businessId, "stores"), {
                     name, 
                     address, 
-                    createdAt: new Date().toISOString()
+                    createdAt: serverTimestamp(),
+                    isMain: false,
+                    businessCode: localStorage.getItem('businessCode') || ''
                 });
+                
+                await updateDoc(docRef, { Id_tienda: docRef.id });
+                
                 await loadStores();
             } catch (error) {
                 console.error("Error adding store: ", error);

@@ -1,8 +1,8 @@
 import { navigate } from '../utils.js';
-import { auth, db } from '../services/firebase.js';
+import { auth, functions } from '../services/firebase.js';
 import { toTitleCase } from '../utils.js';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js";
 
 import { venezuelaData } from '../data/locations.js';
 
@@ -402,62 +402,33 @@ export function renderRegister() {
             createdAt: new Date().toISOString()
         };
 
-        let user = null;
+        let logoBase64 = null;
         try {
-            // 1. Crear usuario en Firebase Auth o verificar credenciales si ya existe (Deadlock recovery)
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                user = userCredential.user;
-            } catch (authErr) {
-                if (authErr.code === 'auth/email-already-in-use') {
-                    loadingText.textContent = 'Verificando credenciales existentes...';
-                    const signInCredential = await signInWithEmailAndPassword(auth, email, password);
-                    user = signInCredential.user;
-                } else {
-                    throw authErr;
-                }
-            }
-
-            // Retardo para asegurar la sincronización del token de Auth con el cliente Firestore
-            await new Promise(resolve => setTimeout(resolve, 350));
-
-            // 2. Procesar Logo si existe
+            // 1. Procesar Logo localmente si existe
             const logoFile = logoInput.files[0];
             if (logoFile) {
                 loadingText.textContent = 'Procesando Logo...';
-                try {
-                    const base64 = await resizeImage(logoFile, 200, 200);
-                    businessData.logoUrl = base64;
-                } catch (e) {
-                    console.error("Error processing image:", e);
-                }
+                logoBase64 = await resizeImage(logoFile, 200, 200);
             }
 
-            // 3. Guardar datos del negocio en Firestore
-            loadingText.textContent = 'Finalizando Configuración...';
+            // 2. Llamar a la Cloud Function Atómica (Backend seguro)
+            loadingText.textContent = 'Creando Registro Seguro...';
+            const createBusinessFn = httpsCallable(functions, 'createBusiness');
             
-            let success = false;
-            let retryCount = 0;
-            const maxRetries = 3;
-            
-            while (retryCount < maxRetries) {
-                try {
-                    await setDoc(doc(db, "businesses", user.uid), businessData);
-                    success = true;
-                    break;
-                } catch (err) {
-                    console.warn(`Intento ${retryCount + 1} de guardar negocio falló:`, err);
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, 250)); // Esperar antes de reintentar
-                    } else {
-                        throw err; // Si fallaron todos los reintentos, lanzar el error original
-                    }
-                }
-            }
+            // Adjuntar logo procesado
+            businessData.logoUrl = logoBase64;
+            businessData.password = password; // Se envía temporalmente por TLS para crear el Auth
+
+            const result = await createBusinessFn(businessData);
+            const { businessId, businessCode } = result.data;
+
+            // 3. Iniciar sesión automáticamente en el cliente tras la creación exitosa
+            loadingText.textContent = 'Iniciando Sesión...';
+            await signInWithEmailAndPassword(auth, email, password);
 
             // 4. Guardar sesión local
-            localStorage.setItem('businessId', user.uid);
+            localStorage.setItem('businessId', businessId);
+            localStorage.setItem('businessCode', businessCode);
             localStorage.setItem('userRole', 'admin');
             localStorage.setItem('userName', businessData.ownerName);
             localStorage.setItem('businessName', businessData.name);
@@ -469,11 +440,15 @@ export function renderRegister() {
             
         } catch (error) {
             loadingOverlay.style.display = 'none';
-            console.error(error);
-            if(error.code === 'auth/email-already-in-use') {
-                errorMsg.textContent = 'El correo ya está en uso.';
+            console.error("Error al registrar:", error);
+            
+            // Extraer mensaje real de la Cloud Function
+            const errorMsgText = error.message || error.details || "Error desconocido";
+            
+            if(errorMsgText.includes('email-already-in-use')) {
+                errorMsg.textContent = 'El correo ya está en uso. Por favor inicie sesión.';
             } else {
-                errorMsg.textContent = 'Error al registrar: ' + error.message;
+                errorMsg.textContent = 'Error al crear la cuenta: ' + errorMsgText;
             }
         }
     });

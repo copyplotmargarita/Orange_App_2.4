@@ -1,0 +1,2 @@
+@echo off
+gh pr create --title "Funcionalidad: Implementacion de Login V3 y Seguridad Multi-Tenant" --body "Se implemento inicio de sesion con PIN seguro usando Hashing y Pepper. Se crearon las Cloud Functions verifyEmployeePin, createEmployee, migrateV3Data, resetEmployeePin. Se actualizaron las reglas de Firestore para aislamiento Multi-Tenant y se solucionaron conflictos del dashboard en la visualizacion de datos locales." --reviewer Dasaev

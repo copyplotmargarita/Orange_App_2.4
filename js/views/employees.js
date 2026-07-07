@@ -1,11 +1,7 @@
 import { auth as mainAuth, db, firebaseConfig } from '../services/firebase.js';
 import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
 import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-
-const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
-const secondaryAuth = getAuth(secondaryApp);
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js";
 
 const countryCodes = {
     'VE': '+58', 'CO': '+57', 'MX': '+52', 'US': '+1',
@@ -395,29 +391,33 @@ export function renderEmployees(container) {
                 btn.disabled = true;
                 btn.textContent = 'Guardando...';
                 
-                const pin = Math.floor(100000 + Math.random() * 900000).toString();
                 const businessId = localStorage.getItem('businessId');
 
                 try {
-                    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, pin);
-                    await updateProfile(userCredential.user, {
-                        displayName: name
-                    });
-                    await signOut(secondaryAuth);
-
-                    await addDoc(collection(db, "businesses", businessId, "employees"), {
+                    const functions = getFunctions();
+                    const createEmployeeFn = httpsCallable(functions, 'createEmployee');
+                    
+                    const result = await createEmployeeFn({
                         name,
                         documentId: cedula,
                         role,
                         modules,
                         phone,
                         email,
-                        pin,
-                        status: 'ACTIVO',
-                        createdAt: new Date().toISOString()
+                        businessId
                     });
 
-                    showNotification(`¡Empleado creado con éxito!\n\nPor favor anote los datos de acceso para el empleado:\n\nCorreo: ${email}\nPIN / Clave: ${pin}`, 'success');
+                    const { plainPin, businessCode } = result.data;
+                    const fullCode = businessCode + plainPin;
+
+                    showNotification(`¡Empleado creado con éxito!\n\nPor favor anote el Código de Acceso para el empleado:\n\nCódigo de Acceso: ${fullCode}\n\nEste es el código que el empleado usará para iniciar sesión.`, 'success');
+                    
+                    if (email && email.trim() !== '') {
+                        const subject = encodeURIComponent("Tu Código de Acceso al Sistema");
+                        const body = encodeURIComponent(`Hola ${name},\n\nTu cuenta ha sido creada exitosamente.\n\nTu Código de Acceso es: ${fullCode}\n\nPor favor, ingresa al sistema y utiliza este código para iniciar sesión.\n\nSaludos.`);
+                        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                    }
+                    
                     await loadEmployees();
                 } catch (error) {
                     console.error(error);
@@ -486,7 +486,8 @@ export function renderEmployees(container) {
                         </div>
                         <div class="form-group">
                             <label style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; letter-spacing: 0.5px;">PIN de Acceso</label>
-                            <input type="text" value="${emp.pin || '---'}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit; font-weight: 800;" readonly>
+                            <input type="text" value="${emp.temporaryPin ? (emp.businessCode || '') + emp.temporaryPin : '•••••••••• (Encriptado)'}" class="form-control" style="height: 40px; font-size: 0.85rem; font-family: inherit; font-weight: 800; ${emp.temporaryPin ? 'color: var(--danger);' : 'color: var(--text-muted);'}" readonly>
+                            ${emp.temporaryPin ? '<small style="color: var(--danger); font-size: 0.65rem;">Comunique este código de 10 caracteres al empleado.</small>' : ''}
                         </div>
                     </div>
                 </div>
@@ -523,6 +524,15 @@ export function renderEmployees(container) {
                             <button class="status-pill ${emp.status === 'VACACIONES' ? 'active' : ''}" data-val="VACACIONES">VACACIONES</button>
                         </div>
                         <button class="btn" id="btnDeleteDetail" style="background: transparent; color: var(--danger); font-size: 0.75rem; font-weight: 700; border: 1px dashed var(--danger); height: 38px;">ELIMINAR REGISTRO 🗑️</button>
+                    </div>
+                </div>
+
+                <!-- Gestión de Seguridad -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">🔒 Seguridad</h3>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Por seguridad, el PIN se guarda encriptado. Si el empleado olvidó su código, puedes generar uno nuevo. El anterior quedará invalidado inmediatamente.</p>
+                        <button class="btn btn-outline" id="btnResetPin" style="border-color: var(--primary); color: var(--primary); font-weight: 700; height: 38px;">Generar Nuevo Código de Acceso</button>
                     </div>
                 </div>
 
@@ -566,6 +576,37 @@ export function renderEmployees(container) {
         container.querySelector('#backBtn').addEventListener('click', renderList);
         container.querySelector('#cancelBtnDetail').addEventListener('click', renderList);
         
+        container.querySelector('#btnResetPin').addEventListener('click', async () => {
+            const btn = container.querySelector('#btnResetPin');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Generando...';
+            
+            try {
+                const businessId = localStorage.getItem('businessId');
+                const functions = getFunctions();
+                const resetPinFn = httpsCallable(functions, 'resetEmployeePin');
+                
+                const result = await resetPinFn({ employeeId: emp.id, businessId });
+                const { plainPin, businessCode } = result.data;
+                const fullCode = businessCode + plainPin;
+                
+                showNotification(`¡Nuevo Código Generado Exitosamente!\n\nPor favor, entrega este nuevo código al empleado:\n\nCódigo de Acceso: ${fullCode}\n\nEste código reemplaza al anterior.`, 'success');
+                
+                if (emp.email && emp.email.trim() !== '') {
+                    const subject = encodeURIComponent("Actualización de tu Código de Acceso");
+                    const body = encodeURIComponent(`Hola ${emp.name},\n\nTu Código de Acceso ha sido restablecido.\n\nTu NUEVO Código de Acceso es: ${fullCode}\n\nPor favor, utiliza este código para iniciar sesión a partir de ahora.\n\nSaludos.`);
+                    window.location.href = `mailto:${emp.email}?subject=${subject}&body=${body}`;
+                }
+            } catch (err) {
+                console.error("Error reseteando PIN:", err);
+                showNotification('Error al generar nuevo PIN: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+
         container.querySelector('#saveStatusBtn').addEventListener('click', async () => {
             const btn = container.querySelector('#saveStatusBtn');
             btn.disabled = true;

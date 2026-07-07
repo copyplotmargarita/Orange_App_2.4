@@ -1032,10 +1032,32 @@ export function renderDashboard() {
         const storeName = localStorage.getItem('storeName');
         const businessId = localStorage.getItem('businessId');
         const userEmail = localStorage.getItem('userEmail');
+        const currentShiftId = localStorage.getItem('currentShiftId');
 
-        const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
-        if (cachedName) {
-            greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${cachedName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
+        // --- NUEVA LÓGICA: Priorizar datos del Turno Activo ---
+        if (currentShiftId && businessId) {
+            try {
+                const shiftDoc = await getDoc(doc(db, "businesses", businessId, "turnos", currentShiftId));
+                if (shiftDoc.exists()) {
+                    const shiftData = shiftDoc.data();
+                    const sEmp = shiftData.NOMBRE_USUARIO_LOGUEADO || "Empleado";
+                    const sStore = shiftData.NOMBRE_TIENDA || "Sede Principal";
+                    
+                    greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">👤 ${sEmp}</span><br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sStore}">${sStore}</div>`;
+                    
+                    // Actualizar localStorage para que otras partes del sistema lo tengan fresco
+                    localStorage.setItem('employeeName', sEmp);
+                    localStorage.setItem('storeName', sStore);
+                    if (userEmail) localStorage.setItem(`userName_${userEmail}`, sEmp);
+                }
+            } catch (e) {
+                console.error("Error cargando info del turno:", e);
+            }
+        } else {
+            const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
+            if (cachedName) {
+                greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">${cachedName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
+            }
         }
 
         // 2. Si es empleado, cargar datos específicos
@@ -1099,18 +1121,19 @@ export function renderDashboard() {
                 });
             }
 
-            
             const empNameLocal = localStorage.getItem('employeeName');
-            const empName = empNameLocal || cachedName || (auth.currentUser?.displayName || "Empleado");
+            const empName = empNameLocal || (userEmail ? localStorage.getItem(`userName_${userEmail}`) : null) || (auth.currentUser?.displayName || "Empleado");
             
-            greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">👤 ${empName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
+            // Solo sobreescribir si no lo hicimos en la carga del turno
+            if (!currentShiftId || !greetingEl.innerHTML.includes('👤')) {
+                greetingEl.innerHTML = `<span style="font-size: 0.95rem; font-weight: bold; color: var(--text-main);">👤 ${empName}</span>${storeName ? `<br><div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${storeName}">${storeName}</div>` : ''}`;
+            }
             
             // Guardar solo en caché vinculada al correo
             if (userEmail) localStorage.setItem(`userName_${userEmail}`, empName);
             
-            // LIMPIEZA: Borrar llaves antiguas que causan la mezcla
+            // LIMPIEZA: Ya no borramos employeeName porque causa conflictos en F5
             localStorage.removeItem('userName');
-            localStorage.removeItem('employeeName');
             localStorage.removeItem('businessName');
 
             // 🔔 Campana en tiempo real: escuchar órdenes pendientes para esta tienda
@@ -1171,7 +1194,6 @@ export function renderDashboard() {
 
                 // LIMPIEZA DE RASTROS
                 localStorage.removeItem('userName');
-                localStorage.removeItem('employeeName');
                 localStorage.removeItem('businessName');
 
             } catch (error) {
