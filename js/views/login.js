@@ -19,20 +19,32 @@ export function renderLogin() {
                 
                 <div class="form-group mb-4">
                     <label>Tipo de Usuario</label>
-                    <select class="form-control" id="roleSelect">
-                        <option value="admin">Administrador</option>
-                        <option value="employee">Empleado</option>
-                    </select>
+                    <div style="display: flex; gap: 0.5rem; background: var(--surface); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                        <button type="button" class="btn role-toggle-btn active" data-role="propietario" style="flex: 1; height: 38px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; transition: 0.3s; background: var(--primary); color: white;">Propietario</button>
+                        <button type="button" class="btn role-toggle-btn" data-role="empleado" style="flex: 1; height: 38px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; transition: 0.3s; background: transparent; color: var(--text-muted); border: none;">Empleado</button>
+                    </div>
+                    <input type="hidden" id="roleSelect" value="propietario">
                 </div>
                 
-                <div class="form-group mb-4">
-                    <label>Correo Electrónico</label>
-                    <input type="email" id="email" class="form-control" placeholder="correo@ejemplo.com" required>
+                <div id="propietarioFields">
+                    <div class="form-group mb-4">
+                        <label>Correo Electrónico</label>
+                        <input type="email" id="email" class="form-control" placeholder="correo@ejemplo.com" required>
+                    </div>
+                    
+                    <div class="form-group mb-4">
+                        <label>Contraseña</label>
+                        <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+                    </div>
                 </div>
-                
-                <div class="form-group mb-4">
-                    <label>Contraseña</label>
-                    <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+
+                <div id="empleadoFields" style="display: none;">
+                    <div class="form-group mb-4">
+                        <label>Código de Acceso <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 400; text-transform: none;">(10 caracteres)</span></label>
+                        <div style="position: relative;">
+                            <input type="text" id="employeePin" class="form-control" placeholder="Ej. EMPR123456" maxlength="10" style="text-transform: uppercase; font-family: monospace; font-size: 1.1rem; letter-spacing: 2px; text-align: center;">
+                        </div>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary mb-4" id="submitBtn">Ingresar</button>
@@ -49,6 +61,47 @@ export function renderLogin() {
     const errorMsg = container.querySelector('#errorMsg');
     const submitBtn = container.querySelector('#submitBtn');
     const forgotPwdLnk = container.querySelector('#forgotPasswordLnk');
+    
+    // UI Toggle logic
+    const roleBtns = container.querySelectorAll('.role-toggle-btn');
+    const roleInput = container.querySelector('#roleSelect');
+    const ownerFields = container.querySelector('#propietarioFields');
+    const empFields = container.querySelector('#empleadoFields');
+    const emailInput = container.querySelector('#email');
+    const pwdInput = container.querySelector('#password');
+    const pinInput = container.querySelector('#employeePin');
+
+    roleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            roleBtns.forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = 'var(--text-muted)';
+            });
+            btn.classList.add('active');
+            btn.style.background = 'var(--primary)';
+            btn.style.color = 'white';
+            
+            const role = btn.dataset.role;
+            roleInput.value = role;
+
+            if (role === 'propietario') {
+                ownerFields.style.display = 'block';
+                empFields.style.display = 'none';
+                emailInput.required = true;
+                pwdInput.required = true;
+                pinInput.required = false;
+                if (forgotPwdLnk) forgotPwdLnk.parentElement.style.display = 'block';
+            } else {
+                ownerFields.style.display = 'none';
+                empFields.style.display = 'block';
+                emailInput.required = false;
+                pwdInput.required = false;
+                pinInput.required = true;
+                if (forgotPwdLnk) forgotPwdLnk.parentElement.style.display = 'none'; // Empleados no resetean por email
+            }
+        });
+    });
 
     if (forgotPwdLnk) {
         forgotPwdLnk.addEventListener('click', (e) => {
@@ -103,19 +156,9 @@ export function renderLogin() {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Ingresando...';
 
-        const email = container.querySelector('#email').value;
-        const password = container.querySelector('#password').value;
         const role = container.querySelector('#roleSelect').value;
 
         try {
-            await signInWithEmailAndPassword(auth, email, password);
-            
-            // Retardo para asegurar la sincronización del token de Auth con el cliente Firestore
-            await new Promise(resolve => setTimeout(resolve, 350));
-            
-            // Verificación estricta de seguridad
-            const uid = auth.currentUser.uid;
-            
             // Asegurar deviceId único globalmente para esta sesión de navegador
             let deviceId = localStorage.getItem('deviceId');
             if (!deviceId) {
@@ -126,129 +169,84 @@ export function renderLogin() {
             let empData = null;
             let businessId = null;
             let cargo = "Administrador";
-            let isEmployee = false;
-            let businessExists = false;
-
-            // 1. PRIORIDAD: Buscar si el correo pertenece a un Empleado en algún negocio
-            try {
-                const q = query(collectionGroup(db, "employees"), where("email", "==", email));
-                const empSnap = await getDocs(q);
-                
-                if (!empSnap.empty) {
-                    for (const docSnap of empSnap.docs) {
-                        const bId = docSnap.ref.parent.parent.id;
-                        const bDoc = await getDoc(doc(db, "businesses", bId));
-                        if (bDoc.exists() && bDoc.data().status === 'active') {
-                            empData = docSnap.data();
-                            businessId = bId;
-                            isEmployee = true;
-                            break;
-                        }
-                    }
-                    if (!isEmployee) {
-                        // Fallback si no está en un negocio activo, tomamos el primero
-                        const empDoc = empSnap.docs[0];
-                        empData = empDoc.data();
-                        businessId = empDoc.ref.parent.parent.id;
-                        isEmployee = true;
-                    }
+            let email = ""; // Usaremos el email si es dueño, o un fallback si es empleado
+            
+            if (role === 'empleado') {
+                // FLUJO V3: AUTENTICACIÓN DE EMPLEADO CON CÓDIGO
+                const pin = pinInput.value.toUpperCase();
+                if (pin.length !== 10) {
+                    throw new Error("El código de acceso debe tener exactamente 10 caracteres.");
                 }
-            } catch (grpErr) {
-                console.error("Error al buscar empleado en grupo de colecciones:", grpErr);
-                await signOut(auth);
-                throw new Error("Error DB al buscar empleado: " + grpErr.message);
-            }
 
-            if (isEmployee) {
-                // El usuario es un empleado
+                // Llamar a la Cloud Function
+                const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js");
+                const { signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js");
+                const functions = getFunctions();
+                const verifyPin = httpsCallable(functions, 'verifyEmployeePin');
+                
+                const response = await verifyPin({ pin });
+                const { token, businessId: bId, requiresPinChange } = response.data;
+                
+                // Iniciar sesión con el Custom Token
+                const userCredential = await signInWithCustomToken(auth, token);
+                const uid = userCredential.user.uid;
+                
+                // Buscar datos del empleado para la sesión
+                const empDoc = await getDoc(doc(db, "businesses", bId, "employees", uid));
+                if (!empDoc.exists()) throw new Error("Datos de empleado no encontrados.");
+                
+                empData = empDoc.data();
+                businessId = bId;
                 cargo = empData.role;
+                email = empData.email || 'empleado@' + empData.businessCode.toLowerCase() + '.com';
                 
-                if (role === 'admin' && cargo !== 'Administrador') {
-                    await signOut(auth);
-                    throw new Error("Acceso denegado: Tu cargo (" + cargo + ") no tiene privilegios de Administrador.");
-                }
-
-                if (empData.status !== 'ACTIVO') {
-                    await signOut(auth);
-                    throw new Error(`Acceso denegado: Tu estado actual es "${empData.status}". Contacte al administrador.`);
-                }
-                
-                localStorage.setItem('userRole', role);
+                localStorage.setItem('userRole', 'employee');
                 localStorage.setItem('businessId', businessId);
-                localStorage.setItem('employeeName', empData.name || email);
+                localStorage.setItem('employeeName', empData.name || 'Empleado');
                 localStorage.setItem('isOwner', 'false');
-            } else {
-                // 2. Si no es empleado, verificamos si es el dueño principal del negocio
-                let businessDoc = null;
-                let retryCount = 0;
-                const maxRetries = 3;
                 
-                while (retryCount < maxRetries) {
-                    try {
-                        businessDoc = await getDoc(doc(db, "businesses", uid));
-                        businessExists = businessDoc.exists();
-                        if (businessExists) {
-                            businessId = uid;
-                        }
-                        break;
-                    } catch (err) {
-                        console.warn(`Intento ${retryCount + 1} de leer negocio falló:`, err);
-                        retryCount++;
-                        if (retryCount < maxRetries) {
-                            await new Promise(resolve => setTimeout(resolve, 250));
-                        }
-                    }
-                }
+                // Nota: La lógica de requiresPinChange se puede manejar luego mostrándole un modal
 
-                // 2.5 Buscar negocio por email si no se halló por UID
-                if (!businessExists) {
-                    try {
-                        const qBus = query(collection(db, "businesses"), where("email", "==", email));
-                        const busSnap = await getDocs(qBus);
-                        if (!busSnap.empty) {
-                            const bDoc = busSnap.docs[0];
-                            businessId = bDoc.id;
-                            businessExists = true;
-                        }
-                    } catch (busErr) {
-                        console.warn("No se pudo buscar negocio por email:", busErr);
-                    }
-                }
-
-                // 3. AUTO-CREACIÓN DE NEGOCIO (Solo si es Admin, no es empleado y no existe negocio)
-                if (!businessExists && role === 'admin') {
-                    console.log("Iniciando auto-creación de negocio por ausencia en Firestore...");
-                    const defaultBusinessData = {
-                        name: "Mi Negocio",
-                        document: "J-000000000",
-                        country: "Venezuela",
-                        address: "Dirección Principal",
-                        ownerName: "Propietario",
-                        email: email,
-                        status: "active",
-                        createdAt: new Date().toISOString()
-                    };
-                    await setDoc(doc(db, "businesses", uid), defaultBusinessData);
+            } else {
+                // FLUJO PROPIETARIO (O ADMIN DE LEGACY)
+                email = emailInput.value;
+                const password = pwdInput.value;
+                
+                await signInWithEmailAndPassword(auth, email, password);
+                await new Promise(resolve => setTimeout(resolve, 350));
+                
+                const uid = auth.currentUser.uid;
+                
+                let businessDoc = await getDoc(doc(db, "businesses", uid));
+                let businessExists = businessDoc.exists();
+                if (businessExists) {
                     businessId = uid;
-                    businessExists = true;
+                } else {
+                    // Buscar por email
+                    const qBus = query(collection(db, "businesses"), where("email", "==", email));
+                    const busSnap = await getDocs(qBus);
+                    if (!busSnap.empty) {
+                        businessId = busSnap.docs[0].id;
+                        businessExists = true;
+                    }
                 }
-
+                
                 if (!businessExists) {
                     await signOut(auth);
-                    throw new Error("No se encontró un negocio activo para esta cuenta. Asegúrese de registrarse primero o ser invitado como empleado.");
+                    throw new Error("No se encontró un negocio registrado para esta cuenta.");
                 }
 
                 // Configurar sesión para el dueño
                 cargo = 'Administrador';
-                empData = { name: 'Administrador', role: 'Administrador' };
+                empData = { name: 'Propietario', role: 'Administrador' };
                 
                 localStorage.setItem('userRole', 'admin');
-                localStorage.setItem('businessId', businessId || uid);
-                localStorage.setItem('employeeName', empData.name);
+                localStorage.setItem('businessId', businessId);
+                localStorage.setItem('employeeName', 'Propietario');
                 localStorage.setItem('isOwner', 'true');
             }
 
-            if (role === 'employee') {
+            if (role === 'empleado') {
                 // Obtener tiendas del negocio
                 const storesSnap = await getDocs(collection(db, "businesses", businessId, "stores"));
                 const stores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));

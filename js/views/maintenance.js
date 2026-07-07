@@ -8,6 +8,7 @@ import {
     doc,
     Timestamp 
 } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js";
 import { showNotification, formatDateToDDMMYYYY } from '../utils.js';
 
 export function renderMaintenance(container) {
@@ -36,6 +37,12 @@ export function renderMaintenance(container) {
                 <div style="font-size: 3rem; margin-bottom: 1rem;">🧹</div>
                 <h3 style="color: var(--warning); font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem;">Normalizar Histórico</h3>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Corrige IDs antiguos, añade creadores y horas faltantes a los registros.</p>
+            </div>
+
+            <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--danger); text-align: center; cursor: pointer; transition: transform 0.2s;" id="btnMigrateV3">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🚀</div>
+                <h3 style="color: var(--danger); font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem;">Migración a V3 (Multi-Tenant)</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Ejecuta el script seguro en la nube para actualizar la base de datos a la nueva arquitectura y seguridad.</p>
             </div>
         </div>
 
@@ -308,4 +315,28 @@ export function renderMaintenance(container) {
             contentArea.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--danger); margin: 0;">Error en la migración: ${error.message}</p></div>`;
         }
     });
+
+    const btnMigrateV3 = container.querySelector('#btnMigrateV3');
+    if (btnMigrateV3) {
+        btnMigrateV3.addEventListener('click', async () => {
+            if (!confirm('🚨 ADVERTENCIA 🚨\n\n¿Estás completamente seguro de que deseas ejecutar la Migración a V3?\n\nEsta operación:\n1. Actualizará toda la base de datos para funcionar con Multi-Tenant.\n2. Reiniciará los accesos de todos los empleados generando un nuevo PIN alfanumérico aleatorio para cada uno.\n3. Esta acción NO se puede deshacer.')) return;
+            
+            contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;"><p style="color: var(--danger); font-weight: bold; font-size: 1.1rem;">Ejecutando Migración a V3 en la nube... Esto puede tomar unos minutos, NO CIERRES LA VENTANA.</p></div>';
+            
+            try {
+                const functions = getFunctions();
+                const migrateV3DataFn = httpsCallable(functions, 'migrateV3Data');
+                
+                const result = await migrateV3DataFn();
+                const message = result.data.message;
+                
+                contentArea.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--success); font-weight: bold; margin: 0; font-size: 1.2rem;">✅ ¡Migración V3 Completada!</p><p style="margin-top: 1rem; color: var(--text-main);">${message}</p></div>`;
+                showNotification("Migración a V3 completada exitosamente.", "success");
+            } catch (error) {
+                console.error("Error en migración V3:", error);
+                contentArea.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p style="color: var(--danger); margin: 0; font-weight: bold;">Error Crítico en la Migración V3:</p><p style="color: var(--text-main); margin-top: 0.5rem;">${error.message}</p></div>`;
+                showNotification("Falló la migración V3.", "error");
+            }
+        });
+    }
 }
