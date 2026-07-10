@@ -1,4 +1,38 @@
 import { navigate, showPromptModal, showConfirmModal } from '../utils.js';
+
+function showPinSuccessModal(pin, actionMessage) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+        
+        modal.innerHTML = `
+            <div class="card" style="padding: 2.5rem; max-width: 450px; text-align: center; width: 90%; border-radius: 1.5rem; border: 2px solid var(--primary);">
+                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔐</div>
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem;">${actionMessage}</h3>
+                
+                <div style="background: var(--background); padding: 1.5rem; border-radius: 12px; border: 1px dashed var(--primary); margin-bottom: 1.5rem; margin-top: 1.5rem;">
+                    <p style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 800;">Su Nuevo PIN</p>
+                    <div style="font-family: monospace; font-size: 2.2rem; font-weight: 900; letter-spacing: 4px; color: var(--primary);">${pin}</div>
+                </div>
+
+                <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; text-align: left;">
+                    <span style="font-size: 1.5rem;">⚠️</span>
+                    <p style="font-size: 0.85rem; color: var(--danger); margin: 0; line-height: 1.4; font-weight: 600;"><strong>¡Importante!</strong> Anote y guarde su PIN en un lugar seguro. Por motivos de seguridad, no podrá volver a verlo después de cerrar esta ventana.</p>
+                </div>
+                
+                <button class="btn btn-primary" id="btnPinSuccessModalListo" style="width: 100%; height: 50px; font-size: 1rem; font-weight: 800; border-radius: 12px;">¡LISTO, YA LO ANOTÉ!</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.querySelector('#btnPinSuccessModalListo').addEventListener('click', () => {
+            modal.remove();
+            resolve();
+        });
+    });
+}
+
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
 import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
@@ -191,6 +225,18 @@ export function renderLogin() {
                 const userCredential = await signInWithCustomToken(auth, token);
                 const uid = userCredential.user.uid;
                 
+                if (requiresPinChange) {
+                    const newPin = await showPinChangeModal();
+                    if (!newPin) {
+                        await signOut(auth);
+                        throw new Error("Debes cambiar tu PIN para poder ingresar.");
+                    }
+                    const changePinCallable = httpsCallable(functions, 'changeEmployeePin');
+                    await changePinCallable({ newPin });
+                    const businessCode = pin.substring(0, 4).toUpperCase();
+                    await showPinSuccessModal(businessCode + newPin, '¡PIN Cambiado Exitosamente!');
+                }
+
                 // Buscar datos del empleado para la sesión
                 const empDoc = await getDoc(doc(db, "businesses", bId, "employees", uid));
                 if (!empDoc.exists()) throw new Error("Datos de empleado no encontrados.");
@@ -205,7 +251,7 @@ export function renderLogin() {
                 localStorage.setItem('employeeName', empData.name || 'Empleado');
                 localStorage.setItem('isOwner', 'false');
                 
-                // Nota: La lógica de requiresPinChange se puede manejar luego mostrándole un modal
+                // La lógica de requiresPinChange ya ha sido resuelta arriba.
 
             } else {
                 // FLUJO PROPIETARIO (O ADMIN DE LEGACY)
@@ -431,6 +477,15 @@ export function renderLogin() {
             submitBtn.textContent = 'Ingresar';
             if (error.code === 'auth/invalid-credential') {
                 errorMsg.textContent = 'Correo o contraseña incorrectos.';
+            } else if (error.message && error.message.includes('employee-status:')) {
+                const status = error.message.split(':')[1];
+                if (status === 'INACTIVO') {
+                    errorMsg.textContent = 'No estás activo en este negocio. Comunícate con tu superior.';
+                } else if (status === 'VACACIONES') {
+                    errorMsg.textContent = 'Estás de vacaciones en este negocio.';
+                } else if (status === 'ELIMINADO') {
+                    errorMsg.textContent = 'Ya no perteneces a este negocio.';
+                }
             } else {
                 errorMsg.textContent = 'Error: ' + error.message;
             }
@@ -438,4 +493,73 @@ export function renderLogin() {
     });
 
     return container;
+}
+
+async function showPinChangeModal() {
+    return new Promise((resolve) => {
+        const modalHtml = `
+            <div id="pinChangeModalOverlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem;">
+                <div class="card" style="width: 100%; max-width: 400px; padding: 1.5rem; text-align: center; border-radius: 12px; background: var(--surface);">
+                    <h3 style="margin-bottom: 0.5rem; color: var(--text-main);">🔒 Cambio de PIN Obligatorio</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">Por motivos de seguridad, debes establecer un nuevo PIN de 6 dígitos antes de continuar.</p>
+                    <form id="pinChangeForm">
+                        <div class="form-group mb-3 text-start">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Nuevo PIN (6 dígitos)</label>
+                            <input type="password" id="newPinInput" class="form-control" maxlength="6" pattern="\\d{6}" required placeholder="••••••" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+                        </div>
+                        <div class="form-group mb-4 text-start">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Confirmar Nuevo PIN</label>
+                            <input type="password" id="confirmPinInput" class="form-control" maxlength="6" pattern="\\d{6}" required placeholder="••••••" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+                        </div>
+                        <div id="pinErrorMsg" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 1rem; display: none;"></div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="button" id="cancelPinBtn" class="btn" style="flex: 1; background: var(--border); color: var(--text-main);">Cancelar</button>
+                            <button type="submit" id="savePinBtn" class="btn btn-primary" style="flex: 1;">Guardar PIN</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const overlay = document.getElementById('pinChangeModalOverlay');
+        const form = document.getElementById('pinChangeForm');
+        const newPinInput = document.getElementById('newPinInput');
+        const confirmPinInput = document.getElementById('confirmPinInput');
+        const cancelBtn = document.getElementById('cancelPinBtn');
+        const errorMsg = document.getElementById('pinErrorMsg');
+
+        const cleanup = () => {
+            if (overlay) overlay.remove();
+        };
+
+        cancelBtn.addEventListener('click', () => {
+            cleanup();
+            resolve(null);
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            errorMsg.style.display = 'none';
+            const pin = newPinInput.value;
+            const confirm = confirmPinInput.value;
+            
+            if (!/^\d{6}$/.test(pin)) {
+                errorMsg.textContent = 'El PIN debe ser de exactamente 6 dígitos numéricos.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            if (pin !== confirm) {
+                errorMsg.textContent = 'Los PIN no coinciden. Intenta de nuevo.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            
+            const saveBtn = document.getElementById('savePinBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+            cleanup();
+            resolve(pin);
+        });
+    });
 }

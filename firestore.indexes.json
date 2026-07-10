@@ -11,6 +11,20 @@
         {
           "fieldPath": "pin",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "employees",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "businessCode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pin",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "status",

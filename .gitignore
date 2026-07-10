@@ -12,3 +12,10 @@
 # Local env
 .env
 .env.local
+
+# Node
+node_modules/
+functions/node_modules/
+
+# Firebase Functions Local Config
+functions/.runtimeconfig.json

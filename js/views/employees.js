@@ -9,6 +9,37 @@ const countryCodes = {
 };
 
 export function renderEmployees(container) {
+    function showPinModal(fullCode, name, actionMessage) {
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center;';
+        
+        modal.innerHTML = `
+            <div class="card" style="padding: 2.5rem; max-width: 450px; text-align: center; width: 90%; border-radius: 1.5rem; border: 2px solid var(--primary);">
+                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔐</div>
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem;">${actionMessage}</h3>
+                <p class="text-muted" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem;">Empleado: <strong>${name}</strong></p>
+                
+                <div style="background: var(--background); padding: 1.5rem; border-radius: 12px; border: 1px dashed var(--primary); margin-bottom: 1.5rem;">
+                    <p style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 800;">Código de Acceso</p>
+                    <div style="font-family: monospace; font-size: 2.2rem; font-weight: 900; letter-spacing: 4px; color: var(--primary);">${fullCode}</div>
+                </div>
+
+                <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; text-align: left;">
+                    <span style="font-size: 1.5rem;">⚠️</span>
+                    <p style="font-size: 0.85rem; color: var(--danger); margin: 0; line-height: 1.4; font-weight: 600;"><strong>¡Importante!</strong> Anote y guarde este PIN en un lugar seguro. Por motivos de seguridad, no podrá volver a verlo después de cerrar esta ventana.</p>
+                </div>
+                
+                <button class="btn btn-primary" id="btnPinModalListo" style="width: 100%; height: 50px; font-size: 1rem; font-weight: 800; border-radius: 12px;">¡LISTO, YA LO ANOTÉ!</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.querySelector('#btnPinModalListo').addEventListener('click', () => {
+            modal.remove();
+        });
+    }
+
     let allEmployees = [];
     let employees = [];
     let currentSearchQuery = '';
@@ -77,12 +108,12 @@ export function renderEmployees(container) {
                 const id = btn.dataset.id;
                 showConfirmModal(
                     "Eliminar Empleado",
-                    "¿Estás seguro de que deseas eliminar este empleado? Esta acción es irreversible y se eliminará de la base de datos.",
+                    "¿Estás seguro de que deseas eliminar este empleado? El registro se marcará como ELIMINADO pero se conservará su historial.",
                     async () => {
                         try {
                             const businessId = localStorage.getItem('businessId');
                             const empRef = doc(db, "businesses", businessId, "employees", id);
-                            await deleteDoc(empRef);
+                            await updateDoc(empRef, { status: 'ELIMINADO' });
                             showNotification("Empleado eliminado exitosamente.");
                             await loadEmployees();
                         } catch (error) {
@@ -410,7 +441,7 @@ export function renderEmployees(container) {
                     const { plainPin, businessCode } = result.data;
                     const fullCode = businessCode + plainPin;
 
-                    showNotification(`¡Empleado creado con éxito!\n\nPor favor anote el Código de Acceso para el empleado:\n\nCódigo de Acceso: ${fullCode}\n\nEste es el código que el empleado usará para iniciar sesión.`, 'success');
+                    showPinModal(fullCode, name, '¡Empleado Creado Exitosamente!');
                     
                     if (email && email.trim() !== '') {
                         const subject = encodeURIComponent("Tu Código de Acceso al Sistema");
@@ -591,7 +622,7 @@ export function renderEmployees(container) {
                 const { plainPin, businessCode } = result.data;
                 const fullCode = businessCode + plainPin;
                 
-                showNotification(`¡Nuevo Código Generado Exitosamente!\n\nPor favor, entrega este nuevo código al empleado:\n\nCódigo de Acceso: ${fullCode}\n\nEste código reemplaza al anterior.`, 'success');
+                showPinModal(fullCode, emp.name, '¡Nuevo Código Generado Exitosamente!');
                 
                 if (emp.email && emp.email.trim() !== '') {
                     const subject = encodeURIComponent("Actualización de tu Código de Acceso");

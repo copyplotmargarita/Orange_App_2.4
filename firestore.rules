@@ -24,7 +24,7 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.token.businessId == businessId;
         allow create, update: if request.auth != null && 
                      request.auth.token.businessId == businessId &&
-                     request.auth.token.role in ['Propietario', 'Administrador'];
+                     (request.auth.token.role in ['owner', 'Propietario', 'Administrador']);
       }
       
       // ==========================================
@@ -52,8 +52,11 @@ service cloud.firestore {
       // ACCESO TOTAL PROTEGIDO PARA SUBCOLECCIONES (Ventas, Inventarios, Cajas, Tiendas)
       // ==========================================
       match /{subcollection}/{document=**} {
-        allow read, write: if request.auth != null && 
-                            (request.auth.uid == businessId || request.auth.token.businessId == businessId);
+        allow read, write: if request.auth != null && (
+            request.auth.uid == businessId || 
+            (request.auth.token.businessId == businessId && 
+             get(/databases/$(database)/documents/businesses/$(businessId)/employees/$(request.auth.token.employeeId)).data.status == 'ACTIVO')
+        );
       }
     }
   }

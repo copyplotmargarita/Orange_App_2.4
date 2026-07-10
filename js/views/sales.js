@@ -191,7 +191,7 @@ export function renderSales(container, preSelectedClient = null) {
             if (role === 'employee' && storeStockMap) {
                 products = products.map(p => ({
                     ...p,
-                    stockGeneral: storeStockMap[p.id] || 0
+                    stockGeneral: storeStockMap[p.id] !== undefined ? storeStockMap[p.id] : (p.stockGeneral ?? p.stock ?? 0)
                 }));
             }
 
@@ -379,16 +379,15 @@ export function renderSales(container, preSelectedClient = null) {
             const stock = p.stockGeneral ?? p.stock ?? 0;
             return `
             <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative focus:outline-none focus:ring-4 focus:ring-primary focus:border-primary" data-id="${p.id}" tabindex="0">
-                ${stock <= 0 ? '<div class="absolute top-sm right-sm bg-error text-on-error px-xs py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm z-10">Agotado</div>' : ''}
                 <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
-                    ${p.image ? `<img src="${p.image}" alt="${p.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors">inventory_2</span>`}
+                    ${p.image ? `<img src="${p.image}" alt="${p.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
                 </div>
-                <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest">
+                <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest" style="height: 120px;">
                     <div>
-                        <h4 class="text-body-sm font-semibold text-on-surface truncate leading-tight group-hover:text-primary transition-colors" title="${p.name}">${p.name}</h4>
-                        <p class="text-label-sm text-outline mt-xs font-mono truncate">${p.barcode || '---'}</p>
+                        <h4 class="text-body-sm font-semibold text-on-surface leading-tight group-hover:text-primary transition-colors" title="${p.name}" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; font-size: 0.75rem; line-height: 1.4em;">${p.name}</h4>
+                        ${p.barcode ? `<p class="text-label-sm text-outline mt-xs font-mono truncate" style="font-size: 0.65rem;">${p.barcode}</p>` : ''}
                     </div>
-                    <div class="flex flex-col items-end mt-auto pt-2 gap-1">
+                    <div class="flex flex-col items-end mt-auto gap-1 pb-1">
                         <span class="text-body-sm font-bold ${stock > 10 ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${p.stockUnit || 'ud'}</span>
                         <span class="text-body-md font-bold text-white leading-none">$ ${fmt(price)}</span>
                         <span class="text-body-md font-bold text-white leading-none">Bs. ${fmt(price * bcvRate)}</span>
