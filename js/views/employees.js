@@ -77,12 +77,12 @@ export function renderEmployees(container) {
                 const id = btn.dataset.id;
                 showConfirmModal(
                     "Eliminar Empleado",
-                    "¿Estás seguro de que deseas eliminar este empleado? Esta acción es irreversible y se eliminará de la base de datos.",
+                    "¿Estás seguro de que deseas eliminar este empleado? El registro se marcará como ELIMINADO pero se conservará su historial.",
                     async () => {
                         try {
                             const businessId = localStorage.getItem('businessId');
                             const empRef = doc(db, "businesses", businessId, "employees", id);
-                            await deleteDoc(empRef);
+                            await updateDoc(empRef, { status: 'ELIMINADO' });
                             showNotification("Empleado eliminado exitosamente.");
                             await loadEmployees();
                         } catch (error) {

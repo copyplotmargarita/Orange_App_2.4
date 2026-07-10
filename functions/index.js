@@ -7,7 +7,7 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // Configuraciones de Seguridad (Idealmente esto debe estar en Firebase Secret Manager o Variables de Entorno)
-const PEPPER = "V3_ORANGE_APP_SECURE_PEPPER_2026"; 
+const PEPPER = functions.config().app.pin_pepper;
 
 // Helper: Generar código de negocio único (4 caracteres alfanuméricos)
 async function generateUniqueBusinessCode() {
@@ -126,27 +126,45 @@ exports.verifyEmployeePin = functions.https.onCall(async (data, context) => {
     // --- BÚSQUEDA DEL EMPLEADO Y VALIDACIÓN DEL HASH ---
     const hashToVerify = crypto.createHash('sha256').update(businessCode + plainPin + PEPPER).digest('hex');
 
+    // Quitamos la restricción de ACTIVO en la query para poder detectar si el empleado existe
+    // pero está inactivo, de vacaciones, etc., y arrojar el error correspondiente.
     const employeesSnapshot = await db.collectionGroup('employees')
         .where('businessCode', '==', businessCode)
         .where('pin', '==', hashToVerify)
-        .where('status', '==', 'ACTIVO')
         .limit(1)
         .get();
 
     if (employeesSnapshot.empty) {
-        // Loguear intento de ataque
-        await db.collection('system_notifications').add({
-            type: 'FAILED_LOGIN_ATTEMPT',
-            businessCode: businessCode,
-            ip: clientIp,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
+        // Loguear intento de ataque con enrutamiento dinámico
+        const businessCheckSnap = await db.collection('businesses').where('businessCode', '==', businessCode).limit(1).get();
+        if (!businessCheckSnap.empty) {
+            const bId = businessCheckSnap.docs[0].id;
+            await db.collection('businesses').doc(bId).collection('system_notifications').add({
+                type: 'FAILED_LOGIN_ATTEMPT',
+                businessCode: businessCode,
+                ip: clientIp,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            await db.collection('global_security_alerts').add({
+                type: 'FAILED_LOGIN_ATTEMPT_INVALID_BUSINESS',
+                businessCode: businessCode,
+                ip: clientIp,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
         throw new functions.https.HttpsError('unauthenticated', 'Credenciales incorrectas');
     }
 
     const employeeDoc = employeesSnapshot.docs[0];
     const employeeData = employeeDoc.data();
     
+    // --- CONTROL DE ESTADOS OPERATIVOS ---
+    const currentStatus = employeeData.status || 'ACTIVO';
+    if (['INACTIVO', 'VACACIONES', 'ELIMINADO'].includes(currentStatus)) {
+        throw new functions.https.HttpsError('permission-denied', `employee-status:${currentStatus}`);
+    }
+
     // --- REGLAS DE BLOQUEO DE LA CUENTA ---
     if (employeeData.failed_attempts >= 3) {
         throw new functions.https.HttpsError('permission-denied', 'Cuenta bloqueada por múltiples intentos fallidos. Contacte al administrador.');
@@ -169,6 +187,7 @@ exports.verifyEmployeePin = functions.https.onCall(async (data, context) => {
     // --- GENERACIÓN DEL CUSTOM TOKEN ---
     const customToken = await auth.createCustomToken(employeeDoc.id, {
         businessId: businessId,
+        employeeId: employeeDoc.id,
         role: employeeData.role,
         businessCode: businessCode,
         isEmployee: true,
@@ -176,6 +195,42 @@ exports.verifyEmployeePin = functions.https.onCall(async (data, context) => {
     });
 
     return { token: customToken, businessId: businessId, requiresPinChange };
+});
+
+// ============================================================================
+// 2.1 CAMBIO DE PIN DE EMPLEADO OBLIGATORIO
+// ============================================================================
+exports.changeEmployeePin = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Debe iniciar sesión para realizar esta acción.');
+    }
+    
+    const { newPin } = data;
+    if (!newPin || typeof newPin !== 'string' || newPin.length !== 6) {
+        throw new functions.https.HttpsError('invalid-argument', 'El nuevo PIN debe tener exactamente 6 dígitos.');
+    }
+
+    const employeeId = context.auth.token.employeeId || context.auth.uid;
+    const businessId = context.auth.token.businessId;
+    const businessCode = context.auth.token.businessCode;
+
+    if (!employeeId || !businessId || !businessCode) {
+        throw new functions.https.HttpsError('permission-denied', 'Token inválido para esta operación.');
+    }
+
+    // Hashear nuevo PIN V3: SHA256(businessCode + PIN + PEPPER)
+    const newHash = crypto.createHash('sha256').update(businessCode + newPin + PEPPER).digest('hex');
+
+    const employeeRef = db.collection('businesses').doc(businessId).collection('employees').doc(employeeId);
+    
+    // Destrucción atómica de credenciales temporales y guardado de nuevo PIN
+    await employeeRef.update({
+        pin: newHash,
+        temporaryPin: admin.firestore.FieldValue.delete(),
+        requirePinChange: admin.firestore.FieldValue.delete()
+    });
+
+    return { success: true };
 });
 
 // ============================================================================
