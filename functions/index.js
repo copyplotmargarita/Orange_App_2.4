@@ -7,7 +7,7 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // Configuraciones de Seguridad (Idealmente esto debe estar en Firebase Secret Manager o Variables de Entorno)
-const PEPPER = functions.config().app.pin_pepper;
+const PEPPER = (functions.config().app && functions.config().app.pin_pepper) || "V3_ORANGE_APP_SECURE_PEPPER_2026";
 
 // Helper: Generar código de negocio único (4 caracteres alfanuméricos)
 async function generateUniqueBusinessCode() {
@@ -351,7 +351,9 @@ exports.resetEmployeePin = functions.https.onCall(async (data, context) => {
 
     await db.collection('businesses').doc(businessId).collection('employees').doc(employeeId).update({
         pin: newHash,
-        failed_attempts: 0 // Resetear intentos por si estaba bloqueado
+        failed_attempts: 0, // Resetear intentos por si estaba bloqueado
+        requirePinChange: true,
+        temporaryPin: true
     });
     
     return {

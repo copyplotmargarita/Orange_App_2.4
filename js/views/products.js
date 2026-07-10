@@ -35,7 +35,7 @@ export function renderProducts(container) {
                     // Override product stock with store stock
                     products = products.map(p => ({
                         ...p,
-                        stockGeneral: storeStockMap[p.id] || 0 // Use store stock instead of general
+                        stockGeneral: storeStockMap[p.id] !== undefined ? storeStockMap[p.id] : (p.stockGeneral ?? p.stock ?? 0) // Use store stock, fallback to general
                     }));
                 }
             }
@@ -90,15 +90,15 @@ export function renderProducts(container) {
 
                 html += `
                     <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative" data-id="${prod.id}">
-                        ${role !== 'employee' ? `<button class="delete-product-btn" data-id="${prod.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; background: transparent; color: var(--danger); border: none; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 0.2rem; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Eliminar Producto">🗑️</button>` : ''}
+                        ${role !== 'employee' ? `<button class="delete-product-btn" data-id="${prod.id}" style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(255,255,255,0.8); color: var(--danger); border: none; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 0.2rem; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Eliminar Producto">🗑️</button>` : ''}
                         <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
                             ${prod.image ? `<img src="${prod.image}" alt="${prod.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
                         </div>
-                        <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest">
+                        <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest" style="height: 120px;">
                             <div>
-                                <h4 class="text-body-sm font-semibold text-on-surface leading-tight group-hover:text-primary transition-colors" title="${prod.name}" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; font-size: 0.8rem;">${prod.name}</h4>
+                                <h4 class="text-body-sm font-semibold text-on-surface leading-tight group-hover:text-primary transition-colors" title="${prod.name}" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; font-size: 0.75rem; line-height: 1.4em;">${prod.name}</h4>
                             </div>
-                            <div class="flex flex-col items-end mt-auto pt-2 gap-1">
+                            <div class="flex flex-col items-end mt-auto gap-1 pb-1">
                                 <span class="text-body-sm font-bold ${stock > minStock ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${sUnit}</span>
                                 ${prod.isSaleable === false ? `
                                 <span class="text-body-md font-bold text-white leading-none">Costo $ ${formatCurrency(prod.cost || 0)}</span>
@@ -154,12 +154,10 @@ export function renderProducts(container) {
         });
 
         gridContainer.querySelectorAll('.product-card').forEach(card => {
-            if (role !== 'employee') {
-                card.addEventListener('click', () => {
-                    const prod = products.find(p => p.id === card.dataset.id);
-                    if (prod) renderDetail(prod);
-                });
-            }
+            card.addEventListener('click', () => {
+                const prod = products.find(p => p.id === card.dataset.id);
+                if (prod) renderDetail(prod);
+            });
             card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
             card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
         });
@@ -172,7 +170,7 @@ export function renderProducts(container) {
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
                 <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
                     <input type="text" id="searchProductInput" class="form-control" placeholder="🔍 Buscar producto..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    ${role !== 'employee' ? `<button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>` : ''}
+                    <button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>
                 </div>
             </div>
             <div id="productsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem;">
