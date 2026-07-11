@@ -1,0 +1,229 @@
+<!DOCTYPE html><html class="dark" lang="es"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script id="tailwind-config">try{
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#282a2e",
+                    "outline": "#8d909b",
+                    "secondary": "#4ae176",
+                    "primary": "#c0d4ff",
+                    "tertiary": "#ffcd64",
+                    "on-background": "#e2e2e8",
+                    "on-surface": "#e2e2e8",
+                    "background": "#121318",
+                    "outline-variant": "#434750",
+                    "surface-container-highest": "#333539",
+                    "surface-container-low": "#1a1b20",
+                    "surface-container-lowest": "#0c0e12",
+                    "primary-fixed": "#d7e2ff",
+                    "primary-container": "#94b8ff",
+                    "on-primary-fixed-variant": "#1b4585",
+                    "tertiary-fixed": "#ffdea2",
+                    "secondary-fixed-dim": "#4ae176",
+                    "on-error-container": "#ffdad6",
+                    "inverse-on-surface": "#2f3035",
+                    "inverse-primary": "#385e9e",
+                    "on-secondary-container": "#004119",
+                    "on-tertiary-container": "#5f4400",
+                    "on-error": "#690005",
+                    "surface-container": "#1e2024",
+                    "secondary-container": "#00b954",
+                    "on-primary-container": "#1e4787",
+                    "inverse-surface": "#e2e2e8",
+                    "on-surface-variant": "#c3c6d2",
+                    "surface-tint": "#acc7ff",
+                    "surface-bright": "#38393e",
+                    "error": "#ffb4ab",
+                    "error-container": "#93000a",
+                    "surface-dim": "#121318",
+                    "on-secondary": "#003915",
+                    "secondary-fixed": "#6bff8f",
+                    "on-tertiary-fixed-variant": "#5c4200",
+                    "on-primary-fixed": "#001a40",
+                    "surface": "#121318",
+                    "tertiary-container": "#e1b14a",
+                    "on-tertiary": "#402d00",
+                    "tertiary-fixed-dim": "#f1bf57",
+                    "on-primary": "#002f67",
+                    "on-secondary-fixed": "#002109",
+                    "on-secondary-fixed-variant": "#005321",
+                    "surface-variant": "#333539",
+                    "primary-fixed-dim": "#acc7ff",
+                    "on-tertiary-fixed": "#261900"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "card-padding": "16px",
+                    "gutter": "12px",
+                    "unit": "4px",
+                    "margin-desktop": "24px",
+                    "margin-mobile": "16px",
+                    "input-height": "48px"
+            },
+            "fontFamily": {
+                    "body-md": ["Hanken Grotesk"],
+                    "label-md": ["Hanken Grotesk"],
+                    "body-sm": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "price-lg": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "label-sm": ["10px", {"lineHeight": "12px", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+                    "price-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    }catch(_e){}</script><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script></head><body class="flex flex-col h-screen overflow-hidden">
+<!-- Top App Bar -->
+<header class="flex items-center justify-between px-4 h-16 w-full bg-background dark:bg-background z-50">
+<div class="flex items-center gap-4">
+<button class="p-2 transition-colors duration-200 hover:bg-surface-container-highest rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-primary dark:text-primary-container" data-original-icon="arrow_back">circle</span>
+</button>
+<h1 class="font-headline-md text-headline-md-mobile font-bold text-on-surface">Resumen de Carrito</h1>
+</div>
+<button class="p-2 transition-colors duration-200 hover:bg-surface-container-highest rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-primary dark:text-primary-container" data-original-icon="delete_sweep">circle</span>
+</button>
+</header>
+<!-- Main Content Area: Product List -->
+<main class="flex-1 overflow-y-auto custom-scrollbar px-4 pt-4 pb-48">
+<div class="flex flex-col gap-3">
+<div class="text-label-md font-label-md text-outline uppercase tracking-wider mb-1">Productos (3)</div>
+<!-- Product Item 1 -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-4 flex flex-col gap-3 transition-all active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1 max-w-[70%]">
+<span class="font-headline-md text-body-lg text-on-surface leading-tight">Agua Nevada 1.5l Pet</span>
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-highest text-secondary font-label-md text-label-md px-2 py-0.5 rounded-full">6 x $ 1,40</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-price-lg text-price-lg text-primary">$ 8,40</span>
+<span class="font-price-lg text-price-lg text-primary">Bs. 5.964,00</span>
+</div>
+</div>
+<div class="flex justify-end gap-3 pt-2 border-t border-outline-variant/30">
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Product Item 2 -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-4 flex flex-col gap-3 transition-all active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1 max-w-[70%]">
+<span class="font-headline-md text-body-lg text-on-surface leading-tight">Aceite Vegetal Vatel 1l</span>
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-highest text-secondary font-label-md text-label-md px-2 py-0.5 rounded-full">1 x $ 5,70</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-price-lg text-price-lg text-primary">$ 5,70</span>
+<span class="font-price-lg text-price-lg text-primary">Bs. 4.045,23</span>
+</div>
+</div>
+<div class="flex justify-end gap-3 pt-2 border-t border-outline-variant/30">
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Product Item 3 -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-4 flex flex-col gap-3 transition-all active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1 max-w-[70%]">
+<span class="font-headline-md text-body-lg text-on-surface leading-tight">Galleta Maria Caledonia 252gr</span>
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-highest text-secondary font-label-md text-label-md px-2 py-0.5 rounded-full">10 x $ 0,13</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-price-lg text-price-lg text-primary">$ 1,30</span>
+<span class="font-price-lg text-price-lg text-primary">Bs. 922,61</span>
+</div>
+</div>
+<div class="flex justify-end gap-3 pt-2 border-t border-outline-variant/30">
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Sticky Footer -->
+<footer class="fixed bottom-0 left-0 w-full z-50 bg-surface-container/95 backdrop-blur-md border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<div class="px-4 py-4 flex flex-col gap-4 safe-bottom">
+<!-- Summary Stats -->
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-high rounded-xl p-3 flex flex-col items-center justify-center border border-outline-variant/50">
+<span class="font-label-sm text-label-sm text-outline uppercase">Total USD</span>
+<span class="font-headline-lg text-headline-lg-mobile text-on-surface">$ 15,40</span>
+</div>
+<div class="bg-surface-container-high rounded-xl p-3 flex flex-col items-center justify-center border border-outline-variant/50">
+<span class="font-label-sm text-label-sm text-outline uppercase">Total BS</span>
+<span class="font-headline-lg text-headline-lg-mobile text-on-surface">Bs. 10.931,84</span>
+</div>
+</div>
+<!-- Action Button -->
+<button class="flex items-center justify-center gap-2 w-full h-[56px] bg-primary-container text-on-primary-container font-headline-md text-headline-md rounded-xl shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-original-icon="shopping_cart_checkout">circle</span>
+<span class="">CONTINUAR AL PAGO (3)</span>
+</button>
+</div>
+</footer>
+<!-- Bottom Navigation (Filtered to show contextual intent) -->
+<nav class="hidden md:flex justify-around items-center h-20 bg-surface-container border-t border-outline-variant shadow-lg fixed bottom-0 w-full z-50">
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-6 py-2 transition-transform active:scale-95">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;" data-original-icon="shopping_cart">circle</span>
+<span class="font-label-sm text-label-sm">Ventas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform active:scale-95 cursor-pointer">
+<span class="material-symbols-outlined" data-original-icon="inventory_2">circle</span>
+<span class="font-label-sm text-label-sm">Inventario</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform active:scale-95 cursor-pointer">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-sm text-label-sm">Historial</span>
+</div>
+</nav>
+<script class="">
+        // Simple touch interaction for items
+        document.querySelectorAll('.active\\:scale-\\[0\\.98\\]').forEach(card => {
+            card.addEventListener('touchstart', () => {
+                card.style.borderColor = '#94b8ff';
+            });
+            card.addEventListener('touchend', () => {
+                card.style.borderColor = '#434750';
+            });
+        });
+    </script>
+</body></html>

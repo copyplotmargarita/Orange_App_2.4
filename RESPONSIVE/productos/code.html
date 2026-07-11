@@ -1,0 +1,359 @@
+<!DOCTYPE html><html class="dark" lang="es"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script id="tailwind-config">try{
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+              "surface-container-high": "#282a2e",
+              "outline": "#8d909b",
+              "secondary": "#4ae176",
+              "primary": "#c0d4ff",
+              "tertiary": "#ffcd64",
+              "on-background": "#e2e2e8",
+              "on-surface": "#e2e2e8",
+              "background": "#121318",
+              "outline-variant": "#434750",
+              "surface-container-highest": "#333539",
+              "surface-container-low": "#1a1b20",
+              "surface-container-lowest": "#0c0e12",
+              "primary-fixed": "#d7e2ff",
+              "primary-container": "#94b8ff",
+              "on-primary-fixed-variant": "#1b4585",
+              "tertiary-fixed": "#ffdea2",
+              "secondary-fixed-dim": "#4ae176",
+              "on-error-container": "#ffdad6",
+              "inverse-on-surface": "#2f3035",
+              "inverse-primary": "#385e9e",
+              "on-secondary-container": "#004119",
+              "on-tertiary-container": "#5f4400",
+              "on-error": "#690005",
+              "surface-container": "#1e2024",
+              "secondary-container": "#00b954",
+              "on-primary-container": "#1e4787",
+              "inverse-surface": "#e2e2e8",
+              "on-surface-variant": "#c3c6d2",
+              "surface-tint": "#acc7ff",
+              "surface-bright": "#38393e",
+              "error": "#ffb4ab",
+              "error-container": "#93000a",
+              "surface-dim": "#121318",
+              "on-secondary": "#003915",
+              "secondary-fixed": "#6bff8f",
+              "on-tertiary-fixed-variant": "#5c4200",
+              "on-primary-fixed": "#001a40",
+              "surface": "#121318",
+              "tertiary-container": "#e1b14a",
+              "on-tertiary": "#402d00",
+              "tertiary-fixed-dim": "#f1bf57",
+              "on-primary": "#002f67",
+              "on-secondary-fixed": "#002109",
+              "on-secondary-fixed-variant": "#005321",
+              "surface-variant": "#333539",
+              "primary-fixed-dim": "#acc7ff",
+              "on-tertiary-fixed": "#261900"
+            },
+            "borderRadius": {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+            "spacing": {
+              "card-padding": "16px",
+              "gutter": "12px",
+              "unit": "4px",
+              "margin-desktop": "24px",
+              "margin-mobile": "16px",
+              "input-height": "48px"
+            },
+            "fontFamily": {
+              "body-md": ["Hanken Grotesk"],
+              "label-md": ["Hanken Grotesk"],
+              "body-sm": ["Hanken Grotesk"],
+              "body-lg": ["Hanken Grotesk"],
+              "headline-md": ["Hanken Grotesk"],
+              "headline-lg": ["Hanken Grotesk"],
+              "label-sm": ["Hanken Grotesk"],
+              "headline-lg-mobile": ["Hanken Grotesk"],
+              "price-lg": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+              "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+              "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+              "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+              "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+              "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+              "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+              "label-sm": ["10px", {"lineHeight": "12px", "fontWeight": "700"}],
+              "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+              "price-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}]
+            }
+          }
+        }
+      }
+    }catch(_e){}</script><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script></head><body class="bg-background text-on-surface antialiased overflow-x-hidden pb-40">
+<!-- TopAppBar from JSON -->
+<header class="flex items-center justify-between px-4 h-16 w-full docked full-width top-0 bg-background z-40">
+<div class="flex items-center gap-3">
+<button class="p-2 transition-colors duration-200 hover:bg-surface-container-highest rounded-full">
+<span class="material-symbols-outlined text-primary" data-original-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Ventas</h1>
+</div>
+<div class="flex items-center gap-2">
+<div class="text-right mr-2 hidden sm:block">
+<p class="font-label-sm text-label-sm text-outline uppercase">Tasa BCV</p>
+<p class="font-label-md text-label-md text-secondary">Bs. 709,69</p>
+</div>
+<button class="p-2 transition-colors duration-200 hover:bg-surface-container-highest rounded-full">
+<span class="material-symbols-outlined text-primary" data-original-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<!-- Fixed Search Sub-header -->
+<div class="sticky top-16 bg-background/95 backdrop-blur-md px-4 py-3 z-30">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full h-12 pl-11 bg-surface-container border border-outline-variant rounded-xl text-body-md focus:border-primary focus:ring-0 transition-all outline-none" placeholder="Buscar por nombre o código..." type="text">
+</div>
+</div>
+<!-- Product Grid -->
+<main class="px-4 py-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+<!-- Product Card 1 -->
+<div class="bg-surface-container rounded-xl overflow-hidden border border-outline-variant hover:border-primary/50 transition-all cursor-pointer group active:scale-[0.98]" onclick="openModal('Aceite De Soya Vatel 1L', '$ 4,50')">
+<div class="aspect-square bg-white flex items-center justify-center p-4">
+<img class="h-full object-contain group-hover:scale-105 transition-transform duration-300" data-alt="A clean product shot of a 1-liter bottle of soybean oil with a yellow label, presented on a white background with professional commercial lighting. The aesthetic is corporate and modern, mirroring the high-density inventory management interface. High-contrast details and vibrant product colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD_IjvWCs4jU_zKCld9L34BF9lb-NnDoezdtvVOsYh0rcQSGelJkOVNzNCKovrTDmbV52Qz39iGxZBpUMPZP2zrcK31R2eSb0uMvG5OEvnkkZ7f7dqy7BebQBpsBS4quaVPxQAPDpnjix9qM-uSywKfmAJ6lPYAV4G8iaF3kF-OBIzz3sweKd7q4jQsjAa_vQ55DbV3E_9g8k4XP92xdJ3qLsGFM1mU2eWjK_dHj94EGrmAp0PWxc">
+</div>
+<div class="p-3">
+<p class="font-label-md text-label-md text-on-surface truncate">Aceite De Soya Vatel 1L</p>
+<p class="font-label-sm text-label-sm text-secondary mt-1">4 Litro</p>
+<div class="mt-2">
+<p class="font-price-lg text-price-lg text-primary">$ 4,55</p>
+<p class="font-price-lg text-price-lg text-primary">Bs. 3.229,09</p>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-surface-container rounded-xl overflow-hidden border border-outline-variant hover:border-primary/50 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="aspect-square bg-white flex items-center justify-center p-4">
+<img class="h-full object-contain group-hover:scale-105 transition-transform duration-300" data-alt="A single 1.5-liter clear plastic water bottle with a blue cap and a minimalist label, isolated on a bright white background. Studio quality lighting highlights the transparency and droplets on the bottle. The image fits a professional retail software style with crisp lines and balanced exposure." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_5mdb7gOCsNQYrHCAyA6ekhYWh4mWlgXeHr4c4EjKaIP_nrrGoERlJoaqujDQ1OhMHlQoVpFiIoZq82QKc8u0t5UkfdfiLYHgDKTzU8QGVT4lywKcISuv3vsnt9BeLIWUdlhLZoBTnOGAn9GIc6ijY7lP-ft-17MRNcyoJ6p4XesiVPOnaaTDo37ZctamePaQ-0X-XMIRsouxm34bRmUASJUIXEE90kba3TW__WUD_IhrTMnQudE">
+</div>
+<div class="p-3">
+<p class="font-label-md text-label-md text-on-surface truncate">Agua Nevada 1.5L Pet</p>
+<p class="font-label-sm text-label-sm text-secondary mt-1">6 Unidad</p>
+<div class="mt-2">
+<p class="font-price-lg text-price-lg text-primary">$ 1,40</p>
+<p class="font-price-lg text-price-lg text-primary">Bs. 993,57</p>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-surface-container rounded-xl overflow-hidden border border-outline-variant hover:border-primary/50 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="aspect-square bg-white flex items-center justify-center p-4">
+<img class="h-full object-contain group-hover:scale-105 transition-transform duration-300" data-alt="A tin can of canned tuna with a colorful blue and yellow label featuring a fish illustration, positioned at a slight angle on a pure white background. Sharp professional photography with realistic textures and shadows that complement a dark mode corporate UI layout." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAooZ3O6P04wrQrRX2iAQArTdi59qOAjAID4U9IharW0N78X94oZKOhQWc5ZpA8FVIpN-Uwx4-4Daik15cpI3NxUU4QRRZy1qmp9_JNQaAiufdiHG4ylMpj-iyci056oE19sZKL9Wgz0wzSzZiYiQnCyIfTCUGfiqFBvPACSHAC6KkwvD0a5IY6v7n7xY81T4BTBi4H1SQ41UUU6bC6toIm6q5sSau4F2KXhPn7Th6eM1vlYsr7Z3A">
+</div>
+<div class="p-3">
+<p class="font-label-md text-label-md text-on-surface truncate">Atun Margarita Lomo Aceite</p>
+<p class="font-label-sm text-label-sm text-error mt-1">-1 Unidad</p>
+<div class="mt-2">
+<p class="font-price-lg text-price-lg text-primary">$ 3,30</p>
+<p class="font-price-lg text-price-lg text-primary">Bs. 2.341,98</p>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-surface-container rounded-xl overflow-hidden border border-outline-variant hover:border-primary/50 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="aspect-square bg-white flex items-center justify-center p-4">
+<img class="h-full object-contain group-hover:scale-105 transition-transform duration-300" data-alt="A blue package of traditional vanilla cookies with golden branding, displayed on a clean white background. The shot is high resolution, focusing on packaging details and commercial appeal for an inventory tracking system. The aesthetic is clean, functional, and precise." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLtmhidbivMPQxDkF3tPkLc1w6UeYQST1yyetRuH_XbfVT0DiC8HGxmS2zNUpbM1XLyhTjgJfXtl4TTyFz1b-Q-3CTFIsK4yo2QTSxRN9zWRab7zUzwFxDnzsbvlHUtg72tXcfehOvIPSrO8EbUPV3wkPoxwmdhrdFcj8pEiHk4JJI6d1FHqFNeWQoA2RyV0WskJQQITqEKd10J_29FDnUioQ1BpZpp6KkZ1L-Ak8FsZENx2EC1Pk">
+</div>
+<div class="p-3">
+<p class="font-label-md text-label-md text-on-surface truncate">Galleta Maria Caledonia</p>
+<p class="font-label-sm text-label-sm text-secondary mt-1">38 Unidad</p>
+<div class="mt-2">
+<p class="font-price-lg text-price-lg text-primary">$ 0,13</p>
+<p class="font-price-lg text-price-lg text-primary">Bs. 91,55</p>
+</div>
+</div>
+</div>
+<!-- Product Card 5 -->
+<div class="bg-surface-container rounded-xl overflow-hidden border border-outline-variant hover:border-primary/50 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="aspect-square bg-white flex items-center justify-center p-4">
+<img class="h-full object-contain group-hover:scale-105 transition-transform duration-300" data-alt="A fresh tray of chicken breast fillets on a light gray background, professionally arranged for a grocery application. Soft, even lighting emphasizes the freshness of the meat. The style is modern and high-quality, fitting into a corporate sales dashboard with tonal layering." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClj2pME7QsNf-O2l6puhWdxXWJulF_vkwoYcCjOhzy9JCB3e8pNEfyIYGXWH-UrmkG_0FXsHyCvpKGujnsSL87AVpOoXkJ60mB0bQwCg9MW8sCewRu9jY2QRjJlLcUyCa9gLp-Gw-mRW38gQyocVxQKBmm84bpQ0fDScPTGbMiVEohZHERPYoaLyXdjCsgyNMmJo-UVfmm1qMVIO5vI8O2iTmHmRs4dsC27tH3e2M5Ju5b19IZJkU">
+</div>
+<div class="p-3">
+<p class="font-label-md text-label-md text-on-surface truncate">Filet Pechuga De Pollo</p>
+<p class="font-label-sm text-label-sm text-secondary mt-1">28.2 Kilo</p>
+<div class="mt-2">
+<p class="font-price-lg text-price-lg text-primary">$ 7,85</p>
+<p class="font-price-lg text-price-lg text-primary">Bs. 5.571,06</p>
+</div>
+</div>
+</div>
+<!-- Product Card 6 -->
+<div class="bg-surface-container rounded-xl overflow-hidden border border-outline-variant hover:border-primary/50 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="aspect-square bg-white flex items-center justify-center p-4">
+<img class="h-full object-contain group-hover:scale-105 transition-transform duration-300" data-alt="A carton of thirty brown eggs arranged neatly in an egg flat, set against a stark white studio background. The lighting is crisp and detailed, showcasing the texture of the shells. Designed for a sleek dark mode inventory management app, focusing on commercial clarity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8CbA6YgtCIIOHbT2toXgWWbrnfTKb92T1jZ4nvGnL-5JHaSKz71MeXg0fkMapDHkDGCVfvsZkS5kXGhPh8TIJ6aShpLKueRURYJjSBIsFGH5TrOLajME52q6PqDxUtTQz1_MM1Mw4_gFypFXptvZbKvopyEZHe7fBEJFgQNrNGvyy9oEtKFbURoYmcfRJoGIw2CoP3Pg3II7BfRwgv2MC-0EslXZXX2Kzsx_MNOs_rv6fpnP0Hfw">
+</div>
+<div class="p-3">
+<p class="font-label-md text-label-md text-on-surface truncate">Huevos Cartón 30 Unid.</p>
+<p class="font-label-sm text-label-sm text-secondary mt-1">12 Pack</p>
+<div class="mt-2">
+<p class="font-price-lg text-price-lg text-primary">$ 5,50</p>
+<p class="font-price-lg text-price-lg text-primary">Bs. 3.903,30</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Modal: Configurar Producto -->
+<div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 hidden" id="config-modal">
+<div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-backdrop" onclick="closeModal()"></div>
+<div class="relative w-full max-w-lg bg-surface-container border-t sm:border border-outline-variant rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl transition-transform duration-300 translate-y-full" id="modal-content">
+<div class="w-12 h-1.5 bg-outline-variant rounded-full mx-auto mb-6 sm:hidden"></div>
+<header class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-surface-container-highest rounded-full transition-colors" onclick="closeModal()">
+<span class="material-symbols-outlined text-outline" data-original-icon="arrow_back">arrow_back</span>
+</button>
+<h2 class="font-headline-md text-headline-md text-on-surface">Configurar Producto</h2>
+</div>
+<button class="p-2 hover:bg-surface-container-highest rounded-full text-primary">
+<span class="material-symbols-outlined" data-original-icon="notifications">notifications</span>
+</button>
+</header>
+<p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-6" id="modal-product-name">Aceite De Soya Vatel 1L</p>
+<div class="space-y-6">
+<!-- Unit Selection -->
+<div>
+<label class="block font-label-sm text-label-sm text-outline mb-3 uppercase">Unidad de Medida</label>
+<div class="grid grid-cols-3 gap-3">
+<button class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-primary bg-primary/10 text-primary transition-all">
+<span class="material-symbols-outlined" data-original-icon="inventory_2">inventory_2</span>
+<span class="font-label-md text-label-md">Unidad</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-outline-variant bg-surface-container-high text-outline hover:border-outline transition-all">
+<span class="material-symbols-outlined" data-original-icon="package_2">package_2</span>
+<span class="font-label-md text-label-md">Paquete</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-outline-variant bg-surface-container-high text-outline hover:border-outline transition-all">
+<span class="material-symbols-outlined">box</span>
+<span class="font-label-md text-label-md">Caja</span>
+</button>
+</div>
+</div>
+<!-- Quantity -->
+<div>
+<label class="block font-label-sm text-label-sm text-outline mb-3 uppercase">Cantidad</label>
+<div class="flex items-center bg-surface-container-highest rounded-xl p-2 h-16">
+<button class="w-12 h-12 flex items-center justify-center rounded-lg text-outline hover:text-on-surface transition-colors" onclick="changeQty(-1)">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<input class="flex-1 bg-transparent border-none text-center font-headline-lg text-headline-lg focus:ring-0" id="quantity-input" type="number" value="1">
+<button class="w-12 h-12 flex items-center justify-center rounded-lg text-outline hover:text-on-surface transition-colors" onclick="changeQty(1)">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<!-- Pricing Summary Card in Modal -->
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant text-center">
+<p class="font-label-sm text-label-sm text-outline uppercase mb-1">Precio por unidad</p>
+<p class="font-price-lg text-price-lg text-on-surface" id="modal-unit-price">$ 4,50</p>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant text-center">
+<p class="font-label-sm text-label-sm text-outline uppercase mb-1">Total Estimado</p>
+<p class="font-price-lg text-price-lg text-on-surface" id="modal-total-price">$ 4,50</p>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex gap-3 pt-4">
+<button class="flex-1 h-14 font-label-md text-label-md rounded-xl border border-outline-variant hover:bg-surface-container-highest transition-colors uppercase" onclick="closeModal()">
+                        Cancelar
+                    </button>
+<button class="flex-1 h-14 font-label-md text-label-md rounded-xl bg-primary-container text-on-primary-container font-bold hover:bg-primary transition-all active:scale-95 uppercase">
+                        Agregar Producto
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Summary Footer (Cart Indicator) -->
+<footer class="fixed bottom-20 left-0 w-full px-4 py-4 z-40">
+<div class="max-w-screen-md mx-auto bg-surface-container rounded-2xl border border-outline-variant shadow-lg p-3 space-y-3">
+<div class="flex justify-between gap-3">
+<div class="flex-1 bg-surface-container-high p-2 rounded-xl text-center border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-outline uppercase">Total USD</p>
+<p class="font-price-lg text-price-lg text-on-surface">$ 15,40</p>
+</div>
+<div class="flex-1 bg-surface-container-high p-2 rounded-xl text-center border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-outline uppercase">Total BS</p>
+<p class="font-price-lg text-price-lg text-on-surface">Bs. 10.931,84</p>
+</div>
+</div>
+<button class="w-full h-14 bg-primary-container text-on-primary-container font-bold rounded-xl flex items-center justify-center gap-3 transition-transform active:scale-95">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-label-md text-label-md uppercase tracking-wider">Ir a Carrito (3 Items)</span>
+</button>
+</div>
+</footer>
+<!-- BottomNavBar from JSON -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 pb-safe px-2 bg-surface-container shadow-lg border-t border-outline-variant">
+<!-- Active: Ventas -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-label-sm text-label-sm">Ventas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-label-sm text-label-sm">Inventario</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-sm text-label-sm">Historial</span>
+</a>
+</nav>
+<script>
+        const modal = document.getElementById('config-modal');
+        const modalContent = document.getElementById('modal-content');
+        const qtyInput = document.getElementById('quantity-input');
+        const productName = document.getElementById('modal-product-name');
+        const unitPriceLabel = document.getElementById('modal-unit-price');
+        const totalEstimateLabel = document.getElementById('modal-total-price');
+
+        let currentPrice = 0;
+
+        function openModal(name, priceStr) {
+            productName.innerText = name;
+            unitPriceLabel.innerText = priceStr;
+            totalEstimateLabel.innerText = priceStr;
+            currentPrice = parseFloat(priceStr.replace('$', '').replace(',', '.'));
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('translate-y-full');
+            }, 10);
+        }
+
+        function closeModal() {
+            modalContent.classList.add('translate-y-full');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function changeQty(delta) {
+            let val = parseInt(qtyInput.value) || 1;
+            val = Math.max(1, val + delta);
+            qtyInput.value = val;
+            updateTotal();
+        }
+
+        function updateTotal() {
+            let val = parseInt(qtyInput.value) || 1;
+            let total = (val * currentPrice).toFixed(2);
+            totalEstimateLabel.innerText = `$ ${total.replace('.', ',')}`;
+        }
+
+        qtyInput.addEventListener('input', updateTotal);
+    </script>
+
+</body></html>
