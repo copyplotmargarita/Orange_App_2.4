@@ -544,7 +544,8 @@ export function renderSales(container, preSelectedClient = null) {
         const isMobileStep1 = currentMobileStep === 1 ? 'block' : 'hidden lg:block';
         const isMobileStep2 = currentMobileStep === 2 ? 'flex' : 'hidden lg:flex';
         const isMobileStep3 = currentMobileStep === 3 ? 'flex' : 'hidden lg:flex';
-        const isMobileStep4 = currentMobileStep === 4 ? 'block' : 'hidden lg:block';
+        const isMobileStep4 = currentMobileStep === 4 ? 'block' : 'hidden lg:hidden';
+        const isClientBlockVisible = currentMobileStep === 4 ? 'block' : 'hidden lg:block';
 
         const mainIsVisible = currentMobileStep === 2 ? 'flex' : 'hidden lg:flex';
         const asideIsVisible = currentMobileStep !== 2 ? 'flex' : 'hidden lg:flex';
@@ -650,6 +651,31 @@ export function renderSales(container, preSelectedClient = null) {
                         </div>` : ''}
                     </div>
 
+                    <!-- BLOQUE CLIENTE (Visible en Desktop Paso 1 y Móvil Paso 4) -->
+                    <div class="p-md border-b border-outline-variant ${isClientBlockVisible}">
+                        <div class="mb-md relative">
+                            <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">CLIENTE</label>
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 flex items-center gap-sm p-sm bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-[#8ab4f8] transition-colors group">
+                                    <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
+                                    <div class="flex-1 relative">
+                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
+                                        ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
+                                        <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface-container-highest border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-xl shadow-xl mt-1 hidden"></div>
+                                    </div>
+                                    ${selectedClient ? `
+                                    <button id="removeClientBtn" class="material-symbols-outlined text-error cursor-pointer hover:bg-error/10 rounded-full p-1 transition-colors" title="Remover cliente">close</button>
+                                    ` : ''}
+                                </div>
+                                ${!selectedClient ? `
+                                <button id="createNewClientBtn" class="bg-surface-container-high border border-outline-variant text-white rounded-xl h-12 w-12 flex items-center justify-center shrink-0 hover:bg-white/5 transition-colors">
+                                    <span class="material-symbols-outlined text-[24px]">person_add</span>
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- PASO 3: Carrito -->
                     <div class="flex-1 flex flex-col overflow-hidden ${isMobileStep3}">
                         <!-- Mobile Header -->
@@ -724,30 +750,10 @@ export function renderSales(container, preSelectedClient = null) {
                         </div>
                     </div>
 
-                    <!-- PASO 4: Finalizar (Cliente, Pago, Referencias) -->
+                    <!-- PASO 4: Finalizar (Pago, Referencias) -->
                     <div class="p-md border-t border-outline-variant bg-surface-container-low pb-6 ${isMobileStep4}">
-                        <div class="mb-md relative">
-                            <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">CLIENTE</label>
-                            <div class="flex items-center gap-2">
-                                <div class="flex-1 flex items-center gap-sm p-sm bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-[#8ab4f8] transition-colors group">
-                                    <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
-                                    <div class="flex-1 relative">
-                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
-                                        ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
-                                        <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface-container-highest border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-xl shadow-xl mt-1 hidden"></div>
-                                    </div>
-                                    ${selectedClient ? `
-                                    <button id="removeClientBtn" class="material-symbols-outlined text-error cursor-pointer hover:bg-error/10 rounded-full p-1 transition-colors" title="Remover cliente">close</button>
-                                    ` : ''}
-                                </div>
-                                ${!selectedClient ? `
-                                <button id="createNewClientBtn" class="bg-surface-container-high border border-outline-variant text-white rounded-xl h-12 w-12 flex items-center justify-center shrink-0 hover:bg-white/5 transition-colors">
-                                    <span class="material-symbols-outlined text-[24px]">person_add</span>
-                                </button>
-                                ` : ''}
-                            </div>
-                        </div>
 
+                        <div class="hide-on-desktop lg:hidden">
                         ${(() => {
                             let methods = [];
                             if (activePayCurrency === 'USD') {
@@ -859,6 +865,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 ` : ''}
                             `;
                         })()}
+                        </div>
                     </div>
                 </aside>
             </div>

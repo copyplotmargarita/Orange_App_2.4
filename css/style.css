@@ -474,3 +474,5 @@ input[type=number] {
     background-color: var(--border) !important;
     color: var(--text-main) !important;
 }
+@ m e d i a   ( m i n - w i d t h :   1 0 2 4 p x )   {   . h i d e - o n - d e s k t o p   {   d i s p l a y :   n o n e   ! i m p o r t a n t ;   }   }  
+ 
