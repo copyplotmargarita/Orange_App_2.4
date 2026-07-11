@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nueva Venta - Ventas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#282a2e",
+                        "outline": "#8d909b",
+                        "secondary": "#4ae176",
+                        "primary": "#c0d4ff",
+                        "tertiary": "#ffcd64",
+                        "on-background": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "background": "#121318",
+                        "outline-variant": "#434750",
+                        "surface-container-highest": "#333539",
+                        "surface-container-low": "#1a1b20",
+                        "surface-container-lowest": "#0c0e12",
+                        "primary-fixed": "#d7e2ff",
+                        "primary-container": "#94b8ff",
+                        "on-primary-fixed-variant": "#1b4585",
+                        "tertiary-fixed": "#ffdea2",
+                        "secondary-fixed-dim": "#4ae176",
+                        "on-error-container": "#ffdad6",
+                        "inverse-on-surface": "#2f3035",
+                        "inverse-primary": "#385e9e",
+                        "on-secondary-container": "#004119",
+                        "on-tertiary-container": "#5f4400",
+                        "on-error": "#690005",
+                        "surface-container": "#1e2024",
+                        "secondary-container": "#00b954",
+                        "on-primary-container": "#1e4787",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface-variant": "#c3c6d2",
+                        "surface-tint": "#acc7ff",
+                        "surface-bright": "#38393e",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "surface-dim": "#121318",
+                        "on-secondary": "#003915",
+                        "secondary-fixed": "#6bff8f",
+                        "on-tertiary-fixed-variant": "#5c4200",
+                        "on-primary-fixed": "#001a40",
+                        "surface": "#121318",
+                        "tertiary-container": "#e1b14a",
+                        "on-tertiary": "#402d00",
+                        "tertiary-fixed-dim": "#f1bf57",
+                        "on-primary": "#002f67",
+                        "on-secondary-fixed": "#002109",
+                        "on-secondary-fixed-variant": "#005321",
+                        "surface-variant": "#333539",
+                        "primary-fixed-dim": "#acc7ff",
+                        "on-tertiary-fixed": "#261900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "card-padding": "16px",
+                        "gutter": "12px",
+                        "unit": "4px",
+                        "margin-desktop": "24px",
+                        "margin-mobile": "16px",
+                        "input-height": "48px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Hanken Grotesk"],
+                        "label-md": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-sm": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "price-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "label-sm": ["10px", {"lineHeight": "12px", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "price-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #121318;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%238d909b' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.5em;
+        }
+    </style>
+</head>
+<body class="text-on-background min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="flex items-center justify-between px-4 h-16 w-full docked full-width top-0 bg-background dark:bg-background z-50">
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-surface-container-highest transition-colors duration-200 text-primary dark:text-primary-container">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Nueva Venta</h1>
+</div>
+<button class="p-2 rounded-full hover:bg-surface-container-highest transition-colors duration-200 text-primary dark:text-primary-container">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="flex-grow px-margin-mobile pt-4 pb-32 overflow-y-auto">
+<!-- Top Info Cards -->
+<div class="grid grid-cols-2 gap-gutter mb-6">
+<div class="bg-surface-container border border-outline-variant rounded-xl p-card-padding">
+<p class="text-label-sm font-label-sm text-outline uppercase mb-1">Tasa BCV</p>
+<p class="text-secondary font-headline-md text-headline-md">Bs. 709,69</p>
+</div>
+<div class="bg-surface-container border border-outline-variant rounded-xl p-card-padding">
+<p class="text-label-sm font-label-sm text-outline uppercase mb-1">Fecha</p>
+<p class="text-on-surface font-headline-md text-headline-md">10/07/2026</p>
+</div>
+</div>
+<!-- Details Container -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-card-padding flex flex-col gap-6">
+<h2 class="text-on-surface-variant font-headline-md text-headline-md border-b border-outline-variant pb-2">Detalles de Operación</h2>
+<!-- Dropdown: Operacion -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-outline uppercase" for="operacion">Operación</label>
+<select class="w-full h-[48px] bg-surface-container-highest border-outline-variant rounded-lg px-4 text-body-md font-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="operacion">
+<option selected="" value="venta">Venta</option>
+<option value="presupuesto">Presupuesto</option>
+<option value="pedido">Pedido</option>
+</select>
+</div>
+<!-- Dropdown: Tipo de Precio -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-outline uppercase" for="tipo_precio">Tipo de Precio</label>
+<select class="w-full h-[48px] bg-surface-container-highest border-outline-variant rounded-lg px-4 text-body-md font-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="tipo_precio">
+<option selected="" value="detal">Detal</option>
+<option value="mayor">Mayor</option>
+<option value="especial">Especial</option>
+</select>
+</div>
+<!-- Dropdown: Estado de Operacion -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-outline uppercase" for="estado_operacion">Estado de Operación</label>
+<select class="w-full h-[48px] bg-surface-container-highest border-outline-variant rounded-lg px-4 text-body-md font-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="estado_operacion">
+<option selected="" value="contado">Contado</option>
+<option value="abono">Abono</option>
+<option value="credito">Crédito</option>
+</select>
+</div>
+<!-- Dropdown: Tipo de Venta -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-outline uppercase" for="tipo_venta">Tipo de Venta</label>
+<select class="w-full h-[48px] bg-surface-container-highest border-outline-variant rounded-lg px-4 text-body-md font-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="tipo_venta">
+<option selected="" value="detal">Detal</option>
+<option value="mayor">Mayor</option>
+</select>
+</div>
+</div>
+</main>
+<!-- Bottom Sticky Bar with Button -->
+<div class="fixed bottom-20 left-0 w-full p-4 bg-background/80 backdrop-blur-md z-40">
+<button class="w-full py-4 bg-primary-container text-on-primary-container font-headline-md text-headline-md rounded-xl shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+            Siguiente
+            <span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<!-- BottomNavBar -->
+<nav class="flex justify-around items-center h-20 pb-safe px-2 fixed bottom-0 w-full z-50 bg-surface-container dark:bg-surface-container border-t border-outline-variant shadow-lg">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+<span class="font-label-sm text-label-sm">Ventas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-label-sm text-label-sm">Inventario</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-sm text-label-sm">Historial</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interaction for dropdowns
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('focus', () => {
+                select.parentElement.querySelector('label').classList.replace('text-outline', 'text-primary');
+            });
+            select.addEventListener('blur', () => {
+                select.parentElement.querySelector('label').classList.replace('text-primary', 'text-outline');
+            });
+        });
+
+        // Button click effect
+        const mainBtn = document.querySelector('button.bg-primary-container');
+        mainBtn.addEventListener('click', () => {
+            mainBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-on-primary-container" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Procesando...
+            `;
+            setTimeout(() => {
+                mainBtn.innerHTML = 'Siguiente <span class="material-symbols-outlined">chevron_right</span>';
+            }, 1000);
+        });
+    </script>
+</body></html>

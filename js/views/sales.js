@@ -14,11 +14,15 @@ export function renderSales(container, preSelectedClient = null) {
     if (hash === '#sales/history') {
         currentView = 'history';
     }
-    let activeMobileTab = 'products'; // 'products' or 'cart'
+    let currentMobileStep = 1;
+    let activeMobileTab = 'products';
     let includeOldDebt = false;
     let currentPausedSaleId = null;
+    let activePayCurrency = 'BS';
+    let activePayMethod = '';
+    let payAmountVal = '';
+    let payRefVal = '';
 
-    
     // Attempt to restore state if returning from client creation or history
     const savedState = sessionStorage.getItem('sales_temp_state');
     if (savedState) {
@@ -64,7 +68,6 @@ export function renderSales(container, preSelectedClient = null) {
     let selectedClient = preSelectedClient;
     let clientDebt = 0;
     let searchProductTerm = '';
-    let activePayCurrency = 'BS';
     let tmr = new Date();
     tmr.setDate(tmr.getDate() + 1);
     let deliveryDate = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`;
@@ -85,7 +88,6 @@ export function renderSales(container, preSelectedClient = null) {
     const storeId = role === 'admin' ? null : localStorage.getItem('storeId');
     const storeName = role === 'admin' ? 'Almacén General' : (localStorage.getItem('storeName') || 'Sucursal');
 
-    // Helper: format numbers
     const fmt = (n) => {
         const val = parseFloat(n || 0);
         return isNaN(val) ? '0,00' : val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -538,14 +540,23 @@ export function renderSales(container, preSelectedClient = null) {
         const isFullyPaid = !isVueltoPending && !isRestaPending;
         const saleStatus = container.querySelector('#saleStatus')?.value || (payments.length === 0 ? 'contado' : 'abono');
 
+        // Responsive classes logic
+        const isMobileStep1 = currentMobileStep === 1 ? 'block' : 'hidden lg:block';
+        const isMobileStep2 = currentMobileStep === 2 ? 'flex' : 'hidden lg:flex';
+        const isMobileStep3 = currentMobileStep === 3 ? 'flex' : 'hidden lg:flex';
+        const isMobileStep4 = currentMobileStep === 4 ? 'block' : 'hidden lg:block';
+
+        const mainIsVisible = currentMobileStep === 2 ? 'flex' : 'hidden lg:flex';
+        const asideIsVisible = currentMobileStep !== 2 ? 'flex' : 'hidden lg:flex';
+
         container.innerHTML = `
         <div class="app-container h-full flex flex-col text-on-surface bg-background" style="font-family: 'Inter', sans-serif;">
             <div class="flex flex-1 overflow-hidden">
                 <!-- Main Content Area -->
-                <main class="flex-1 overflow-hidden bg-surface-dim flex flex-col">
+                <main class="flex-1 overflow-hidden bg-surface-dim ${mainIsVisible} flex-col">
                     <section class="flex-1 flex flex-col overflow-hidden">
                         <div class="flex px-container-margin pt-sm pb-sm mb-sm justify-between items-center shrink-0" style="min-height: 60px;">
-                            <div class="flex items-center flex-stack-mobile" style="gap: 1.5rem; flex: 1;">
+                            <div class="hidden lg:flex items-center flex-stack-mobile" style="gap: 1.5rem; flex: 1;">
                                 <button id="backToDashboardBtn2" class="btn btn-outline flex-shrink-0" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0 1rem; white-space: nowrap;">← Volver</button>
                                 <h2 class="flex-shrink-0" style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0; white-space: nowrap; display: flex; align-items: center; gap: 0.5rem;">🛒 Ventas</h2>
                                 <button id="viewHistoryBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
@@ -561,7 +572,7 @@ export function renderSales(container, preSelectedClient = null) {
                                     Pedidos
                                 </button>
                             </div>
-                            <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant md:w-96">
+                            <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant w-full md:w-96">
                                 <span class="material-symbols-outlined text-outline">search</span>
                                 <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
                             </div>
@@ -575,9 +586,11 @@ export function renderSales(container, preSelectedClient = null) {
                 </main>
 
                 <!-- Right Sidebar (Cart) -->
-                <aside class="w-80 lg:w-[400px] xl:w-[450px] bg-surface-container-low border-l border-outline-variant flex flex-col h-full shadow-2xl z-40">
-                    <div class="p-md border-b border-outline-variant">
-                        <div class="flex justify-between items-center mb-md">
+                <aside class="w-full lg:w-[400px] xl:w-[450px] bg-surface-container-low border-l border-outline-variant ${asideIsVisible} flex-col h-full overflow-y-auto custom-scrollbar shadow-2xl z-40">
+                    
+                    <!-- PASO 1: Configuración de Venta -->
+                    <div class="p-md border-b border-outline-variant ${isMobileStep1}">
+                        <div class="hidden lg:flex justify-between items-center mb-md">
                             <h3 class="font-headline-md text-headline-md text-on-surface m-0">Detalles de Venta</h3>
                             <div class="flex gap-2">
                                 <button id="pauseSaleBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; gap: 0.4rem;">
@@ -635,76 +648,225 @@ export function renderSales(container, preSelectedClient = null) {
                             <label class="text-label-bold font-label-bold text-outline uppercase">Fecha de Entrega</label>
                             <input type="text" id="deliveryDateInput" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="${deliveryDate}">
                         </div>` : ''}
-
-                        <div class="mb-md relative">
-                            <label class="text-label-bold font-label-bold text-outline uppercase">Cliente</label>
-                            <div class="flex items-center gap-sm mt-xs p-sm bg-surface-container-high rounded-lg border border-outline-variant focus-within:border-primary transition-colors group">
-                                <span class="material-symbols-outlined text-outline group-focus-within:text-primary">person</span>
-                                <div class="flex-1 relative">
-                                    <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-on-surface w-full p-0 outline-none" placeholder="Buscar cliente..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
-                                    ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
-                                    <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-lg shadow-xl mt-1 hidden"></div>
-                                </div>
-                                ${selectedClient ? `
-                                <button id="removeClientBtn" class="material-symbols-outlined text-error cursor-pointer hover:bg-error/10 rounded-full p-1 transition-colors" title="Remover cliente">close</button>
-                                ` : `
-                                <button id="createNewClientBtn" class="material-symbols-outlined text-primary cursor-pointer hover:bg-primary/10 rounded-full p-1 transition-colors" title="Crear cliente">person_add</button>
-                                `}
-                            </div>
-                        </div>
                     </div>
 
-                    <div class="flex-1 overflow-y-auto p-md">
-                        <div class="flex justify-between items-center mb-sm">
-                            <label class="text-label-bold font-label-bold text-outline uppercase">Carrito</label>
-                            ${cart.length > 0 ? '<button id="cancelCartBtn" class="text-error text-label-sm font-bold uppercase hover:underline">Vaciar</button>' : ''}
+                    <!-- PASO 3: Carrito -->
+                    <div class="flex-1 flex flex-col overflow-hidden ${isMobileStep3}">
+                        <!-- Mobile Header -->
+                        <div class="lg:hidden flex items-center justify-between p-sm border-b border-outline-variant bg-[#13151b] shrink-0">
+                            <div class="flex items-center gap-2">
+                                <button id="btnBackFromStep3" class="btn btn-icon material-symbols-outlined text-white hover:bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">arrow_back</button>
+                                <h2 class="text-title-md font-bold text-white m-0">Resumen de Carrito</h2>
+                            </div>
+                            ${cart.length > 0 ? `<button id="cancelCartBtnMobile" class="btn btn-icon material-symbols-outlined text-primary hover:bg-primary/10 rounded-full w-10 h-10 flex items-center justify-center">delete_sweep</button>` : ''}
                         </div>
-                        <div class="flex flex-col gap-sm">
-                            ${cart.length === 0 ? '<p class="text-outline text-center py-4 text-body-md">El carrito está vacío</p>' : ''}
-                            ${cart.map((item, index) => {
-                                const prod = products.find(p => p.id === item.id);
-                                return `
-                                <div class="flex justify-between items-center p-sm rounded-lg bg-surface-container-lowest hover:bg-surface-container transition-colors border border-outline-variant group cursor-pointer edit-qty" data-index="${index}">
-                                    <div class="flex-1 min-w-0 pr-2">
-                                        <p class="text-body-md font-semibold text-on-surface truncate group-hover:text-primary">${item.name}</p>
-                                        <p class="text-label-sm text-outline">
-                                            ${Number(Number(item.qty).toFixed(3))} ${item.sellUnit || 'ud'}
-                                            ${(item.unitContent && item.unitContent > 1) ? ` x ${item.unitContent} ${item.baseUnit || 'ud'} ` : ''}
-                                            x $ ${fmt(item.price)}
-                                        </p>
+
+                        <div class="p-md flex-1 overflow-y-auto">
+                            <!-- Desktop Header -->
+                            <div class="hidden lg:flex justify-between items-center mb-sm">
+                                <label class="text-label-bold font-label-bold text-outline uppercase">Carrito</label>
+                                ${cart.length > 0 ? '<button id="cancelCartBtn" class="text-error text-label-sm font-bold uppercase hover:underline">Vaciar</button>' : ''}
+                            </div>
+                            
+                            <!-- Mobile Label -->
+                            <div class="lg:hidden mb-sm mt-xs">
+                                <label class="text-label-bold font-label-bold text-outline uppercase">PRODUCTOS (${cart.length})</label>
+                            </div>
+
+                            <div class="flex flex-col gap-sm">
+                                ${cart.length === 0 ? '<p class="text-outline text-center py-4 text-body-md">El carrito está vacío</p>' : ''}
+                                ${cart.map((item, index) => {
+                                    const prod = products.find(p => p.id === item.id);
+                                    const bsPrice = (item.total * bcvRate);
+                                    return `
+                                    <div class="flex flex-col p-sm rounded-xl bg-[#1e293b] border border-outline-variant group">
+                                        <div class="flex justify-between items-start">
+                                            <div class="flex flex-col items-start pr-2">
+                                                <p class="text-body-lg font-semibold text-white leading-tight mb-2">${item.name}</p>
+                                                <div class="bg-green-900/30 text-green-400 px-2 py-1 rounded-full text-[12px] font-bold border border-green-800/50 inline-block">
+                                                    ${Number(Number(item.qty).toFixed(3))} ${item.sellUnit || 'ud'} x $ ${fmt(item.price)}
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-col items-end whitespace-nowrap">
+                                                <p class="text-title-md font-bold text-white">$ ${fmt(item.total)}</p>
+                                                <p class="text-title-md font-bold text-outline mt-1">Bs. ${fmt(bsPrice)}</p>
+                                                <div class="flex justify-end gap-2 mt-2">
+                                                    <button class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline hover:text-white transition-colors edit-qty" data-index="${index}">
+                                                        <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+                                                    </button>
+                                                    <button class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-outline hover:text-error transition-colors btn-remove" data-index="${index}">
+                                                        <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                         ${(item.extras && item.extras.length > 0) ? `
-                                            <p class="text-label-sm text-primary mt-1 font-bold">
+                                            <p class="text-label-sm text-primary mt-2 font-bold border-t border-outline-variant/30 pt-2">
                                                 + Extras: ${item.extras.map(e => `${e.name} ($${fmt(e.price)})`).join(', ')}
                                             </p>
                                         ` : ''}
                                     </div>
+                                    `;
+                                }).join('')}
+                                ${includeOldDebt ? `
+                                <div class="flex justify-between items-center p-sm rounded-lg bg-error/10 border border-error/30">
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <p class="text-body-md font-bold text-error truncate">DEUDA PENDIENTE</p>
+                                        <p class="text-label-sm text-error/80">Referencial (No facturable)</p>
+                                    </div>
                                     <div class="flex items-center gap-sm">
-                                        <p class="font-label-sm text-primary font-bold">$ ${fmt(item.total)}</p>
-                                        <button class="material-symbols-outlined text-outline hover:text-error transition-colors btn-remove" data-index="${index}" style="font-size: 18px;">delete</button>
+                                        <p class="font-label-sm text-error font-bold">$ ${fmt(clientDebt)}</p>
+                                        <button class="material-symbols-outlined text-error/80 hover:text-error transition-colors btn-remove-debt" style="font-size: 18px;">delete</button>
                                     </div>
                                 </div>
-                                `;
-                            }).join('')}
-                            ${includeOldDebt ? `
-                            <div class="flex justify-between items-center p-sm rounded-lg bg-error/10 border border-error/30">
-                                <div class="flex-1 min-w-0 pr-2">
-                                    <p class="text-body-md font-bold text-error truncate">DEUDA PENDIENTE</p>
-                                    <p class="text-label-sm text-error/80">Referencial (No facturable)</p>
-                                </div>
-                                <div class="flex items-center gap-sm">
-                                    <p class="font-label-sm text-error font-bold">$ ${fmt(clientDebt)}</p>
-                                    <button class="material-symbols-outlined text-error/80 hover:text-error transition-colors btn-remove-debt" style="font-size: 18px;">delete</button>
-                                </div>
+                                ` : ''}
                             </div>
-                            ` : ''}
                         </div>
+                    </div>
+
+                    <!-- PASO 4: Finalizar (Cliente, Pago, Referencias) -->
+                    <div class="p-md border-t border-outline-variant bg-surface-container-low pb-6 ${isMobileStep4}">
+                        <div class="mb-md relative">
+                            <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">CLIENTE</label>
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 flex items-center gap-sm p-sm bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-[#8ab4f8] transition-colors group">
+                                    <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
+                                    <div class="flex-1 relative">
+                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
+                                        ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
+                                        <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface-container-highest border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-xl shadow-xl mt-1 hidden"></div>
+                                    </div>
+                                    ${selectedClient ? `
+                                    <button id="removeClientBtn" class="material-symbols-outlined text-error cursor-pointer hover:bg-error/10 rounded-full p-1 transition-colors" title="Remover cliente">close</button>
+                                    ` : ''}
+                                </div>
+                                ${!selectedClient ? `
+                                <button id="createNewClientBtn" class="bg-surface-container-high border border-outline-variant text-white rounded-xl h-12 w-12 flex items-center justify-center shrink-0 hover:bg-white/5 transition-colors">
+                                    <span class="material-symbols-outlined text-[24px]">person_add</span>
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        ${(() => {
+                            let methods = [];
+                            if (activePayCurrency === 'USD') {
+                                methods = [
+                                    {val: 'EFECTIVO', label: 'EFECTIVO', icon: 'payments'},
+                                    {val: 'ZELLE', label: 'ZELLE', icon: 'account_balance'},
+                                    {val: 'BINANCE', label: 'BINANCE', icon: 'currency_bitcoin'},
+                                    {val: 'PAYPAL', label: 'PAYPAL', icon: 'credit_card'}
+                                ];
+                            } else {
+                                methods = [
+                                    {val: 'PUNTO', label: 'PUNTO', icon: 'point_of_sale'},
+                                    {val: 'PAGO_MOVIL', label: 'PAGO MÓVIL', icon: 'smartphone'},
+                                    {val: 'BIO_PAGO', label: 'BIO PAGO', icon: 'fingerprint'},
+                                    {val: 'EFECTIVO', label: 'EFECTIVO', icon: 'payments'},
+                                    {val: 'TRANSFERENCIA', label: 'TRANSF.', icon: 'account_balance'}
+                                ];
+                            }
+                            const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(activePayMethod);
+                            
+                            let totalPaid = 0;
+                            payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                            const actualRem = effectiveTotalUSD - totalPaid;
+
+                            if (!payAmountVal && actualRem > 0) {
+                                payAmountVal = fmt(activePayCurrency === 'BS' ? actualRem * bcvRate : actualRem);
+                            }
+
+                            return `
+                                ${actualRem > 0.009 ? `
+                                <div class="mb-4">
+                                    <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-2 block">MÉTODO DE PAGO</label>
+                                    <div class="flex gap-2 mb-4 bg-surface-container-high p-1 rounded-xl border border-outline-variant">
+                                        <button class="step4-curr-btn flex-1 py-2 text-center rounded-lg font-bold transition-colors text-sm ${activePayCurrency === 'BS' ? 'bg-[#8ab4f8] text-[#0f172a]' : 'text-outline hover:bg-white/5'}" data-curr="BS">Bolívares (Bs)</button>
+                                        <button class="step4-curr-btn flex-1 py-2 text-center rounded-lg font-bold transition-colors text-sm ${activePayCurrency === 'USD' ? 'bg-[#8ab4f8] text-[#0f172a]' : 'text-outline hover:bg-white/5'}" data-curr="USD">Dólares ($)</button>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2 mb-4">
+                                        ${methods.map(m => `
+                                            <button class="step4-method-btn flex flex-col items-center justify-center p-3 rounded-xl border transition-colors ${activePayMethod === m.val ? 'bg-[#8ab4f8] text-[#0f172a] border-[#8ab4f8]' : 'bg-surface-container-highest border-outline-variant text-outline hover:bg-white/5'}" data-method="${m.val}">
+                                                <span class="material-symbols-outlined text-[24px] mb-1">${m.icon}</span>
+                                                <span class="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">${m.label}</span>
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                    <div class="flex gap-2 mb-4">
+                                        <div class="flex-1">
+                                            <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">MONTO</label>
+                                            <input id="step4PayAmount" type="text" class="w-full bg-surface-container-high border border-outline-variant rounded-xl p-3 text-body-lg font-bold text-white outline-none focus:border-[#8ab4f8]" value="${payAmountVal}" placeholder="${activePayCurrency === 'BS' ? 'Bs ' : '$ '}0.00">
+                                        </div>
+                                        <div class="flex-1" style="display: ${isElectronic ? 'block' : 'none'}">
+                                            <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">REFERENCIA</label>
+                                            <input id="step4PayRef" type="text" class="w-full bg-surface-container-high border border-outline-variant rounded-xl p-3 text-body-lg text-white outline-none focus:border-[#8ab4f8]" value="${payRefVal}" placeholder="Últimos 4-6">
+                                        </div>
+                                    </div>
+                                    <button id="step4AddPaymentBtn" class="w-full bg-[#8ab4f8] text-[#0f172a] hover:bg-[#8ab4f8]/90 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 text-body-lg shadow-lg">
+                                        <span class="material-symbols-outlined">add_circle</span> AGREGAR PAGO
+                                    </button>
+                                </div>
+                                ` : ''}
+
+                                <div class="mb-6">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-[10px] font-bold text-outline uppercase tracking-wider">PAGOS REGISTRADOS</span>
+                                        <span class="text-[10px] font-bold text-outline">(${payments.length})</span>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        ${payments.length === 0 ? '<p class="text-body-sm text-outline italic">No hay pagos registrados</p>' : ''}
+                                        ${payments.map((p, i) => `
+                                            <div class="flex justify-between items-center p-3 bg-surface-container border border-outline-variant rounded-xl">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-full bg-surface-container-high border ${p.amount < 0 ? 'border-yellow-500/50' : 'border-green-500/50'} flex items-center justify-center">
+                                                        <span class="material-symbols-outlined ${p.amount < 0 ? 'text-yellow-500' : 'text-green-500'}">${p.amount < 0 ? 'undo' : 'check_circle'}</span>
+                                                    </div>
+                                                    <div class="flex flex-col">
+                                                        <span class="text-body-sm font-bold text-white">${p.amount < 0 ? 'Vuelto ' : ''}${toTitleCase(p.method.replace('_', ' '))} (${p.currency})</span>
+                                                        ${p.ref ? `<span class="text-[10px] text-outline">Ref: ${p.ref}</span>` : ''}
+                                                    </div>
+                                                </div>
+                                                <div class="flex flex-col items-end">
+                                                    <span class="text-body-lg font-bold ${p.amount < 0 ? 'text-yellow-500' : 'text-green-500'}">${p.currency === 'BS' ? 'Bs.' : '$'} ${fmt(Math.abs(p.amount))}</span>
+                                                    <button class="text-[10px] font-bold text-red-400 uppercase hover:underline step4-btn-rem-pay mt-1" data-index="${i}">ELIMINAR</button>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                ${actualRem < -0.009 ? `
+                                <div class="bg-surface-container border border-outline-variant rounded-xl p-4 mb-6">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <h3 class="text-[12px] font-bold text-[#facc15] uppercase tracking-wider text-left">REGISTRO DE<br>VUELTO</h3>
+                                        <div class="text-right">
+                                            <p class="text-[10px] text-outline uppercase tracking-wider">Por entregar</p>
+                                            <p class="text-body-sm font-bold text-yellow-500 leading-tight">$ ${fmt(-actualRem)}</p>
+                                            <p class="text-body-sm font-bold text-yellow-500 leading-tight">Bs. ${fmt(-actualRem * bcvRate)}</p>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 mb-4">
+                                        <select id="step4ChangeCurrency" class="w-full bg-surface-container-high border border-outline-variant rounded-xl p-3 text-white outline-none focus:border-[#facc15]">
+                                            <option value="BS">Bolívares</option>
+                                            <option value="USD">Dólares</option>
+                                        </select>
+                                        <input id="step4ChangeAmount" type="text" class="w-full bg-surface-container-high border border-outline-variant rounded-xl p-3 text-body-lg text-white outline-none focus:border-[#facc15]" placeholder="0.00" value="${fmt(-actualRem * bcvRate)}">
+                                    </div>
+                                    <button id="step4AddChangeBtn" class="w-full bg-transparent border border-[#facc15] text-[#facc15] py-3 rounded-xl font-bold flex items-center justify-center uppercase tracking-wider hover:bg-[#facc15]/10 transition-colors">
+                                        REGISTRAR VUELTO
+                                    </button>
+                                </div>
+                                ` : ''}
+                            `;
+                        })()}
                     </div>
                 </aside>
             </div>
 
             <!-- Global Footer Section -->
-            <footer class="bg-surface-container border-t border-outline-variant p-md z-50 shrink-0 h-[116px]">
-                <div class="flex gap-md h-full items-center">
+            <footer class="z-50 shrink-0 lg:h-[116px] lg:bg-surface-container lg:border-t lg:border-outline-variant lg:p-md lg:rounded-none lg:shadow-none ${(currentMobileStep === 2 || currentMobileStep === 3) ? 'bg-surface-container-low rounded-t-3xl px-md pt-md pb-10 shadow-[0_-10px_20px_rgba(0,0,0,0.3)] border-t border-outline-variant' : (currentMobileStep === 4 ? 'bg-surface-container-low border-t border-outline-variant p-sm pb-6' : 'bg-surface-container border-t border-outline-variant px-md pt-3 pb-4')}">
+                <!-- DESKTOP FOOTER -->
+                <div class="hidden lg:flex gap-md h-full items-center">
                     <!-- 1. ITEMS -->
                     <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center">
                         <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">ITEMS</p>
@@ -761,7 +923,87 @@ export function renderSales(container, preSelectedClient = null) {
                     <!-- 9. FINALIZAR -->
                     <button id="finishBtn" class="flex-2 h-full border-2 border-primary text-primary bg-transparent rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98] focus:bg-primary focus:text-white focus:outline-none" style="min-width: 140px;">${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
                 </div>
+
+                <!-- MOBILE FOOTER -->
+                <div class="flex lg:hidden gap-sm h-full items-center justify-between">
+                    ${currentMobileStep === 1 ? `
+                        <div class="flex flex-col gap-3 w-full">
+                            <div class="grid grid-cols-3 gap-2">
+                                <button id="mobileViewHistoryBtn" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-outline-variant bg-surface-container-high active:scale-95 transition-transform py-3 px-2">
+                                    <span class="material-symbols-outlined text-primary" style="font-size:22px;">calendar_today</span>
+                                    <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide leading-tight text-center">Ventas<br>del Día</span>
+                                </button>
+                                <button id="mobileViewBudgetsBtn" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-outline-variant bg-surface-container-high active:scale-95 transition-transform py-3 px-2">
+                                    <span class="material-symbols-outlined text-primary" style="font-size:22px;">request_quote</span>
+                                    <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide leading-tight text-center">Presu-<br>puestos</span>
+                                </button>
+                                <button id="mobileViewOrdersBtn" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-outline-variant bg-surface-container-high active:scale-95 transition-transform py-3 px-2">
+                                    <span class="material-symbols-outlined text-primary" style="font-size:22px;">package</span>
+                                    <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide leading-tight text-center">Pedidos</span>
+                                </button>
+                            </div>
+                            <button id="btnNextStep1" class="btn btn-primary w-full py-4 text-lg font-bold rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
+                                SIGUIENTE <span class="material-symbols-outlined">arrow_forward</span>
+                            </button>
+                        </div>
+                    ` : ''}
+                    
+                    ${currentMobileStep === 2 ? `
+                        <div class="flex flex-col w-full gap-sm">
+                            <div class="flex gap-sm w-full">
+                                <div class="flex-1 bg-surface-container-highest rounded-xl p-sm border border-outline-variant flex flex-col items-center justify-center">
+                                    <span class="text-[10px] font-bold text-outline tracking-wider mb-1 uppercase">Total USD</span>
+                                    <span class="text-body-lg font-bold text-white">$ ${fmt(effectiveTotalUSD)}</span>
+                                </div>
+                                <div class="flex-1 bg-surface-container-highest rounded-xl p-sm border border-outline-variant flex flex-col items-center justify-center">
+                                    <span class="text-[10px] font-bold text-outline tracking-wider mb-1 uppercase">Total BS</span>
+                                    <span class="text-body-lg font-bold text-white">Bs. ${fmt(totalBs)}</span>
+                                </div>
+                            </div>
+                            <button id="btnNextStep2" class="btn w-full py-4 text-md font-bold rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2" style="background-color: #8ab4f8; color: #0f172a;">
+                                <span class="material-symbols-outlined">shopping_cart</span> IR A CARRITO (${totalItems} ITEMS)
+                            </button>
+                        </div>
+                    ` : ''}
+
+                    ${currentMobileStep === 3 ? `
+                        <div class="flex flex-col w-full gap-sm">
+                            <div class="flex gap-sm w-full">
+                                <div class="flex-1 bg-surface-container-highest rounded-xl p-sm border border-outline-variant flex flex-col items-center justify-center">
+                                    <span class="text-[10px] font-bold text-outline tracking-wider mb-1 uppercase">Total USD</span>
+                                    <span class="text-body-lg font-bold text-white">$ ${fmt(effectiveTotalUSD)}</span>
+                                </div>
+                                <div class="flex-1 bg-surface-container-highest rounded-xl p-sm border border-outline-variant flex flex-col items-center justify-center">
+                                    <span class="text-[10px] font-bold text-outline tracking-wider mb-1 uppercase">Total BS</span>
+                                    <span class="text-body-lg font-bold text-white">Bs. ${fmt(totalBs)}</span>
+                                </div>
+                            </div>
+                            <button id="btnNextStep3" class="btn w-full py-4 text-md font-bold rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2" style="background-color: #8ab4f8; color: #0f172a;">
+                                <span class="material-symbols-outlined">shopping_cart</span> CONTINUAR AL PAGO (${totalItems})
+                            </button>
+                        </div>
+                    ` : ''}
+
+                    ${currentMobileStep === 4 ? `
+                        <div class="flex flex-col w-full gap-3">
+                            <div class="flex gap-2 w-full">
+                                <div class="flex-1 bg-surface-container-highest rounded-xl p-3 border border-outline-variant flex flex-col items-center justify-center">
+                                    <span class="text-[10px] font-bold text-outline tracking-wider mb-1 uppercase">TOTAL USD</span>
+                                    <span class="text-body-lg font-bold text-white">$ ${fmt(effectiveTotalUSD)}</span>
+                                </div>
+                                <div class="flex-1 bg-surface-container-highest rounded-xl p-3 border border-outline-variant flex flex-col items-center justify-center">
+                                    <span class="text-[10px] font-bold text-outline tracking-wider mb-1 uppercase">TOTAL BS</span>
+                                    <span class="text-body-lg font-bold text-white">Bs. ${fmt(totalBs)}</span>
+                                </div>
+                            </div>
+                            <button id="finishBtnMobile" class="btn w-full py-4 font-bold rounded-xl flex items-center justify-center gap-2 text-body-lg shadow-lg active:scale-95 transition-transform" style="background-color: #8ab4f8; color: #0f172a;">
+                                <span class="material-symbols-outlined">shopping_cart_checkout</span> ${settings.type === 'presupuesto' ? 'GUARDAR PRESUPUESTO' : 'FINALIZAR TRANSACCIÓN'}
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
             </footer>
+
 
             <!-- Toast Notification -->
             <div id="toast" class="fixed bottom-container-margin left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-lg py-md rounded-xl shadow-2xl flex items-center gap-md transform translate-y-32 transition-transform duration-300 z-[100]">
@@ -810,6 +1052,28 @@ export function renderSales(container, preSelectedClient = null) {
             currentView = 'orders';
             render();
         });
+
+        // Mobile Nav events
+        container.querySelector('#mobileViewHistoryBtn')?.addEventListener('click', () => {
+            historyFilter = 'ventas';
+            currentView = 'history';
+            render();
+        });
+        container.querySelector('#mobileViewBudgetsBtn')?.addEventListener('click', () => {
+            historyFilter = 'presupuestos';
+            currentView = 'history';
+            render();
+        });
+        container.querySelector('#mobileViewOrdersBtn')?.addEventListener('click', () => {
+            currentView = 'orders';
+            render();
+        });
+
+        container.querySelector('#btnNextStep1')?.addEventListener('click', () => { currentMobileStep = 2; render(); });
+        container.querySelector('#btnNextStep2')?.addEventListener('click', () => { currentMobileStep = 3; render(); });
+        container.querySelector('#btnPrevStep3')?.addEventListener('click', () => { currentMobileStep = 2; render(); });
+        container.querySelector('#btnNextStep3')?.addEventListener('click', () => { currentMobileStep = 4; render(); });
+        container.querySelector('#btnPrevStep4')?.addEventListener('click', () => { currentMobileStep = 3; render(); });
 
         const searchInput = container.querySelector('#productSearch');
         if (searchInput) {
@@ -870,9 +1134,9 @@ export function renderSales(container, preSelectedClient = null) {
                 }
             });
             
-            // Auto-focus on render
+            // Auto-focus on render (only desktop or step 2)
             setTimeout(() => {
-                if (document.activeElement !== searchInput) {
+                if (document.activeElement !== searchInput && (window.innerWidth >= 1024 || currentMobileStep === 2)) {
                     searchInput.focus();
                     const val = searchInput.value;
                     searchInput.value = '';
@@ -884,10 +1148,9 @@ export function renderSales(container, preSelectedClient = null) {
         container.querySelector('#pauseSaleBtn')?.addEventListener('click', pauseCurrentSale);
         container.querySelector('#recoverSaleBtn')?.addEventListener('click', showPausedSalesModal);
 
-        container.querySelector('#saleType').addEventListener('change', (e) => { settings.type = e.target.value; render(); });
-        container.querySelector('#saleTarget').addEventListener('change', (e) => { settings.target = e.target.value; render(); });
+        container.querySelector('#saleType')?.addEventListener('change', (e) => { settings.type = e.target.value; render(); });
+        container.querySelector('#saleTarget')?.addEventListener('change', (e) => { settings.target = e.target.value; render(); });
         if (typeof flatpickr !== 'undefined' && container.querySelector('#deliveryDateInput')) {
-            // Parse YYYY-MM-DD into a valid Date object to avoid flatpickr format confusion
             const parts = deliveryDate.split('-');
             const defDate = new Date(parts[0], parts[1] - 1, parts[2]);
             
@@ -907,7 +1170,7 @@ export function renderSales(container, preSelectedClient = null) {
             });
         }
         
-        container.querySelector('#priceType').addEventListener('change', (e) => {
+        container.querySelector('#priceType')?.addEventListener('change', (e) => {
             settings.priceType = e.target.value;
             cart = cart.map(item => {
                 const prod = products.find(p => p.id === item.id);
@@ -935,6 +1198,16 @@ export function renderSales(container, preSelectedClient = null) {
                 sessionStorage.removeItem('sales_temp_state');
                 render();
             }, "Sí, Cancelar", "No, Volver");
+        });
+
+        container.querySelector('#btnBackFromStep3')?.addEventListener('click', () => {
+            currentMobileStep = 2;
+            render();
+        });
+
+        container.querySelector('#cancelCartBtnMobile')?.addEventListener('click', () => {
+            const btn = container.querySelector('#cancelCartBtn');
+            if (btn) btn.click();
         });
 
         // Client search logic
@@ -998,47 +1271,27 @@ export function renderSales(container, preSelectedClient = null) {
                 if (createOpt) {
                     createOpt.addEventListener('click', () => {
                         const currentSearch = clientSearch.value;
-                        sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart' }));
-                        renderClients(container, (newClient) => {
-                            renderSales(container, newClient);
-                        }, currentSearch);
+                        sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart', currentMobileStep }));
+                        sessionStorage.setItem('prefill_client_name', currentSearch);
+                        window.location.hash = '#clients';
                     });
                 }
-
-                // Keyboard navigation for dropdown
-                const options = Array.from(clientResults.querySelectorAll('.client-option, .create-client-option'));
-                options.forEach((opt, index) => {
-                    opt.addEventListener('keydown', (e) => {
-                        if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            if (index < options.length - 1) options[index + 1].focus();
-                        } else if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            if (index > 0) options[index - 1].focus();
-                            else clientSearch.focus();
-                        } else if (e.key === 'Enter') {
-                            e.preventDefault();
-                            opt.click();
-                        }
-                    });
-                });
             });
 
             clientSearch.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowDown') {
                     e.preventDefault();
-                    const firstOption = clientResults.querySelector('.client-option, .create-client-option');
-                    if (firstOption && clientResults.style.display !== 'none') firstOption.focus();
+                    const firstResult = container.querySelector('.client-option, .create-client-option');
+                    if (firstResult) firstResult.focus();
                 } else if (e.key === 'Enter') {
                     e.preventDefault();
-                    const firstOption = clientResults.querySelector('.client-option, .create-client-option');
-                    if (firstOption && clientResults.style.display !== 'none') firstOption.click();
+                    const firstResult = container.querySelector('.client-option, .create-client-option');
+                    if (firstResult) firstResult.click();
                 }
             });
 
-            // Hide results on outside click
             document.addEventListener('click', (e) => {
-                if (clientResults && !clientSearch.contains(e.target) && !clientResults.contains(e.target)) {
+                if (clientSearch && !clientSearch.contains(e.target) && !clientResults.contains(e.target)) {
                     clientResults.style.display = 'none';
                 }
             });
@@ -1052,70 +1305,74 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         container.querySelector('#createNewClientBtn')?.addEventListener('click', () => {
-            const currentSearch = clientSearch.value;
-            sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart' }));
-            renderClients(container, (newClient) => {
-                renderSales(container, newClient);
-            }, currentSearch);
+            sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart', currentMobileStep }));
+            window.location.hash = '#clients';
         });
 
-        attachProductClickEvents();
+        const handleEditQty = (index) => {
+            const item = cart[index];
+            const p = products.find(prod => prod.id === item.id);
+            if (!p) return;
+            showProductSaleModal(p, (qty, unit, extras) => {
+                const price = getPrice(p);
+                const isBox = (unit === p.purchaseUnit && unit !== p.stockUnit);
+                const unitContent = isBox ? (parseFloat(p.purchaseToStockQty) || 1) : 1;
+                const realQty = qty * unitContent;
+                
+                const extraTotal = (extras || []).reduce((sum, e) => sum + e.price, 0);
+                const totalUnitPrice = price + extraTotal;
 
-        container.querySelectorAll('.btn-remove').forEach(btn => {
-            btn.addEventListener('click', () => {
-                cart.splice(parseInt(btn.dataset.index), 1);
+                item.qty = qty;
+                item.sellUnit = unit;
+                item.unitContent = unitContent;
+                item.realQty = realQty;
+                item.total = realQty * totalUnitPrice;
+                item.extras = extras || [];
                 render();
-            });
-        });
-
-        const btnRemoveDebt = container.querySelector('.btn-remove-debt');
-        if (btnRemoveDebt) {
-            btnRemoveDebt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                includeOldDebt = false;
-                render();
-            });
-        }
+            }, item.qty, item.sellUnit, item.extras);
+        };
 
         container.querySelectorAll('.edit-qty').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 if (e.target.closest('.btn-remove')) return;
                 const index = parseInt(btn.dataset.index);
-                const item = cart[index];
-                const prod = products.find(p => p.id === item.id);
-                if (!prod) return;
-                const stock = prod ? (prod.stockGeneral ?? prod.stock ?? 0) : 999999;
-                showProductSaleModal(prod, (newQty, newUnit, newExtras) => {
-                    const isBox = (newUnit === prod.purchaseUnit && newUnit !== prod.stockUnit);
-                    const unitContent = isBox ? (parseFloat(prod.purchaseToStockQty) || 1) : 1;
-                    const realQty = newQty * unitContent;
-
-                    if (realQty > stock) {
-                        showToast("Atención: Stock insuficiente (Inventario Negativo)", true);
-                    }
-                    
-                    const extraTotal = (newExtras || []).reduce((sum, e) => sum + e.price, 0);
-                    item.extras = newExtras || [];
-                    item.qty = parseFloat(newQty);
-                    item.sellUnit = newUnit;
-                    item.unitContent = unitContent;
-                    item.realQty = realQty;
-                    item.total = realQty * (item.price + extraTotal);
-                    item.baseUnit = prod.stockUnit || 'Unidad';
-                    render();
-                }, item.qty, item.sellUnit, item.extras || []);
+                handleEditQty(index);
+            });
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const index = parseInt(btn.dataset.index);
+                    handleEditQty(index);
+                }
             });
         });
 
-        container.querySelector('#openPaymentModalBtn')?.addEventListener('click', () => {
+        attachProductClickEvents();
+
+        container.querySelectorAll('.btn-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(btn.dataset.index);
+                cart.splice(index, 1);
+                render();
+            });
+        });
+
+        container.querySelector('.btn-remove-debt')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            includeOldDebt = false;
+            render();
+        });
+
+        // Payment and Finish actions
+        const handleOpenPayment = () => {
             if (!selectedClient && settings.type !== 'presupuesto') {
                 showToast("Debe seleccionar un cliente primero", true);
                 return;
             }
             showPaymentModal(effectiveTotalUSD);
-        });
+        };
 
-        container.querySelector('#finishBtn').addEventListener('click', () => {
+        const handleFinishSale = () => {
             if (!selectedClient) {
                 showToast("Debe seleccionar un cliente primero", true);
                 return;
@@ -1126,9 +1383,132 @@ export function renderSales(container, preSelectedClient = null) {
                 return;
             }
             processSale(currentRemainingUSD);
-        });
-    }
+        };
 
+        if (currentMobileStep === 4) {
+            container.querySelectorAll('.step4-curr-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    activePayCurrency = btn.dataset.curr;
+                    activePayMethod = '';
+                    payAmountVal = ''; // Reset amount so it auto-fills with the new currency
+                    render();
+                });
+            });
+
+            container.querySelectorAll('.step4-method-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    activePayMethod = btn.dataset.method;
+                    render();
+                });
+            });
+
+            const amountInput = container.querySelector('#step4PayAmount');
+            if (amountInput) {
+                amountInput.addEventListener('input', (e) => {
+                    let val = e.target.value.replace(/\D/g, '');
+                    if (!val) val = '0';
+                    const num = parseInt(val, 10) / 100;
+                    payAmountVal = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    e.target.value = payAmountVal;
+                });
+                amountInput.addEventListener('change', (e) => { payAmountVal = e.target.value; });
+            }
+
+            const refInput = container.querySelector('#step4PayRef');
+            if (refInput) {
+                refInput.addEventListener('input', (e) => {
+                    payRefVal = e.target.value;
+                });
+            }
+
+            const parseNum = (str) => {
+                if (!str) return 0;
+                return parseFloat(str.replace(/\./g, '').replace(',', '.'));
+            };
+
+            container.querySelector('#step4AddPaymentBtn')?.addEventListener('click', () => {
+                const amount = parseNum(payAmountVal);
+                if (amount <= 0) {
+                    showToast("Ingrese un monto válido", true);
+                    return;
+                }
+                if (!activePayMethod) {
+                    showToast("Seleccione un método de pago", true);
+                    return;
+                }
+                const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(activePayMethod);
+                if (isElectronic && !payRefVal.trim()) {
+                    showToast("Ingrese el número de referencia", true);
+                    return;
+                }
+
+                payments.push({
+                    currency: activePayCurrency,
+                    method: activePayMethod,
+                    amount: amount,
+                    ref: isElectronic ? payRefVal.trim() : '',
+                    rate: bcvRate
+                });
+
+                payAmountVal = '';
+                payRefVal = '';
+                activePayMethod = '';
+                render();
+            });
+
+            container.querySelectorAll('.step4-btn-rem-pay').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    payments.splice(idx, 1);
+                    render();
+                });
+            });
+
+            container.querySelector('#step4AddChangeBtn')?.addEventListener('click', () => {
+                const currency = container.querySelector('#step4ChangeCurrency')?.value || 'BS';
+                const amount = parseNum(container.querySelector('#step4ChangeAmount')?.value || '0');
+
+                if (amount > 0) {
+                    payments.push({
+                        currency: currency,
+                        method: 'EFECTIVO',
+                        amount: -amount,
+                        ref: '',
+                        rate: bcvRate
+                    });
+                    render();
+                }
+            });
+
+            const step4CurrSelect = container.querySelector('#step4ChangeCurrency');
+            const step4ChangeInput = container.querySelector('#step4ChangeAmount');
+            if (step4CurrSelect && step4ChangeInput) {
+                step4CurrSelect.addEventListener('change', (e) => {
+                    let totalP = 0;
+                    payments.forEach(px => totalP += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                    const rem = effectiveTotalUSD - totalP;
+                    if (e.target.value === 'BS') {
+                        step4ChangeInput.value = fmt(-rem * bcvRate);
+                    } else {
+                        step4ChangeInput.value = fmt(-rem);
+                    }
+                });
+                
+                step4ChangeInput.addEventListener('input', (e) => {
+                    let val = e.target.value.replace(/\D/g, '');
+                    if (!val) val = '0';
+                    const num = parseInt(val, 10) / 100;
+                    e.target.value = num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                });
+            }
+        }
+
+        container.querySelector('#openPaymentModalBtn')?.addEventListener('click', handleOpenPayment);
+        container.querySelector('#openPaymentModalBtnMobile')?.addEventListener('click', handleOpenPayment);
+        
+        container.querySelector('#finishBtn')?.addEventListener('click', handleFinishSale);
+        container.querySelector('#finishBtnMobile')?.addEventListener('click', handleFinishSale);
+    }
     function showProductSaleModal(product, callback, initialQty = 1, initialUnit = null, initialExtras = []) {
         const modal = document.createElement('div');
         modal.className = "fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-md animate-in fade-in";
@@ -2264,6 +2644,12 @@ export function renderSales(container, preSelectedClient = null) {
                 payments = [];
                 selectedClient = null;
                 currentView = 'cart';
+                currentMobileStep = 1;
+                activeMobileTab = 'products';
+                activePayCurrency = 'BS';
+                activePayMethod = '';
+                payAmountVal = '';
+                payRefVal = '';
                 // Update original budget status if applicable
                 if (convertingBudgetId && !isPresupuesto) {
                     const budgetRef = doc(db, "businesses", businessId, "sales", convertingBudgetId);
