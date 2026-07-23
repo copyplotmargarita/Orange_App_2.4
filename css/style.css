@@ -148,6 +148,87 @@ input, select, button {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
+#purchasesView,
+#purchasesView * {
+  color: #ffffff !important;
+}
+
+#purchasesView input,
+#purchasesView textarea,
+#purchasesView .form-control {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid #334155 !important;
+  border-radius: 0.5rem !important;
+}
+
+#purchasesView select.filter-dropdown,
+#purchasesView select.ts-filter,
+#purchasesView .filter-dropdown,
+#purchasesView .ts-filter,
+#purchasesView .ts-control,
+#purchasesView .ts-dropdown {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+}
+
+#purchasesView .form-control,
+#purchasesView input,
+#purchasesView textarea {
+  color: #ffffff !important;
+}
+
+#purchasesView .ts-control input,
+#purchasesView .ts-control .ts-placeholder,
+#purchasesView .ts-control .ts-choice,
+#purchasesView .ts-control .item {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+}
+
+#purchasesView .ts-control input {
+  box-shadow: none !important;
+}
+
+#purchasesView #filterStartDate,
+#purchasesView #filterEndDate,
+#purchasesView #historySearchInput,
+#purchasesView input[type="date"] {
+  background-color: #0f172a !important;
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+  -webkit-text-fill-color: #ffffff !important;
+  -moz-text-fill-color: #ffffff !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-shadow: none !important;
+}
+
+#purchasesView input[type="date"]::-webkit-datetime-edit,
+#purchasesView input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+#purchasesView input[type="date"]::-webkit-datetime-edit-text,
+#purchasesView input[type="date"]::-webkit-datetime-edit-month-field,
+#purchasesView input[type="date"]::-webkit-datetime-edit-day-field,
+#purchasesView input[type="date"]::-webkit-datetime-edit-year-field,
+#purchasesView input[type="date"]::-webkit-clear-button,
+#purchasesView input[type="date"]::-webkit-calendar-picker-indicator {
+  background: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#purchasesView .ts-dropdown * {
+  color: #ffffff !important;
+}
+
+#purchasesView .text-muted {
+  color: rgba(255,255,255,0.75) !important;
+}
+
 /* Remove spin buttons from number inputs */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
@@ -474,5 +555,6 @@ input[type=number] {
     background-color: var(--border) !important;
     color: var(--text-main) !important;
 }
-@ m e d i a   ( m i n - w i d t h :   1 0 2 4 p x )   {   . h i d e - o n - d e s k t o p   {   d i s p l a y :   n o n e   ! i m p o r t a n t ;   }   }  
+@ m e d i a   ( m i n - w i d t h :   1 0 2 4 p x )   {   . h i d e - o n - d e s k t o p   {   d i s p l a y :   n o n e   ! i m p o r t a n t ;   }   } 
+ 
  
