@@ -488,6 +488,8 @@ export function renderPurchases(container) {
                     <input type="date" id="filterStartDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterStartDate}">
                     <label style="font-size: 0.85rem; color: var(--text-muted); margin: 0; margin-left: 0.5rem;">Hasta:</label>
                     <input type="date" id="filterEndDate" class="form-control" style="width: auto; height: 35px; font-size: 0.85rem; border-radius: 8px;" value="${currentFilterEndDate}">
+                    
+                    <input type="text" id="historySearchInput" class="form-control" placeholder="🔍 Buscar documento, proveedor..." style="width: 250px; height: 35px; font-size: 0.85rem; border-radius: 8px; margin-left: auto;">
                 </div>
             </div>
 
@@ -548,7 +550,7 @@ export function renderPurchases(container) {
                 const displayDays = diffDays >= 0 ? diffDays : 0;
 
                 html += `
-                    <tr class="purchase-row" data-id="${p.id}" style="border-bottom: 1px solid var(--border); transition: background 0.2s;">
+                    <tr class="purchase-row" data-id="${p.id}" data-searchtext="${[supName, p.docType, p.docNumber, p.status, formatDateToDDMMYYYY(p.receptionDate || p.emissionDate)].join(' ').toLowerCase()}" style="border-bottom: 1px solid var(--border); transition: background 0.2s;">
                         <td style="padding: 1rem;">${formatDateToDDMMYYYY(p.receptionDate || p.emissionDate)}</td>
                         <td style="padding: 1rem;"><span style="color: var(--text-muted); font-size: 0.85rem;">${displayDays}</span></td>
                         <td style="padding: 1rem;"><strong>${p.docType}</strong></td>
@@ -591,7 +593,22 @@ export function renderPurchases(container) {
 
         const filterStart = container.querySelector('#filterStartDate');
         const filterEnd = container.querySelector('#filterEndDate');
-        
+
+        const searchInput = container.querySelector('#historySearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const term = searchInput.value.toLowerCase().trim();
+                container.querySelectorAll('.purchase-row').forEach(row => {
+                    if (term.length < 2) {
+                        row.style.display = '';
+                    } else {
+                        const text = row.getAttribute('data-searchtext') || row.textContent.toLowerCase();
+                        row.style.display = text.includes(term) ? '' : 'none';
+                    }
+                });
+            });
+        }
+
         if (typeof flatpickr !== 'undefined') {
             const fpConfig = { locale: "es", altInput: true, altFormat: "d/m/Y", dateFormat: "Y-m-d", altInputClass: "form-control" };
             if (filterStart) {
@@ -2501,9 +2518,9 @@ export function renderPurchases(container) {
         updateTotals();
 
         // Re-trigger events to update UI AFTER listeners are attached
-        if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
+        if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
             pStatus.dispatchEvent(new Event('change'));
-            if (pPaymentMethod.value) {
+            if (pPaymentMethod && pPaymentMethod.value) {
                 pPaymentMethod.dispatchEvent(new Event('change'));
             }
         }
@@ -2747,20 +2764,42 @@ export function renderPurchases(container) {
                                 const newCostPerRecipeUnit = factor > 0 ? newCostPerStockUnit / factor : newCostPerStockUnit;
 
                                 const formatPrice = (num) => {
-                                    if (num < 1) return Number(num.toFixed(3));
                                     return Math.round(num * 20) / 20;
                                 };
-                                let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
-                                if (pData.category === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
+                                
+                                const oldCost = pData.cost || 0;
+                                let newPriceDetal = pData.priceDetal || 0;
+                                let newPriceMayor = pData.priceMayor || 0;
+                                let newPriceSpecial = pData.priceSpecial || 0;
+                                
+                                if (oldCost === 0) {
+                                    let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
+                                    if (pData.category === 'RECETA') { mDetal = 2.60; mMayor = 2.50; mSpecial = 2.40; }
+                                    newPriceDetal = formatPrice(newCostPerStockUnit * mDetal);
+                                    newPriceMayor = formatPrice(newCostPerStockUnit * mMayor);
+                                    newPriceSpecial = formatPrice(newCostPerStockUnit * mSpecial);
+                                } else {
+                                    if (newCostPerStockUnit > oldCost) {
+                                        // Escenario B: Costo sube -> Mantener márgenes, recalcular precios
+                                        const mDetal = (oldCost > 0 && pData.priceDetal) ? (pData.priceDetal / oldCost) : (pData.category === 'RECETA' ? 2.60 : 1.30);
+                                        const mMayor = (oldCost > 0 && pData.priceMayor) ? (pData.priceMayor / oldCost) : (pData.category === 'RECETA' ? 2.50 : 1.25);
+                                        const mSpecial = (oldCost > 0 && pData.priceSpecial) ? (pData.priceSpecial / oldCost) : (pData.category === 'RECETA' ? 2.40 : 1.20);
+                                        
+                                        newPriceDetal = formatPrice(newCostPerStockUnit * mDetal);
+                                        newPriceMayor = formatPrice(newCostPerStockUnit * mMayor);
+                                        newPriceSpecial = formatPrice(newCostPerStockUnit * mSpecial);
+                                    }
+                                    // Escenario A: Si el costo baja, los precios se mantienen (ya están en newPriceDetal, etc)
+                                }
 
                                 await updateDoc(prodRef, {
                                     stockGeneral: newStockGeneral,
                                     cost: newCostPerStockUnit,
                                     costPerStockUnit: newCostPerStockUnit,
                                     costPerRecipeUnit: newCostPerRecipeUnit,
-                                    priceDetal: formatPrice(newCostPerStockUnit * mDetal),
-                                    priceMayor: formatPrice(newCostPerStockUnit * mMayor),
-                                    priceSpecial: formatPrice(newCostPerStockUnit * mSpecial)
+                                    priceDetal: newPriceDetal,
+                                    priceMayor: newPriceMayor,
+                                    priceSpecial: newPriceSpecial
                                 });
                             }
                         } catch(err) {
@@ -2830,6 +2869,7 @@ export function renderPurchases(container) {
                             <label style="margin-bottom: 4px; font-weight: 800; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Buscar en catálogo</label>
                             <div style="display: flex; gap: 0.5rem;">
                                 <input type="search" id="pbSearch" class="form-control" placeholder="Nombre del producto..." style="height: 40px; flex: 1;">
+                                <button class="btn btn-secondary" id="pbSearchExistingProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed; padding: 0; white-space: nowrap; flex: 1;">Buscar Producto Existente</button>
                                 <button class="btn btn-outline" id="pbCreateProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed; padding: 0; white-space: nowrap; flex: 1;">+ CREAR PRODUCTO</button>
                             </div>
                         </div>
@@ -3157,6 +3197,35 @@ export function renderPurchases(container) {
                 openProductBuilder: true
             };
             window.openCreateProductForPurchase = true;
+            document.getElementById('navProductos').click();
+        });
+
+        modal.querySelector('#pbSearchExistingProductBtn').addEventListener('click', () => {
+            const supplierId = container.querySelector('#pSupplier')?.value || '';
+            if (!supplierId || supplierId === 'CREATE_NEW') {
+                showToast('Por favor, seleccione un proveedor antes de buscar un producto existente.', 'error');
+                return;
+            }
+
+            window.tempPurchaseState = {
+                purchaseType: 'PRODUCTO',
+                supplierId: supplierId,
+                bcvRate: container.querySelector('#pBcvRate')?.value || '',
+                emissionDate: container.querySelector('#pEmissionDate')?.value || '',
+                receptionDate: container.querySelector('#pReceptionDate')?.value || '',
+                docType: container.querySelector('#pDocType')?.value || '',
+                docNumber: container.querySelector('#pDocNumber')?.value || '',
+                status: container.querySelector('#pStatus')?.value || '',
+                currency: container.querySelector('#pCurrency')?.value || 'BS',
+                paymentDate: container.querySelector('#pPaymentDate')?.value || '',
+                paymentMethod: container.querySelector('#pPaymentMethod')?.value || '',
+                receivedBs: container.querySelector('#pReceivedBs')?.value || '',
+                receivedUsd: container.querySelector('#pReceivedUsd')?.value || '',
+                products: tempProducts,
+                openSearchProductForPurchase: true
+            };
+            window.openSearchProductForPurchase = true;
+            modal.style.display = 'none';
             document.getElementById('navProductos').click();
         });
 

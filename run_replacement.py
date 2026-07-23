@@ -1,105 +1,90 @@
 import os
 
-sales_path = 'js/views/sales.js'
-with open(sales_path, 'r', encoding='utf-8') as f:
+filepath = r'c:\Users\Admin\.gemini\antigravity-ide\scratch\Orange_App_2.4\js\views\products.js'
+with open(filepath, 'r', encoding='utf-8') as f:
     content = f.read()
 
-with open('new_render_logic.txt', 'r', encoding='utf-8') as f:
-    new_logic = f.read()
+# Replace UI for Price Detal
+old_detal = """                            <div class="form-group">
+                                <label id="lblPriceDetal">🛒 PRECIO DETAL (+30%)</label>
+                                <div id="gridPriceDetal" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                                    <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary);">
+                                    <input type="text" id="marginDetalDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginDetal ? editProduct.marginDetal.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginDetal || ''}">
+                                    <input type="text" id="suggestedDetalDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                </div>
+                            </div>"""
 
-# 1. Add currentMobileStep
-if 'let currentMobileStep = 1;' not in content:
-    content = content.replace('let cart = [];', 'let cart = [];\n    let currentMobileStep = 1;')
+new_detal = """                            <div class="form-group">
+                                <label id="lblPriceDetal">🛒 PRECIO DETAL</label>
+                                <div id="gridPriceDetal" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">$.</span>
+                                        <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary); padding-left: 30px; width: 100%;">
+                                    </div>
+                                    <input type="text" id="marginDetalDisplay" class="form-control" readonly placeholder="% Ganancia" style="background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginDetal ? editProduct.marginDetal.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginDetal || ''}">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">Bs.</span>
+                                        <input type="text" id="bsDetalDisplay" class="form-control" readonly placeholder="Bs." style="background: var(--surface-variant); border: none; font-weight: bold; padding-left: 35px; width: 100%; color: var(--text-muted);">
+                                    </div>
+                                </div>
+                            </div>"""
 
-# 2. Extract innerHTML from new_logic
-start_idx_new = new_logic.find('const isMobile = window.innerWidth < 1024;')
-end_idx_new = new_logic.find('bindEvents();')
-new_html_block = new_logic[start_idx_new:end_idx_new]
+content = content.replace(old_detal, new_detal)
 
-# 3. Find target in sales.js
-start_str = "const saleStatus = container.querySelector('#saleStatus')?.value || (payments.length === 0 ? 'contado' : 'abono');"
-end_str = "// Clock and Date"
+# Replace UI for Price Mayor
+old_mayor = """                            <div class="form-group">
+                                <label id="lblPriceMayor">🏢 PRECIO AL MAYOR (+25%)</label>
+                                <div id="gridPriceMayor" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                                    <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                                    <input type="text" id="marginMayorDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginMayor ? editProduct.marginMayor.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginMayor || ''}">
+                                    <input type="text" id="suggestedMayorDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                </div>
+                            </div>"""
 
-start_idx_orig = content.find(start_str)
-end_idx_orig = content.find(end_str, start_idx_orig)
+new_mayor = """                            <div class="form-group">
+                                <label id="lblPriceMayor">🏢 PRECIO AL MAYOR</label>
+                                <div id="gridPriceMayor" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">$.</span>
+                                        <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700; padding-left: 30px; width: 100%;">
+                                    </div>
+                                    <input type="text" id="marginMayorDisplay" class="form-control" readonly placeholder="% Ganancia" style="background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginMayor ? editProduct.marginMayor.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginMayor || ''}">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">Bs.</span>
+                                        <input type="text" id="bsMayorDisplay" class="form-control" readonly placeholder="Bs." style="background: var(--surface-variant); border: none; font-weight: bold; padding-left: 35px; width: 100%; color: var(--text-muted);">
+                                    </div>
+                                </div>
+                            </div>"""
 
-if start_idx_orig != -1 and end_idx_orig != -1:
-    before = content[:start_idx_orig + len(start_str)]
-    after = content[end_idx_orig:]
-    
-    content = before + '\n\n        ' + new_html_block + '\n        ' + after
-    print("Replaced innerHTML block")
-else:
-    print("Could not find innerHTML block bounds")
+content = content.replace(old_mayor, new_mayor)
 
-# 4. Inject event listeners
-# Find the finishBtn listener
-finish_btn_str = """        container.querySelector('#finishBtn').addEventListener('click', () => {
-            if (!selectedClient) {
-                showToast("Debe seleccionar un cliente primero", true);
-                return;
-            }
-            const status = container.querySelector('#saleStatus')?.value || 'contado';
-            if ((status === 'contado' || status === 'abono') && payments.length === 0 && settings.type !== 'presupuesto' && settings.type !== 'pedido') {
-                showToast("Debe registrar al menos un pago", true);
-                return;
-            }
-            processSale(currentRemainingUSD);
-        });"""
+# Replace UI for Price Special
+old_special = """                            <div class="form-group">
+                                <label id="lblPriceSpecial">⭐ PRECIO ESPECIAL (+20%)</label>
+                                <div id="gridPriceSpecial" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                                    <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
+                                    <input type="text" id="marginSpecialDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginSpecial ? editProduct.marginSpecial.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginSpecial || ''}">
+                                    <input type="text" id="suggestedSpecialDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                </div>
+                            </div>"""
 
-events_to_add = """
-        const btnNextStep = container.querySelector('#btnNextStep');
-        if (btnNextStep) {
-            btnNextStep.addEventListener('click', () => {
-                if (currentMobileStep < 4) {
-                    currentMobileStep++;
-                    renderSingleView();
-                }
-            });
-        }
-        
-        const navStep1 = container.querySelector('#navStep1');
-        if (navStep1) navStep1.addEventListener('click', () => { currentMobileStep = 1; renderSingleView(); });
-        const navStep2 = container.querySelector('#navStep2');
-        if (navStep2) navStep2.addEventListener('click', () => { currentMobileStep = 2; renderSingleView(); });
-        const navStep3 = container.querySelector('#navStep3');
-        if (navStep3) navStep3.addEventListener('click', () => { currentMobileStep = 3; renderSingleView(); });
-        const navStep4 = container.querySelector('#navStep4');
-        if (navStep4) navStep4.addEventListener('click', () => { currentMobileStep = 4; renderSingleView(); });
-"""
+new_special = """                            <div class="form-group">
+                                <label id="lblPriceSpecial">⭐ PRECIO ESPECIAL</label>
+                                <div id="gridPriceSpecial" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">$.</span>
+                                        <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700; padding-left: 30px; width: 100%;">
+                                    </div>
+                                    <input type="text" id="marginSpecialDisplay" class="form-control" readonly placeholder="% Ganancia" style="background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginSpecial ? editProduct.marginSpecial.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginSpecial || ''}">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">Bs.</span>
+                                        <input type="text" id="bsSpecialDisplay" class="form-control" readonly placeholder="Bs." style="background: var(--surface-variant); border: none; font-weight: bold; padding-left: 35px; width: 100%; color: var(--text-muted);">
+                                    </div>
+                                </div>
+                            </div>"""
 
-if finish_btn_str in content:
-    content = content.replace(finish_btn_str, finish_btn_str + '\n' + events_to_add)
-    print("Injected event listeners")
-else:
-    print("Could not find finishBtn block to inject event listeners")
+content = content.replace(old_special, new_special)
 
-# 5. Fix currentMobileStep reset when cart is emptied or sale is processed
-# Wait, processSale clears the UI by calling `renderSales()`. So it will be reset because `let currentMobileStep = 1;` is in the initialization!
-# What about cancelCartBtn? It empties the cart and calls render(). We need to reset `currentMobileStep = 1;` there.
-cancel_cart_str = """        container.querySelector('#cancelCartBtn')?.addEventListener('click', () => {
-            showConfirmModal("Cancelar Venta", "¿Está seguro que desea cancelar esta venta y vaciar el carrito?", () => {
-                cart = []; payments = []; selectedClient = null; clientDebt = 0; includeOldDebt = false;
-                sessionStorage.removeItem('sales_temp_state');
-                render();
-            }, "Sí, Cancelar", "No, Volver");
-        });"""
-
-cancel_cart_replacement = """        container.querySelector('#cancelCartBtn')?.addEventListener('click', () => {
-            showConfirmModal("Cancelar Venta", "¿Está seguro que desea cancelar esta venta y vaciar el carrito?", () => {
-                cart = []; payments = []; selectedClient = null; clientDebt = 0; includeOldDebt = false; currentMobileStep = 1;
-                sessionStorage.removeItem('sales_temp_state');
-                render();
-            }, "Sí, Cancelar", "No, Volver");
-        });"""
-
-if cancel_cart_str in content:
-    content = content.replace(cancel_cart_str, cancel_cart_replacement)
-    print("Updated cancelCartBtn logic")
-else:
-    print("Could not find cancelCartBtn block")
-
-with open(sales_path, 'w', encoding='utf-8') as f:
+with open(filepath, 'w', encoding='utf-8') as f:
     f.write(content)
-
-print("sales.js successfully modified by python script.")
+print("UI Replacements Done.")

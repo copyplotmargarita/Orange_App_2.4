@@ -1,6 +1,6 @@
 import { auth, db } from '../services/firebase.js';
-import { toTitleCase, showNotification } from '../utils.js';
-import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
+import { doc, setDoc, getDocs, getDoc, collection, query, orderBy, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderProducts(container) {
     let products = [];
@@ -156,14 +156,77 @@ export function renderProducts(container) {
         gridContainer.querySelectorAll('.product-card').forEach(card => {
             card.addEventListener('click', () => {
                 const prod = products.find(p => p.id === card.dataset.id);
-                if (prod) renderDetail(prod);
+                const isSearchMode = window.openSearchProductForPurchase || (window.tempPurchaseState && window.tempPurchaseState.openSearchProductForPurchase);
+                if (!prod) return;
+                if (isSearchMode) {
+                    confirmExistingProduct(prod);
+                } else {
+                    renderDetail(prod);
+                }
             });
             card.addEventListener('mouseover', () => card.style.transform = 'translateY(-4px)');
             card.addEventListener('mouseout', () => card.style.transform = 'translateY(0)');
         });
     }
 
+    async function confirmExistingProduct(prod) {
+        const isSearchMode = window.openSearchProductForPurchase || (window.tempPurchaseState && window.tempPurchaseState.openSearchProductForPurchase);
+        if (!isSearchMode) return;
+
+        const supplierId = window.tempPurchaseState?.supplierId || '';
+        if (!supplierId) {
+            showNotification('No hay proveedor seleccionado para esta compra.', 'error');
+            return;
+        }
+
+        const supplier = suppliers.find(s => s.id === supplierId);
+        const supplierName = supplier ? supplier.name : 'Proveedor seleccionado';
+
+        showConfirmModal(
+            'Agregar proveedor al producto',
+            `El proveedor "${supplierName}" será agregado a los proveedores asociados de "${prod.name}". El producto ahora estará disponible para esta compra. ¿Deseas continuar?`,
+            async () => {
+                try {
+                    const businessId = localStorage.getItem('businessId');
+                    if (!businessId) throw new Error('No se encontró el businessId');
+
+                    const prodRef = doc(db, 'businesses', businessId, 'products', prod.id);
+                    const supplierIds = Array.isArray(prod.supplierIds) ? [...prod.supplierIds] : [];
+                    const updates = {};
+
+                    if (!supplierIds.includes(supplierId)) {
+                        updates.supplierIds = [...supplierIds, supplierId];
+                    }
+                    if (!prod.supplierId) {
+                        updates.supplierId = supplierId;
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        await updateDoc(prodRef, updates);
+                    }
+
+                    if (window.tempPurchaseState) {
+                        window.tempPurchaseState.openProductBuilder = true;
+                        window.tempPurchaseState.selectedProductId = prod.id;
+                        window.tempPurchaseState.openSearchProductForPurchase = false;
+                    }
+                    window.openCreatePurchase = true;
+                    window.autoOpenProductId = prod.id;
+                    delete window.openSearchProductForPurchase;
+                    document.getElementById('navCompras').click();
+                } catch (err) {
+                    console.error('Error asociando proveedor al producto:', err);
+                    showNotification('No se pudo asociar el proveedor al producto.', 'error');
+                }
+            },
+            'Aceptar',
+            'Cancelar',
+            '📦'
+        );
+    }
+
     function renderList() {
+        const isSearchMode = window.openSearchProductForPurchase || (window.tempPurchaseState && window.tempPurchaseState.openSearchProductForPurchase);
         let html = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
                 <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
@@ -173,6 +236,11 @@ export function renderProducts(container) {
                     <button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>
                 </div>
             </div>
+            ${isSearchMode ? `
+                <div style="margin-bottom: 1rem; padding: 1rem; border-radius: 16px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); color: var(--text-main);">
+                    <strong>🔎 Buscar Producto Existente:</strong> Elige un producto para la compra actual. El proveedor seleccionado se agregará automáticamente a la lista de proveedores asociados del producto.
+                </div>
+            ` : ''}
             <div id="productsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem;">
             </div>
             
@@ -206,6 +274,12 @@ export function renderProducts(container) {
         const backBtn = container.querySelector('#backToDashboardBtn');
         if (backBtn) {
             backBtn.addEventListener('click', () => {
+                if (window.openSearchProductForPurchase && window.tempPurchaseState && window.tempPurchaseState.openSearchProductForPurchase) {
+                    delete window.openSearchProductForPurchase;
+                    if (window.tempPurchaseState) {
+                        window.tempPurchaseState.openSearchProductForPurchase = false;
+                    }
+                }
                 const navHome = document.getElementById('navHome');
                 if (navHome) {
                     navHome.click();
@@ -234,6 +308,7 @@ export function renderProducts(container) {
         let recipeIngredients = editProduct?.recipeIngredients || [];
         const isFromPurchase = !!window.tempPurchaseState;
         const purchaseSupplierId = window.tempPurchaseState?.supplierId || '';
+        window.previousCostForAsymmetricLogic = editProduct ? (editProduct.cost || 0) : null;
 
         container.innerHTML = `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
@@ -444,7 +519,7 @@ export function renderProducts(container) {
                         <div id="costPriceInputsWrapper" style="${isFromPurchase ? 'display: none;' : 'display: flex; flex-direction: column; gap: 0.35rem;'}">
                             <div class="form-group">
                                 <label id="costLabel">💵 COSTO DE ADQUISICIÓN</label>
-                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:3, maximumFractionDigits:3}) : '0,000'}" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
+                                <input type="text" inputmode="numeric" id="prodCost" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.cost ? editProduct.cost.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0,00'}" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
                             </div>
 
                             <div class="form-group" id="costPerUnitGroup" style="display: none; background: var(--background); padding: 1rem; border-radius: 12px; border: 1px dashed var(--border);">
@@ -453,29 +528,47 @@ export function renderProducts(container) {
                             </div>
 
                             <div class="form-group">
-                                <label id="lblPriceDetal">🛒 PRECIO DETAL (+30%)</label>
-                                <div id="gridPriceDetal" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
-                                    <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary);">
-                                    <input type="text" id="marginDetalDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginDetal ? editProduct.marginDetal.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginDetal || ''}">
-                                    <input type="text" id="suggestedDetalDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                <label id="lblPriceDetal">🛒 PRECIO DETAL</label>
+                                <div id="gridPriceDetal" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">$.</span>
+                                        <input type="text" inputmode="numeric" id="prodPriceDetal" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceDetal ? editProduct.priceDetal.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0,00'}" style="font-weight: 800; border-left: 4px solid var(--primary); padding-left: 30px; width: 100%;">
+                                    </div>
+                                    <input type="text" id="marginDetalDisplay" class="form-control" readonly placeholder="% Ganancia" style="background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginDetal ? editProduct.marginDetal.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginDetal || ''}">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">Bs.</span>
+                                        <input type="text" id="bsDetalDisplay" class="form-control" readonly placeholder="Bs." style="background: var(--surface-variant); border: none; font-weight: bold; padding-left: 35px; width: 100%; color: var(--text-muted);">
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label id="lblPriceMayor">🏢 PRECIO AL MAYOR (+25%)</label>
-                                <div id="gridPriceMayor" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
-                                    <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
-                                    <input type="text" id="marginMayorDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginMayor ? editProduct.marginMayor.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginMayor || ''}">
-                                    <input type="text" id="suggestedMayorDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                <label id="lblPriceMayor">🏢 PRECIO AL MAYOR</label>
+                                <div id="gridPriceMayor" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">$.</span>
+                                        <input type="text" inputmode="numeric" id="prodPriceMayor" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceMayor ? editProduct.priceMayor.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0,00'}" style="font-weight: 700; padding-left: 30px; width: 100%;">
+                                    </div>
+                                    <input type="text" id="marginMayorDisplay" class="form-control" readonly placeholder="% Ganancia" style="background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginMayor ? editProduct.marginMayor.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginMayor || ''}">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">Bs.</span>
+                                        <input type="text" id="bsMayorDisplay" class="form-control" readonly placeholder="Bs." style="background: var(--surface-variant); border: none; font-weight: bold; padding-left: 35px; width: 100%; color: var(--text-muted);">
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label id="lblPriceSpecial">⭐ PRECIO ESPECIAL (+20%)</label>
-                                <div id="gridPriceSpecial" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
-                                    <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2}) : '0,00'}" style="font-weight: 700;">
-                                    <input type="text" id="marginSpecialDisplay" class="form-control" readonly placeholder="% Real" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginSpecial ? editProduct.marginSpecial.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginSpecial || ''}">
-                                    <input type="text" id="suggestedSpecialDisplay" class="form-control" readonly placeholder="Sugerido $" style="display: none; background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);">
+                                <label id="lblPriceSpecial">⭐ PRECIO ESPECIAL</label>
+                                <div id="gridPriceSpecial" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">$.</span>
+                                        <input type="text" inputmode="numeric" id="prodPriceSpecial" class="form-control" ${isFromPurchase ? '' : 'required'} value="${editProduct?.priceSpecial ? editProduct.priceSpecial.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) : '0,00'}" style="font-weight: 700; padding-left: 30px; width: 100%;">
+                                    </div>
+                                    <input type="text" id="marginSpecialDisplay" class="form-control" readonly placeholder="% Ganancia" style="background: transparent; border: 1px dashed var(--primary); text-align: center; font-size: 0.85rem; color: var(--primary);" value="${editProduct?.marginSpecial ? editProduct.marginSpecial.toLocaleString('de-DE', {maximumFractionDigits:2})+' %' : ''}" data-margin="${editProduct?.marginSpecial || ''}">
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <span style="position: absolute; left: 10px; font-weight: bold; color: var(--text-muted);">Bs.</span>
+                                        <input type="text" id="bsSpecialDisplay" class="form-control" readonly placeholder="Bs." style="background: var(--surface-variant); border: none; font-weight: bold; padding-left: 35px; width: 100%; color: var(--text-muted);">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -777,15 +870,7 @@ export function renderProducts(container) {
             prodPriceMayor.readOnly = false;
             prodPriceSpecial.readOnly = false;
             
-            // Default layout for price grids
-            ['Detal', 'Mayor', 'Special'].forEach(lvl => {
-                const grid = container.querySelector(`#gridPrice${lvl}`);
-                if(grid) {
-                    grid.style.gridTemplateColumns = '1fr';
-                    container.querySelector(`#margin${lvl}Display`).style.display = 'none';
-                    container.querySelector(`#suggested${lvl}Display`).style.display = 'none';
-                }
-            });
+            // Default layout for price grids (Removed dynamic resize as it is now fixed 3 columns)
 
             const lblPurchase = container.querySelector('#lblPurchaseUnit');
             if (lblPurchase) lblPurchase.innerHTML = '📦 UNIDAD DE COMPRA';
@@ -808,12 +893,7 @@ export function renderProducts(container) {
                 prodIsSaleable.value = 'true';
                 subCategoryGroup.style.display = 'block';
                 
-                // Show grid for recipe custom pricing
-                ['Detal', 'Mayor', 'Special'].forEach(lvl => {
-                    container.querySelector(`#gridPrice${lvl}`).style.gridTemplateColumns = '1fr 1fr 1fr';
-                    container.querySelector(`#margin${lvl}Display`).style.display = 'block';
-                    container.querySelector(`#suggested${lvl}Display`).style.display = 'block';
-                });
+                // Show grid for recipe custom pricing (Removed dynamic resize)
 
             } else if (cat === 'SERVICIOS') {
                 lblPriceDetal.innerHTML = 'Precio Detal $ <span class="text-muted" style="font-size:0.8rem;">(= Costo $)</span>';
@@ -1011,7 +1091,7 @@ export function renderProducts(container) {
         }
 
         [prodPriceDetal, prodPriceMayor, prodPriceSpecial, prodYield, prodMinStock, prodPurchaseToStockQty, prodUnitContentQty].forEach(el => applyNumericMask(el, 2));
-        applyNumericMask(prodCost, 3);
+        applyNumericMask(prodCost, 2);
 
         // --- Lógica de Matemáticas y Conversión (Sistema 3 Niveles) ---
         function getRecipeUnitInfo(stockUnit) {
@@ -1082,68 +1162,72 @@ export function renderProducts(container) {
 
             // --- SERVICIOS: precios = costo exacto ---
             if (cat === 'SERVICIOS') {
-                prodPriceDetal.value = cost.toFixed(2);
-                prodPriceMayor.value = cost.toFixed(2);
-                prodPriceSpecial.value = cost.toFixed(2);
+                prodPriceDetal.value = cost.toLocaleString('de-DE', {minimumFractionDigits: 2});
+                prodPriceMayor.value = cost.toLocaleString('de-DE', {minimumFractionDigits: 2});
+                prodPriceSpecial.value = cost.toLocaleString('de-DE', {minimumFractionDigits: 2});
                 return;
             }
 
-            // --- Calcular precios con márgenes ---
-            const formatPriceStr = (c, margin) => {
-                const n = c * margin;
-                if (n < 1) {
-                    return n.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 4});
-                }
-                return (Math.round(n * 20) / 20).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const formatPriceStr = (val) => {
+                return (Math.round(val * 20) / 20).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             };
 
-            if (cat !== 'RECETA' && (document.activeElement === prodCost || !prodPriceDetal.value)) {
-                let mDetal = 1.30, mMayor = 1.25, mSpecial = 1.20;
-                prodPriceDetal.value  = formatPriceStr(cost, mDetal);
-                prodPriceMayor.value  = formatPriceStr(cost, mMayor);
-                prodPriceSpecial.value = formatPriceStr(cost, mSpecial);
-            }
+            const isNewProduct = (window.previousCostForAsymmetricLogic === null);
+            const bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
             
-            if (cat === 'RECETA' && (!prodPriceDetal.value || parseNum(prodPriceDetal.value) === 0)) {
-                prodPriceDetal.value  = formatPriceStr(cost, 2.60);
-                prodPriceMayor.value  = formatPriceStr(cost, 2.50);
-                prodPriceSpecial.value = formatPriceStr(cost, 2.40);
-                container.querySelector('#marginDetalDisplay').dataset.margin = "160";
-                container.querySelector('#marginMayorDisplay').dataset.margin = "150";
-                container.querySelector('#marginSpecialDisplay').dataset.margin = "140";
+            // Si estamos editando el costo
+            if (document.activeElement === prodCost || !prodPriceDetal.value || parseNum(prodPriceDetal.value) === 0) {
+                if (isNewProduct || window.previousCostForAsymmetricLogic === 0) {
+                    // Producto nuevo o sin costo previo -> márgenes por defecto
+                    let mDetal = cat === 'RECETA' ? 1.60 : 0.30;
+                    let mMayor = cat === 'RECETA' ? 1.50 : 0.25;
+                    let mSpecial = cat === 'RECETA' ? 1.40 : 0.20;
+                    
+                    prodPriceDetal.value = formatPriceStr(cost * (1 + mDetal));
+                    prodPriceMayor.value = formatPriceStr(cost * (1 + mMayor));
+                    prodPriceSpecial.value = formatPriceStr(cost * (1 + mSpecial));
+                } else {
+                    // Producto existente, aplicar regla asimétrica
+                    const previousCost = window.previousCostForAsymmetricLogic;
+                    if (cost < previousCost) {
+                        // Escenario A: Costo baja -> Precios fijos, recalcular márgenes automáticamente abajo
+                    } else if (cost > previousCost) {
+                        // Escenario B: Costo sube -> Márgenes fijos, recalcular precios
+                        ['Detal', 'Mayor', 'Special'].forEach(lvl => {
+                            const marginInput = container.querySelector(`#margin${lvl}Display`);
+                            const savedMargin = parseFloat(marginInput.dataset.margin || (lvl==='Detal'?30:(lvl==='Mayor'?25:20))) / 100;
+                            const priceInput = container.querySelector(`#prodPrice${lvl}`);
+                            priceInput.value = formatPriceStr(cost * (1 + savedMargin));
+                        });
+                    }
+                }
+                // Actualizamos costo previo
+                window.previousCostForAsymmetricLogic = cost;
             }
 
-            if (cat === 'RECETA') {
-                ['Detal', 'Mayor', 'Special'].forEach(lvl => {
-                    const priceInput = container.querySelector(`#prodPrice${lvl}`);
-                    const marginInput = container.querySelector(`#margin${lvl}Display`);
-                    const suggestedInput = container.querySelector(`#suggested${lvl}Display`);
-                    
-                    const priceVal = parseNum(priceInput.value) || 0;
-                    
-                    // Si el usuario edita el precio manualmente, actualizamos su margen objetivo
-                    if (document.activeElement === priceInput && cost > 0) {
-                        const newMargin = ((priceVal / cost) - 1) * 100;
-                        marginInput.dataset.margin = newMargin;
-                    }
-
-                    const savedMarginStr = marginInput.dataset.margin;
-                    
-                    if (priceVal > 0 && cost > 0) {
-                        const realMargin = ((priceVal / cost) - 1) * 100;
+            // --- Recálculo de % y Precio Bs (Siempre activo, bidireccional) ---
+            ['Detal', 'Mayor', 'Special'].forEach(lvl => {
+                const priceInput = container.querySelector(`#prodPrice${lvl}`);
+                const marginInput = container.querySelector(`#margin${lvl}Display`);
+                const bsInput = container.querySelector(`#bs${lvl}Display`);
+                
+                const priceVal = parseNum(priceInput.value) || 0;
+                
+                if (priceVal > 0 && cost > 0) {
+                    const realMargin = ((priceVal / cost) - 1) * 100;
+                    if (marginInput) {
                         marginInput.value = realMargin.toLocaleString('de-DE', {maximumFractionDigits: 2}) + ' %';
-                        
-                        if (savedMarginStr) {
-                            const savedMargin = parseFloat(savedMarginStr) / 100;
-                            const suggested = cost * (1 + savedMargin);
-                            suggestedInput.value = suggested.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                        }
-                    } else {
-                        marginInput.value = '';
-                        suggestedInput.value = '';
+                        marginInput.dataset.margin = realMargin; // Guardar para Escenario B
                     }
-                });
-            }
+                    if (bsInput) {
+                        const bsVal = priceVal * bcvRate;
+                        bsInput.value = bsVal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }
+                } else {
+                    if (marginInput) marginInput.value = '';
+                    if (bsInput) bsInput.value = '';
+                }
+            });
         }
 
         prodPurchaseUnit.addEventListener('change', calculateMath);
