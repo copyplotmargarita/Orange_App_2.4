@@ -47,7 +47,11 @@ function applyNumericMask(input, callback, decimals = 2) {
 export function renderPurchases(container) {
     if (!container) {
         container = document.createElement('div');
-        container.className = 'view-container';
+        container.id = 'purchasesView';
+        container.className = 'view-container purchases-view';
+    } else {
+        container.id = 'purchasesView';
+        container.classList.add('purchases-view');
     }
     let purchases = [];
     let suppliers = [];
@@ -957,7 +961,10 @@ export function renderPurchases(container) {
                             $ ${(p.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}
                         </td>
                         <td style="padding: 1rem; text-align: right;">
-                            <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 800; width: auto;">CARGAR PAGO</button>
+                            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;">
+                                <button class="btn btn-outline detail-btn" data-id="${p.id}" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 800; width: auto;">VER DETALLE</button>
+                                <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 800; width: auto;">CARGAR PAGO</button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -979,6 +986,14 @@ export function renderPurchases(container) {
                 e.stopPropagation();
                 const purchase = pending.find(p => p.id === btn.dataset.id);
                 if (purchase) renderPaymentForm(purchase);
+            });
+        });
+
+        container.querySelectorAll('.detail-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const purchase = pending.find(p => p.id === btn.dataset.id);
+                if (purchase) renderDetail(purchase);
             });
         });
     }
@@ -1387,6 +1402,16 @@ export function renderPurchases(container) {
                                 ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>ESTADO DE LA COMPRA <span class="text-danger">*</span></label>
+                            <select id="pStatus" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} style="height: 40px;">
+                                <option value="">Seleccione...</option>
+                                <option value="ABONO">ABONO</option>
+                                <option value="CONTADO">CONTADO</option>
+                                <option value="CREDITO">CREDITO</option>
+                                <option value="PAGADO">PAGADO</option>
+                            </select>
+                        </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                             <div class="form-group">
                                 <label>EMISIÓN <span class="text-danger">*</span></label>
@@ -1420,17 +1445,6 @@ export function renderPurchases(container) {
                             <label>NÚMERO DE DOCUMENTO <span class="text-danger">*</span></label>
                             <input type="text" id="pDocNumber" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} placeholder="Ej. 001-A" style="height: 40px;">
                             <div id="pDocNumberError" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.2rem; display: none; font-weight: bold;">Este documento ya fue registrado para este proveedor.</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>ESTADO DE LA COMPRA <span class="text-danger">*</span></label>
-                            <select id="pStatus" class="form-control" ${purchaseType !== 'GASTO_SERVICIO' ? 'required' : ''} style="height: 40px;">
-                                <option value="">Seleccione...</option>
-                                <option value="ABONO">ABONO</option>
-                                <option value="CONTADO">CONTADO</option>
-                                <option value="CREDITO">CREDITO</option>
-                                <option value="PAGADO">PAGADO</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -2025,11 +2039,20 @@ export function renderPurchases(container) {
 
         if (pEmissionDate) {
             pEmissionDate.addEventListener('change', () => {
-                if (pReceptionDate) {
-                    pReceptionDate.value = pEmissionDate.value;
+                if (pReceptionDate && pStatus) {
+                    const emiDate = pEmissionDate.value;
+                    if (pStatus.value === 'CREDITO') {
+                        const nextDay = new Date(emiDate);
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        const nextDayStr = nextDay.toISOString().split('T')[0];
+                        pReceptionDate.value = nextDayStr;
+                        if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(nextDayStr);
+                    } else {
+                        pReceptionDate.value = emiDate;
+                        if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(emiDate);
+                    }
                     if (pReceptionDate._flatpickr) {
-                        pReceptionDate._flatpickr.setDate(pEmissionDate.value);
-                        pReceptionDate._flatpickr.set('minDate', pEmissionDate.value);
+                        pReceptionDate._flatpickr.set('minDate', emiDate);
                     }
                 }
                 if (pStatus && (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO')) {
@@ -2044,9 +2067,22 @@ export function renderPurchases(container) {
 
         if (pStatus) {
             pStatus.addEventListener('change', () => {
+                const pEmiDate = container.querySelector('#pEmissionDate');
+                if (pReceptionDate && pEmiDate) {
+                    const emiDate = pEmiDate.value;
+                    if (pStatus.value === 'CREDITO') {
+                        const nextDay = new Date(emiDate);
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        const nextDayStr = nextDay.toISOString().split('T')[0];
+                        pReceptionDate.value = nextDayStr;
+                        if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(nextDayStr);
+                    } else {
+                        pReceptionDate.value = emiDate;
+                        if (pReceptionDate._flatpickr) pReceptionDate._flatpickr.setDate(emiDate);
+                    }
+                }
                 if (pStatus.value === 'CONTADO' || pStatus.value === 'ABONO') {
                     const pPaymentDate = container.querySelector('#pPaymentDate');
-                    const pEmiDate = container.querySelector('#pEmissionDate');
                     if (pPaymentDate && pEmiDate) {
                         pPaymentDate.value = pEmiDate.value;
                         if (pPaymentDate._flatpickr) pPaymentDate._flatpickr.setDate(pEmiDate.value);
@@ -3436,7 +3472,7 @@ export function renderPurchases(container) {
         `;
 
         container.innerHTML = html;
-        container.querySelector('#backToDeckBtn').addEventListener('click', goBackToDeck);
+        container.querySelector('#backToDeckBtn').addEventListener('click', () => renderSupplierDetail(purchase.supplierId));
 
         container.querySelectorAll('.delete-pay-btn').forEach(btn => {
             btn.addEventListener('click', async () => {

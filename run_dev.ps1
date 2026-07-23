@@ -30,7 +30,11 @@ try {
 
             $content = [System.IO.File]::ReadAllBytes($filePath)
             $response.ContentLength64 = $content.Length
-            $response.OutputStream.Write($content, 0, $content.Length)
+            try {
+                $response.OutputStream.Write($content, 0, $content.Length)
+            } catch {
+                Write-Host "Advertencia: no se pudo enviar el contenido, el cliente cerró la conexión prematuramente."
+            }
         } else {
             $response.StatusCode = 404
         }
