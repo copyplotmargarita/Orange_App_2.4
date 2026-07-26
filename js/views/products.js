@@ -99,7 +99,7 @@ export function renderProducts(container) {
                                 <h4 class="text-body-sm font-semibold text-on-surface leading-tight group-hover:text-primary transition-colors" title="${prod.name}" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; font-size: 0.75rem; line-height: 1.4em;">${prod.name}</h4>
                             </div>
                             <div class="flex flex-col items-end mt-auto gap-1 pb-1">
-                                <span class="text-body-sm font-bold ${stock > minStock ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${sUnit}</span>
+                                <span class="text-body-sm font-bold ${stock > minStock ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${parseFloat(stock || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${sUnit}</span>
                                 ${prod.isSaleable === false ? `
                                 <span class="text-body-md font-bold text-white leading-none">Costo $ ${formatCurrency(prod.cost || 0)}</span>
                                 <span class="text-xs font-medium" style="color: var(--text-muted); opacity: 0.8; margin-top: 2px;">Uso Interno</span>
