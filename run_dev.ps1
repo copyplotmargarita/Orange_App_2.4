@@ -1,8 +1,8 @@
 $port = 8088
 $listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://localhost:$port/")
+$listener.Prefixes.Add("http://+:$port/")
 $listener.Start()
-Write-Host "Servidor escuchando en http://localhost:$port/ - Presiona Ctrl+C para detener."
+Write-Host "Servidor escuchando en http://localhost:$port/ y en la red local en http://<tu-ip>:$port/ y en la red local en http://<tu-ip>:$port/ - Presiona Ctrl+C para detener."
 
 try {
     while ($listener.IsListening) {

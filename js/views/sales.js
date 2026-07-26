@@ -73,6 +73,7 @@ export function renderSales(container, preSelectedClient = null) {
     let deliveryDate = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`;
     
     let dailySales = [];
+    let dailyPayments = [];
     let allPedidos = [];
     
     let today = new Date();
@@ -105,9 +106,14 @@ export function renderSales(container, preSelectedClient = null) {
         
         try {
             const todayStr = new Date().toLocaleDateString('sv-SE');
-            const shiftStartStr = localStorage.getItem('shiftStartTime');
-            // Si hay turno, se usa esa fecha, si no (caso borde), se usa un inicio muy lejano
-            const shiftStart = shiftStartStr ? new Date(shiftStartStr) : new Date('2099-01-01T00:00:00Z');
+            const getShiftStart = () => {
+                const shiftStartStr = localStorage.getItem('shiftStartTime');
+                if (shiftStartStr) return new Date(shiftStartStr);
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+                return todayStart;
+            };
+            const shiftStart = getShiftStart();
             const localStoreId = localStorage.getItem('storeId');
 
             // Arreglo de promesas para ejecutar en paralelo y ahorrar tiempo de carga
@@ -199,8 +205,8 @@ export function renderSales(container, preSelectedClient = null) {
 
             // Process Daily Sales
             const activeStoreId = role === 'admin' ? 'general' : (localStorage.getItem('storeId') || 'general');
-            dailySales = (allSales || []).filter(sale => {
-                return sale.employeeEmail === userEmail;
+            const fetchedSales = (allSales || []).filter(sale => {
+                return role === 'admin' || sale.employeeEmail === userEmail;
             }).map(sale => {
                 const salePayments = (allPayments || []).filter(p => p.saleId === sale.id);
                 const methods = [...new Set(salePayments.map(p => {
@@ -215,7 +221,22 @@ export function renderSales(container, preSelectedClient = null) {
                 if (sale.status === 'presupuesto') paymentMethodStr = '--';
                 return { ...sale, paymentMethodStr };
             });
-            dailySales.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+            // Preserve local unshifted sales not yet returned by getDocs
+            const fetchedMap = new Map();
+            fetchedSales.forEach(s => fetchedMap.set(s.id, s));
+            dailySales.forEach(s => {
+                if (!fetchedMap.has(s.id)) {
+                    fetchedSales.push(s);
+                }
+            });
+
+            dailyPayments = (allPayments || []).filter(p => role === 'admin' || p.employeeEmail === userEmail);
+            dailySales = fetchedSales;
+            dailySales.sort((a, b) => {
+                const getTime = (s) => s.createdAt?.seconds || (s.createdAt?.getTime ? Math.floor(s.createdAt.getTime()/1000) : 0);
+                return getTime(b) - getTime(a);
+            });
 
             // Renderizar la vista principal
             if (window.openOrderRecovery) {
@@ -245,6 +266,63 @@ export function renderSales(container, preSelectedClient = null) {
         } catch (error) {
             console.error("Error cargando datos:", error);
             container.innerHTML = `<div class="text-danger">Error al cargar los datos. Detalle: ${error.message}</div>`;
+        }
+    }
+
+    async function fetchDailySales() {
+        const businessId = localStorage.getItem('businessId');
+        if (!businessId) return;
+        const shiftStartStr = localStorage.getItem('shiftStartTime');
+        let shiftStart;
+        if (shiftStartStr) {
+            shiftStart = new Date(shiftStartStr);
+        } else {
+            shiftStart = new Date();
+            shiftStart.setHours(0, 0, 0, 0);
+        }
+        try {
+            const qSales = query(collection(db, "businesses", businessId, "sales"), where("createdAt", ">=", shiftStart));
+            const pq = query(collection(db, "businesses", businessId, "payments"), where("createdAt", ">=", shiftStart));
+            
+            const [salesSnap, paymentsSnap] = await Promise.all([getDocs(qSales), getDocs(pq)]);
+            
+            const allSales = salesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const allPayments = paymentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const freshSales = (allSales || []).filter(sale => {
+                return role === 'admin' || sale.employeeEmail === userEmail;
+            }).map(sale => {
+                const salePayments = (allPayments || []).filter(p => p.saleId === sale.id);
+                const methods = [...new Set(salePayments.map(p => {
+                    let m = p.method || 'Efectivo';
+                    if (m.includes('EFECTIVO')) return 'Efectivo';
+                    if (m === 'PAGO_MOVIL') return 'Pago Móvil';
+                    if (m === 'TRANSFERENCIA') return 'Transferencia';
+                    if (m === 'PUNTO') return 'Punto';
+                    return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+                }))];
+                let paymentMethodStr = methods.length === 0 ? '--' : (methods.length > 1 ? 'Múltiple' : methods[0]);
+                if (sale.status === 'presupuesto') paymentMethodStr = '--';
+                return { ...sale, paymentMethodStr };
+            });
+
+            const freshMap = new Map();
+            freshSales.forEach(s => freshMap.set(s.id, s));
+            dailySales.forEach(s => {
+                if (!freshMap.has(s.id)) {
+                    freshSales.push(s);
+                }
+            });
+
+            dailyPayments = (allPayments || []).filter(p => role === 'admin' || p.employeeEmail === userEmail);
+            dailySales = freshSales;
+            dailySales.sort((a, b) => {
+                const timeA = a.createdAt?.seconds || (a.createdAt?.getTime ? Math.floor(a.createdAt.getTime()/1000) : 0);
+                const timeB = b.createdAt?.seconds || (b.createdAt?.getTime ? Math.floor(b.createdAt.getTime()/1000) : 0);
+                return timeB - timeA;
+            });
+        } catch (e) {
+            console.error("Error fetching daily sales:", e);
         }
     }
 
@@ -390,7 +468,7 @@ export function renderSales(container, preSelectedClient = null) {
                         ${p.barcode ? `<p class="text-label-sm text-outline mt-xs font-mono truncate" style="font-size: 0.65rem;">${p.barcode}</p>` : ''}
                     </div>
                     <div class="flex flex-col items-end mt-auto gap-1 pb-1">
-                        <span class="text-body-sm font-bold ${stock > 10 ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${Number(Number(stock).toFixed(3))} ${p.stockUnit || 'ud'}</span>
+                        <span class="text-body-sm font-bold ${stock > 10 ? 'text-green-500' : (stock > 0 ? 'text-yellow-500' : 'text-red-500')}">${fmt(stock)} ${p.stockUnit || 'ud'}</span>
                         <span class="text-body-md font-bold text-white leading-none">$ ${fmt(price)}</span>
                         <span class="text-body-md font-bold text-white leading-none">Bs. ${fmt(price * bcvRate)}</span>
                     </div>
@@ -1043,15 +1121,17 @@ export function renderSales(container, preSelectedClient = null) {
         container.querySelector('#backToDashboardBtn')?.addEventListener('click', navHomeLogic);
         container.querySelector('#backToDashboardBtn2')?.addEventListener('click', navHomeLogic);
 
-        container.querySelector('#viewHistoryBtn')?.addEventListener('click', () => {
+        container.querySelector('#viewHistoryBtn')?.addEventListener('click', async () => {
             historyFilter = 'ventas';
             currentView = 'history';
+            await fetchDailySales();
             render();
         });
 
-        container.querySelector('#viewBudgetsBtn')?.addEventListener('click', () => {
+        container.querySelector('#viewBudgetsBtn')?.addEventListener('click', async () => {
             historyFilter = 'presupuestos';
             currentView = 'history';
+            await fetchDailySales();
             render();
         });
 
@@ -1061,14 +1141,16 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         // Mobile Nav events
-        container.querySelector('#mobileViewHistoryBtn')?.addEventListener('click', () => {
+        container.querySelector('#mobileViewHistoryBtn')?.addEventListener('click', async () => {
             historyFilter = 'ventas';
             currentView = 'history';
+            await fetchDailySales();
             render();
         });
-        container.querySelector('#mobileViewBudgetsBtn')?.addEventListener('click', () => {
+        container.querySelector('#mobileViewBudgetsBtn')?.addEventListener('click', async () => {
             historyFilter = 'presupuestos';
             currentView = 'history';
+            await fetchDailySales();
             render();
         });
         container.querySelector('#mobileViewOrdersBtn')?.addEventListener('click', () => {
@@ -2468,7 +2550,7 @@ export function renderSales(container, preSelectedClient = null) {
                         });
                 }
 
-                await runTransaction(db, async (transaction) => {
+                const txnResult = await runTransaction(db, async (transaction) => {
                     // Obtener o inicializar correlativo (LECTURA)
                     const counterRef = doc(db, "businesses", businessId, "config", "counters");
                     const counterSnap = await transaction.get(counterRef);
@@ -2643,7 +2725,54 @@ export function renderSales(container, preSelectedClient = null) {
                             });
                         }
                     }
+
+                    return { saleId: saleRef ? saleRef.id : null, correlative };
                 });
+
+                // Inserción atómica en memoria de la nueva venta/presupuesto
+                const methods = [...new Set(payments.map(p => {
+                    let m = p.method || 'Efectivo';
+                    if (m.includes('EFECTIVO')) return 'Efectivo';
+                    if (m === 'PAGO_MOVIL') return 'Pago Móvil';
+                    if (m === 'TRANSFERENCIA') return 'Transferencia';
+                    if (m === 'PUNTO') return 'Punto';
+                    return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+                }))];
+                let paymentMethodStr = methods.length === 0 ? '--' : (methods.length > 1 ? 'Múltiple' : methods[0]);
+                if (isPresupuesto) paymentMethodStr = '--';
+
+                const newCreatedDate = new Date();
+                const newSaleObj = {
+                    id: txnResult?.saleId || ('sale_' + Date.now()),
+                    correlative: txnResult?.correlative || '',
+                    items: [...cart],
+                    subtotalUSD: subtotalUSD_original,
+                    totalCostUSD: totalCostUSD,
+                    profitUSD: profitUSD,
+                    taxName: taxConfig.enabled ? taxConfig.name : null,
+                    taxRate: taxConfig.enabled ? taxConfig.rate : 0,
+                    taxAmountUSD: taxAmountUSD_original,
+                    totalUSD: totalUSD_original,
+                    totalBs: totalUSD_original * bcvRate,
+                    paidUSD: isPresupuesto ? 0 : paidToCurrentSale,
+                    remainingUSD: isPresupuesto ? totalUSD_original : currentRemaining,
+                    status: isPresupuesto ? 'presupuesto' : isPedido ? 'pedido' : (currentRemaining < 0.01 ? 'contado' : (paidToCurrentSale > 0.01 ? 'abono' : 'credito')),
+                    orderStatus: isPedido ? 'Por Entregar' : null,
+                    deliveryDate: isPedido ? deliveryDate : null,
+                    isOrder: isPedido ? true : null,
+                    clientId: selectedClient.id,
+                    clientName: selectedClient.fullName,
+                    employeeEmail: userEmail,
+                    employeeName: currentEmployeeName,
+                    storeId: storeId || 'general',
+                    storeName: storeName,
+                    bcvRate,
+                    settings,
+                    createdAt: { toDate: () => newCreatedDate, seconds: Math.floor(newCreatedDate.getTime()/1000) },
+                    date: newCreatedDate.toLocaleDateString('sv-SE'),
+                    paymentMethodStr
+                };
+                dailySales.unshift(newSaleObj);
 
                 showNotification(isPresupuesto ? "✅ Presupuesto generado correctamente." : "✅ Venta procesada y deuda actualizada.");
                 includeOldDebt = false;
@@ -2718,9 +2847,11 @@ export function renderSales(container, preSelectedClient = null) {
         container.innerHTML = `
             <div style="position: absolute; top: 0.75rem; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
                 <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
-                    <div class="flex items-center flex-stack-mobile" style="gap: 1rem;">
-                        <button id="backToCartBtn" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem;">← Volver</button>
-                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0;">${title}</h2>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <button id="backToCartBtn" class="btn btn-outline" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; flex-shrink: 0;">← Volver</button>
+                        <!-- Título: grande en escritorio, pequeño en móvil, siempre inline junto al botón -->
+                        <h2 class="hidden md:block" style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0;">${title}</h2>
+                        <h2 class="block md:hidden" style="font-size: 0.95rem; font-weight: 700; color: var(--primary); margin: 0; white-space: nowrap;">${title}</h2>
                     </div>
                     
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -2728,9 +2859,10 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
                 </div>
 
-                <div id="historySummary" style="flex: none;"></div>
+                <div id="historySummary" class="hidden md:block" style="flex: none;"></div>
 
-                <div class="card" style="flex: 1; overflow-y: auto; padding: 0.75rem 1.25rem; margin: 0;">
+                <!-- ESCRITORIO: tabla (oculta en móvil) -->
+                <div class="hidden md:block card" style="flex: 1; overflow-y: auto; padding: 0.75rem 1.25rem; margin: 0;">
                     ${dailySales.length === 0 
                         ? '<p class="text-muted" style="text-align: center; padding: 3rem;">No hay ventas registradas hoy.</p>'
                         : `
@@ -2803,6 +2935,96 @@ export function renderSales(container, preSelectedClient = null) {
                         `
                     }
                 </div>
+
+                <!-- MÓVIL: tarjetas Obsidian Metric (ocultas en escritorio) -->
+                <div class="block md:hidden" style="flex: 1; overflow-y: auto; padding: 0.75rem 1rem;">
+                    <!-- Resumen compacto: grid 2 columnas -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+                        ${ (() => {
+                            const totalBsMobile = (dailyPayments || [])
+                                .filter(p => (p.currency || 'BS').toUpperCase() === 'BS')
+                                .reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                            const totalUSDMobile = (dailyPayments || [])
+                                .filter(p => (p.currency || 'BS').toUpperCase() !== 'BS')
+                                .reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                            return `
+                            <div style="background: #181b24; border: 1px solid #414751; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #8b919d; text-transform: uppercase;">Total Bolívares</span>
+                                <span style="font-size: 15px; font-weight: 700; color: #a4c9ff; font-family: 'JetBrains Mono', monospace;">Bs. ${fmt(totalBsMobile)}</span>
+                            </div>
+                            <div style="background: #181b24; border: 1px solid #414751; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #8b919d; text-transform: uppercase;">Total Dólares</span>
+                                <span style="font-size: 15px; font-weight: 700; color: #4ae183; font-family: 'JetBrains Mono', monospace;">$ ${fmt(totalUSDMobile)}</span>
+                            </div>
+                            `;
+                        })() }
+                    </div>
+
+                    <!-- Encabezado de lista -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="font-size: 16px; font-weight: 700; color: #e0e2ee;">Transacciones</span>
+                        <span style="font-size: 12px; font-weight: 500; color: #8b919d; font-family: 'JetBrains Mono', monospace;">${ dailySales.filter(sale => {
+                            if (historyFilter === 'ventas') return sale.status !== 'presupuesto' && sale.status !== 'facturado';
+                            if (historyFilter === 'presupuestos') return sale.status === 'presupuesto' || sale.status === 'facturado';
+                            return true;
+                        }).length } items</span>
+                    </div>
+
+                    <!-- Tarjetas de transacción -->
+                    ${ dailySales.length === 0
+                        ? '<p style="text-align: center; color: #8b919d; padding: 3rem 1rem;">No hay ventas registradas hoy.</p>'
+                        : dailySales
+                            .filter(sale => {
+                                if (historyFilter === 'ventas') return sale.status !== 'presupuesto' && sale.status !== 'facturado';
+                                if (historyFilter === 'presupuestos') return sale.status === 'presupuesto' || sale.status === 'facturado';
+                                return true;
+                            })
+                            .map((sale, i) => {
+                                const statusColor = sale.status === 'contado' ? '#4ae183' : sale.status === 'abono' ? '#f59e0b' : '#ffb4ab';
+                                const statusBg = sale.status === 'contado' ? 'rgba(74,225,131,0.1)' : sale.status === 'abono' ? 'rgba(245,158,11,0.1)' : 'rgba(255,180,171,0.1)';
+                                const statusBorder = sale.status === 'contado' ? 'rgba(74,225,131,0.3)' : sale.status === 'abono' ? 'rgba(245,158,11,0.3)' : 'rgba(255,180,171,0.3)';
+                                const isBudgetCard = sale.status === 'presupuesto' || sale.status === 'facturado';
+                                return `
+                                <div style="background: #1c1f28; border: 1px solid #414751; border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+                                    <div style="padding: 14px 14px 10px 14px;">
+                                        <!-- Fila 1: cliente + total USD -->
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <span class="material-symbols-outlined" style="font-size: 18px; color: #a4c9ff;">person</span>
+                                                <span style="font-size: 15px; font-weight: 600; color: #e0e2ee;">${sale.clientName}</span>
+                                            </div>
+                                            <span style="font-size: 15px; font-weight: 700; color: #e0e2ee; font-family: 'JetBrains Mono', monospace;">$ ${fmt(sale.totalUSD)}</span>
+                                        </div>
+                                        <!-- Fila 2: vendedor + total Bs -->
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                            <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #8b919d; text-transform: uppercase;">Vendedor: ${sale.employeeName}</span>
+                                            <span style="font-size: 12px; font-weight: 500; color: #c1c7d3; font-family: 'JetBrains Mono', monospace;">Bs. ${fmt(sale.totalBs)}</span>
+                                        </div>
+                                        <!-- Fila 3: badges + botones acción -->
+                                        <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #414751; padding-top: 10px;">
+                                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                                <span style="background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder}; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;">${sale.status}</span>
+                                                <span style="background: #32343e; color: #c1c7d3; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">${sale.paymentMethodStr || '--'}</span>
+                                            </div>
+                                            <div style="display: flex; gap: 6px;">
+                                                <button class="print-presupuesto" data-index="${i}" title="${isBudgetCard ? 'Ver Presupuesto' : 'Ver Factura'}" style="background: none; border: none; cursor: pointer; padding: 6px; color: #a4c9ff; border-radius: 6px; display: flex; align-items: center;">
+                                                    <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
+                                                </button>
+                                                <button class="view-sale-detail" data-index="${i}" title="Ver Detalle" style="background: none; border: none; cursor: pointer; padding: 6px; color: #8b919d; border-radius: 6px; display: flex; align-items: center;">
+                                                    <span class="material-symbols-outlined" style="font-size: 20px;">visibility</span>
+                                                </button>
+                                                ${isBudgetCard && sale.status === 'presupuesto' ? `
+                                                <button class="convert-to-sale" data-index="${i}" title="Facturar" style="background: none; border: none; cursor: pointer; padding: 6px; color: #4ae183; border-radius: 6px; display: flex; align-items: center;">
+                                                    <span class="material-symbols-outlined" style="font-size: 20px;">shopping_cart</span>
+                                                </button>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')
+                    }
+                </div>
             </div>
 
             <!-- Detail Modal -->
@@ -2823,7 +3045,7 @@ export function renderSales(container, preSelectedClient = null) {
             const btn = container.querySelector('#refreshHistoryBtn');
             btn.disabled = true;
             btn.textContent = '⏳...';
-            await loadDailySales();
+            await fetchDailySales();
             render();
         });
 
@@ -3348,81 +3570,166 @@ export function renderSales(container, preSelectedClient = null) {
         }
 
         content.innerHTML = `
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;">
-                    Resumen de ${headerType}
+            <!-- ESCRITORIO: vista completa (oculta en móvil) -->
+            <div class="hidden md:block">
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;">
+                        Resumen de ${headerType}
+                    </div>
+                    <h2 style="margin: 0.5rem 0;">
+                        ${headerLabel} ${correlativeStr}
+                    </h2>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">${displayDate}</div>
                 </div>
-                <h2 style="margin: 0.5rem 0;">
-                    ${headerLabel} ${correlativeStr}
-                </h2>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">${displayDate}</div>
-            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-                <div>
-                    <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Cliente</h4>
-                    <p style="font-weight: bold; margin: 0;">${sale.clientName}</p>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">ID: ${sale.clientId}</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div>
+                        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Cliente</h4>
+                        <p style="font-weight: bold; margin: 0;">${sale.clientName}</p>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">ID: ${sale.clientId}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Estado</h4>
+                        <span style="padding: 0.2rem 0.6rem; border-radius: 4px; background: ${statusBg}; color: ${statusColor}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
+                            ${displayStatus}
+                        </span>
+                    </div>
                 </div>
-                <div style="text-align: right;">
-                    <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Estado</h4>
-                    <span style="padding: 0.2rem 0.6rem; border-radius: 4px; background: ${statusBg}; color: ${statusColor}; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
-                        ${displayStatus}
-                    </span>
-                </div>
-            </div>
 
-            <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Productos</h4>
-            <div style="margin-bottom: 2rem;">
-                ${sale.items.map(item => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.9rem;">
-                        <div>
-                            <div>${item.qty} x ${item.name}</div>
-                            ${(item.unitContent && item.unitContent > 1) ? `<div style="font-size:0.75rem; color:var(--text-muted);">${item.qty} ${item.sellUnit} x ${item.unitContent} ${item.baseUnit || 'ud'}</div>` : ''}
+                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Productos</h4>
+                <div style="margin-bottom: 2rem;">
+                    ${sale.items.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                            <div>
+                                <div>${item.qty} x ${item.name}</div>
+                                ${(item.unitContent && item.unitContent > 1) ? `<div style="font-size:0.75rem; color:var(--text-muted);">${item.qty} ${item.sellUnit} x ${item.unitContent} ${item.baseUnit || 'ud'}</div>` : ''}
+                            </div>
+                            <span style="font-weight: bold;">$${fmt(item.total)}</span>
                         </div>
-                        <span style="font-weight: bold;">$${fmt(item.total)}</span>
+                    `).join('')}
+                    <div style="display: flex; justify-content: space-between; border-top: 2px solid var(--border); padding-top: 0.75rem; margin-top: 0.75rem; font-weight: 800; font-size: 1.1rem;">
+                        <span>TOTAL</span>
+                        <span style="color: var(--primary);">$${fmt(sale.totalUSD)}</span>
                     </div>
-                `).join('')}
-                <div style="display: flex; justify-content: space-between; border-top: 2px solid var(--border); padding-top: 0.75rem; margin-top: 0.75rem; font-weight: 800; font-size: 1.1rem;">
-                    <span>TOTAL</span>
-                    <span style="color: var(--primary);">$${fmt(sale.totalUSD)}</span>
+                    <div style="text-align: right; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">Bs. ${fmt(sale.totalBs)}</div>
                 </div>
-                <div style="text-align: right; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">Bs. ${fmt(sale.totalBs)}</div>
-            </div>
 
-            ${isBudget ? '' : `
-            <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Pagos Recibidos</h4>
-            <div style="margin-bottom: 1rem;">
-                ${salePayments.length === 0 ? '<p class="text-sm text-muted">No se registraron pagos.</p>' : 
-                  salePayments.map(p => `
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
-                        <span>${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
-                        <span style="font-weight: bold;">${p.currency} ${fmt(p.amount)}</span>
+                ${isBudget ? '' : `
+                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">Pagos Recibidos</h4>
+                <div style="margin-bottom: 1rem;">
+                    ${salePayments.length === 0 ? '<p class="text-sm text-muted">No se registraron pagos.</p>' : 
+                      salePayments.map(p => `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            <span>${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
+                            <span style="font-weight: bold;">${p.currency} ${fmt(p.amount)}</span>
+                        </div>
+                      `).join('')
+                    }
+                </div>
+
+                <div style="background: var(--background); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Pendiente de Cobro</div>
+                        <div style="font-size: 1.1rem; font-weight: 800; color: var(--danger);">$${fmt(sale.remainingUSD || 0)}</div>
                     </div>
-                  `).join('')
-                }
-            </div>
-
-            <div style="background: var(--background); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Pendiente de Cobro</div>
-                    <div style="font-size: 1.1rem; font-weight: 800; color: var(--danger);">$${fmt(sale.remainingUSD || 0)}</div>
+                    <div style="text-align: right; font-size: 0.75rem; color: var(--text-muted);">
+                        Registrado por: ${sale.employeeName}<br>
+                        Tienda: ${sale.storeName}
+                    </div>
                 </div>
-                <div style="text-align: right; font-size: 0.75rem; color: var(--text-muted);">
-                    Registrado por: ${sale.employeeName}<br>
-                    Tienda: ${sale.storeName}
+                `}
+
+                <div style="margin-top: 2rem;">
+                    <button id="modalCloseBtnDesktop" class="btn btn-primary">Cerrar Detalle</button>
                 </div>
             </div>
-            `}
 
-            <div style="margin-top: 2rem;">
-                <button id="modalCloseBtn" class="btn btn-primary">Cerrar Detalle</button>
+            <!-- MÓVIL: layout compacto Obsidian Metric (oculto en escritorio) -->
+            <div class="block md:hidden" style="font-family: 'Inter', sans-serif; color: #e0e2ee;">
+                <!-- Header móvil -->
+                <div style="text-align: center; padding-bottom: 18px; border-bottom: 1px solid rgba(54,57,67,0.5); margin-bottom: 24px;">
+                    <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #8b919d; font-weight: 600; margin-bottom: 6px;">Resumen de ${headerType}</p>
+                    <h2 style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px 0;">${headerLabel} ${correlativeStr}</h2>
+                    <p style="font-size: 13px; color: #8b919d; margin: 0;">${displayDate}</p>
+                </div>
+
+                <!-- Sección: Cliente + Estado -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                    <div>
+                        <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #8b919d; display: block; margin-bottom: 4px;">Cliente</span>
+                        <p style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0 0 2px 0; line-height: 1.2;">${sale.clientName}</p>
+                        <p style="font-size: 13px; color: #8b919d; margin: 0;">ID: ${sale.clientId}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #8b919d; display: block; margin-bottom: 4px;">Estado</span>
+                        <span style="display: inline-block; padding: 4px 12px; background: ${statusBg}; color: ${statusColor}; font-size: 11px; font-weight: 700; border-radius: 4px; letter-spacing: 0.08em; text-transform: uppercase;">${displayStatus}</span>
+                    </div>
+                </div>
+
+                <!-- Sección: Productos -->
+                <div style="margin-bottom: 24px;">
+                    <h3 style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #8b919d; border-bottom: 1px solid rgba(54,57,67,0.4); padding-bottom: 8px; margin-bottom: 10px; letter-spacing: 0.05em;">Productos</h3>
+                    ${sale.items.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+                            <p style="font-size: 14px; font-weight: 500; color: #e0e2ee; margin: 0;">${item.qty} x ${item.name}</p>
+                            <p style="font-size: 14px; font-weight: 700; color: #e0e2ee; margin: 0;">$${fmt(item.total)}</p>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Sección: Totales -->
+                <div style="border-top: 1px solid rgba(54,57,67,0.5); padding-top: 14px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+                        <h3 style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0;">TOTAL</h3>
+                        <p style="font-size: 20px; font-weight: 700; color: #a4c9ff; margin: 0; font-family: 'JetBrains Mono', monospace;">$${fmt(sale.totalUSD)}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-size: 13px; color: #8b919d; margin: 0;">Bs. ${fmt(sale.totalBs)}</p>
+                    </div>
+                </div>
+
+                ${isBudget ? '' : `
+                <!-- Sección: Pagos Recibidos -->
+                <div style="margin-bottom: 24px;">
+                    <h3 style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #8b919d; margin-bottom: 10px; letter-spacing: 0.05em;">Pagos Recibidos</h3>
+                    ${salePayments.length === 0
+                        ? '<p style="font-size: 13px; color: #8b919d;">No se registraron pagos.</p>'
+                        : salePayments.map(p => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(54,57,67,0.3);">
+                                <p style="font-size: 14px; font-weight: 500; color: #e0e2ee; margin: 0;">${p.method}${p.ref ? ` (Ref: ${p.ref})` : ''}</p>
+                                <p style="font-size: 14px; font-weight: 700; color: #e0e2ee; margin: 0;">${p.currency} ${fmt(p.amount)}</p>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+
+                <!-- Tarjeta de Resumen Final -->
+                <div style="background: #181b24; padding: 16px; border-radius: 6px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <p style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #8b919d; margin: 0 0 4px 0;">Pendiente de Cobro</p>
+                            <p style="font-size: 26px; font-weight: 700; color: #f87171; margin: 0;">$${fmt(sale.remainingUSD || 0)}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="font-size: 11px; color: #8b919d; margin: 0 0 2px 0;">Registrado por: <span style="color: #e0e2ee;">${sale.employeeName}</span></p>
+                            <p style="font-size: 11px; color: #8b919d; margin: 0;">Tienda: <span style="color: #e0e2ee;">${sale.storeName}</span></p>
+                        </div>
+                    </div>
+                </div>
+                `}
+
+                <!-- Botón de cierre móvil -->
+                <button id="modalCloseBtnMobile" style="width: 100%; background: #1d4ed8; color: #ffffff; font-size: 15px; font-weight: 700; padding: 16px; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.15s; box-shadow: 0 4px 14px rgba(29,78,216,0.3);" onmouseenter="this.style.opacity='0.9'" onmouseleave="this.style.opacity='1'">
+                    Cerrar Detalle
+                </button>
             </div>
         `;
 
-        content.querySelector('#modalCloseBtn').onclick = () => {
-            modal.style.display = 'none';
-        };
+        const closeModal = () => { modal.style.display = 'none'; };
+        const closeBtnDesktop = content.querySelector('#modalCloseBtnDesktop');
+        const closeBtnMobile = content.querySelector('#modalCloseBtnMobile');
+        if (closeBtnDesktop) closeBtnDesktop.onclick = closeModal;
+        if (closeBtnMobile) closeBtnMobile.onclick = closeModal;
 
         modal.style.display = 'flex';
     }
@@ -3459,15 +3766,12 @@ export function renderSales(container, preSelectedClient = null) {
         try {
             const snap = await getDoc(doc(db, "businesses", businessId));
             if (snap.exists()) businessData = snap.data();
-        } catch (e) {
-            console.error("Error fetching business data:", e);
-        }
+        } catch (e) {}
         
         const bName = businessData.name || localStorage.getItem('businessName') || 'ORANGE APP';
         const logoUrl = businessData.logoUrl || localStorage.getItem('businessLogo');
         const sName = sale.storeName || 'Sucursal';
         
-        // Formatear fecha: martes, 12-05-2026
         let formattedDate = sale.date;
         try {
             const [year, month, day] = sale.date.split('-');
@@ -3475,30 +3779,51 @@ export function renderSales(container, preSelectedClient = null) {
             const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
             const dayName = days[dateObj.getDay()];
             formattedDate = `${dayName}, ${day}-${month}-${year}`;
-        } catch (e) {
-            console.error("Error formatting date:", e);
-        }
+        } catch (e) {}
         
         let bankAccounts = [];
         try {
             const q = query(collection(db, "businesses", businessId, "bank_accounts"));
             const snap = await getDocs(q);
             bankAccounts = snap.docs.map(doc => doc.data());
-        } catch (e) {
-            console.error("Error fetching bank accounts for document:", e);
+        } catch (e) {}
+
+        // Formatear correlativo con los últimos 5 dígitos (ej: FAC-00000106 -> FAC00106)
+        let corrRaw = (sale.correlative || sale.id.slice(-5)).toUpperCase();
+        let corrFormatted = corrRaw;
+        if (corrRaw.includes('-')) {
+            const parts = corrRaw.split('-');
+            const prefix = parts[0];
+            const numPart = parts[1].slice(-5);
+            corrFormatted = `${prefix}${numPart}`;
+        } else {
+            const prefixMatch = corrRaw.match(/^[A-Z]+/);
+            const prefix = prefixMatch ? prefixMatch[0] : (isBudget ? 'PRE' : 'FAC');
+            const numMatch = corrRaw.match(/\d+$/);
+            const num = numMatch ? numMatch[0].slice(-5) : corrRaw.slice(-5);
+            corrFormatted = `${prefix}${num}`;
         }
-        
+
+        const safeClientName = (sale.clientName || 'Cliente').replace(/[/\\?%*:|"<>]/g, '').trim();
+        const customDocTitle = `${safeClientName}-${corrFormatted}`;
+        const fileNameWithExt = `${customDocTitle}.pdf`;
+
         const html = `
             <!DOCTYPE html>
             <html>
             <head>
-                <title>${isBudget ? 'Presupuesto' : 'Factura'} - ${sale.id.slice(-6).toUpperCase()}</title>
+                <title>${customDocTitle}</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
-                    body { font-family: 'Arial', sans-serif; padding: 30px; color: #1a202c; line-height: 1.5; background: #f8fafc; margin: 0; }
+                    body { font-family: 'Arial', sans-serif; padding: 20px; color: #1a202c; line-height: 1.5; background: #f8fafc; margin: 0; }
+                    .page-wrapper { overflow-x: auto; width: 100%; }
                     .page { background: white; width: 210mm; min-height: 297mm; padding: 20mm; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; position: relative; box-sizing: border-box; }
-                    .no-print-toolbar { position: sticky; top: 0; background: #2d3748; padding: 10px; display: flex; justify-content: center; gap: 20px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-                    .btn-print { background: #48bb78; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; }
-                    .btn-pdf { background: #4299e1; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+                    .no-print-toolbar { position: sticky; top: 0; background: #2d3748; padding: 10px; display: flex; justify-content: center; gap: 15px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); border-radius: 6px; flex-wrap: wrap; }
+                    .btn-tb { border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; color: white; }
+                    .btn-tb:disabled { opacity: 0.6; cursor: not-allowed; }
+                    .btn-print { background: #48bb78; }
+                    .btn-pdf { background: #4299e1; }
+                    .btn-share { background: #9f7aea; }
                     .header { display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #edf2f7; padding-bottom: 20px; }
                     .company h1 { margin: 0; color: #2b6cb0; font-size: 22px; text-transform: uppercase; }
                     .company p { margin: 2px 0; font-size: 12px; color: #718096; }
@@ -3517,125 +3842,205 @@ export function renderSales(container, preSelectedClient = null) {
                     @media print { 
                         body { background: white; padding: 0; } 
                         .no-print-toolbar { display: none !important; } 
+                        .page-wrapper { overflow: visible; }
                         .page { margin: 0; box-shadow: none; width: 100%; padding: 10mm; }
                     }
                 </style>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
             </head>
             <body>
                 <div class="no-print-toolbar">
-                    <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
-                    <button class="btn-pdf" onclick="window.print()">💾 GUARDAR PDF</button>
+                    <button class="btn-tb btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
+                    <button class="btn-tb btn-pdf" id="downloadPdfBtn">💾 GUARDAR PDF</button>
+                    <button class="btn-tb btn-share" id="sharePdfBtn">📤 ENVIAR ARCHIVO</button>
                 </div>
                 
-                <div class="page">
-                    <div class="header" style="align-items: flex-start;">
-                        <div class="company" style="display: flex; align-items: flex-start; gap: 15px;">
-                            ${logoUrl ? `<img src="${logoUrl}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 50%;">` : ''}
-                            <div>
-                                <h1 style="margin: 0; color: #2b6cb0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${bName}</h1>
-                                <p style="margin: 2px 0; font-size: 12px; color: #718096;">${localStorage.getItem('userRole') === 'admin' ? 'Sede Principal' : sName}</p>
-                                <p style="margin: 2px 0; font-size: 12px; color: #718096;">Vendedor: ${sale.employeeName}</p>
+                <div class="page-wrapper">
+                    <div class="page" id="documentPage">
+                        <div class="header" style="align-items: flex-start;">
+                            <div class="company" style="display: flex; align-items: flex-start; gap: 15px;">
+                                ${logoUrl ? `<img src="${logoUrl}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 50%;">` : ''}
+                                <div>
+                                    <h1 style="margin: 0; color: #2b6cb0; font-size: 22px; font-weight: bold; text-transform: uppercase;">${bName}</h1>
+                                    <p style="margin: 2px 0; font-size: 12px; color: #718096;">${localStorage.getItem('userRole') === 'admin' ? 'Sede Principal' : sName}</p>
+                                    <p style="margin: 2px 0; font-size: 12px; color: #718096;">Vendedor: ${sale.employeeName}</p>
+                                </div>
+                            </div>
+                            <div class="budget-id">
+                                <h2 style="margin: 0; color: #2d3748; font-size: 18px; font-weight: bold; text-transform: uppercase;">${isBudget ? 'PRESUPUESTO' : 'FACTURA NO FISCAL'}</h2>
+                                <p style="margin: 4px 0; font-weight: bold; color: #4a5568; font-size: 14px;">${isBudget ? 'N°:' : 'Factura N°:'} ${sale.correlative || sale.id.slice(-6).toUpperCase()}</p>
+                                <div style="font-size: 12px; color: #000;">${formattedDate} - Tasa BCV: Bs. ${fmt(sale.bcvRate || (sale.totalBs / sale.totalUSD))}</div>
+                                <div style="color: #2b6cb0; font-weight: bold; font-size: 12px; margin-top: 5px; text-transform: uppercase;">ESTADO: ${sale.status}</div>
                             </div>
                         </div>
-                        <div class="budget-id">
-                            <h2 style="margin: 0; color: #2d3748; font-size: 16px; font-weight: bold; text-transform: uppercase;">${isBudget ? 'PRESUPUESTO' : 'FACTURA NO FISCAL'}</h2>
-                            <p>${isBudget ? 'N°:' : 'Factura N°:'} ${sale.correlative || sale.id.slice(-6).toUpperCase()}</p>
-                            <div style="font-size: 12px; color: #000;">${formattedDate} - Tasa BCV: Bs. ${fmt(sale.bcvRate || (sale.totalBs / sale.totalUSD))}</div>
-                            <div style="color: #2b6cb0; font-weight: bold; font-size: 12px; margin-top: 5px; text-transform: uppercase;">ESTADO: ${sale.status}</div>
+
+                        <div class="client-box">
+                            <h3>Cliente</h3>
+                            <div style="font-weight: bold; font-size: 15px;">${sale.clientName}</div>
+                            <div style="font-size: 13px; color: #4a5568;">${sale.clientId}</div>
                         </div>
-                    </div>
 
-                    <div class="client-box">
-                        <h3>Cliente</h3>
-                        <div style="font-weight: bold; font-size: 15px;">${sale.clientName}</div>
-                        <div style="font-size: 13px; color: #4a5568;">${sale.clientId}</div>
-                    </div>
-
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Cant.</th>
-                                <th>Descripción</th>
-                                <th style="text-align: right;">P. Unit ($)</th>
-                                <th style="text-align: right;">Total ($)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sale.items.map(item => `
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td style="width: 50px;">${item.qty}</td>
-                                    <td>
-                                        ${item.name}
-                                        ${(item.unitContent && item.unitContent > 1) ? `<br><small style="color:#718096">${item.qty} ${item.sellUnit} x ${item.unitContent} ${item.baseUnit || 'ud'}</small>` : ''}
-                                    </td>
-                                    <td style="text-align: right; width: 100px;">$ ${fmt(item.price)}</td>
-                                    <td style="text-align: right; width: 100px;">$ ${fmt(item.total)}</td>
+                                    <th>Cant.</th>
+                                    <th>Descripción</th>
+                                    <th style="text-align: right;">P. Unit ($)</th>
+                                    <th style="text-align: right;">Total ($)</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                ${sale.items.map(item => `
+                                    <tr>
+                                        <td style="width: 50px;">${item.qty}</td>
+                                        <td>
+                                            ${item.name}
+                                            ${(item.unitContent && item.unitContent > 1) ? `<br><small style="color:#718096">${item.qty} ${item.sellUnit} x ${item.unitContent} ${item.baseUnit || 'ud'}</small>` : ''}
+                                        </td>
+                                        <td style="text-align: right; width: 100px;">$ ${fmt(item.price)}</td>
+                                        <td style="text-align: right; width: 100px;">$ ${fmt(item.total)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
 
-                    <div class="totals">
-                        <div class="total-row">
-                            <span>SUBTOTAL USD:</span>
-                            <span>$ ${fmt(sale.totalUSD)}</span>
-                        </div>
-                        <div class="total-row main">
-                            <span>TOTAL USD:</span>
-                            <span>$ ${fmt(sale.totalUSD)}</span>
-                        </div>
-                        <div style="text-align: right; margin-top: 8px; font-weight: bold; color: #4a5568; font-size: 15px;">
-                            TOTAL BS: ${fmt(sale.totalBs)}
-                        </div>
-
-                    </div>
-
-                    ${!isBudget && salePayments.length > 0 ? `
-                    <div style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 20px;">
-                        <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px;">Pagos Registrados</h3>
-                        <div style="font-size: 12px;">
-                            ${salePayments.map(p => `
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                    <span>${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
-                                    <span style="font-weight: bold;">${p.currency} ${fmt(p.amount)}</span>
-                                </div>
-                            `).join('')}
-                            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-weight: bold; color: #e53e3e; border-top: 1px dashed #edf2f7; padding-top: 8px;">
-                                <span>PENDIENTE POR COBRAR:</span>
-                                <span>$ ${fmt(sale.remainingUSD || 0)}</span>
+                        <div class="totals">
+                            <div class="total-row">
+                                <span>SUBTOTAL USD:</span>
+                                <span>$ ${fmt(sale.totalUSD)}</span>
+                            </div>
+                            <div class="total-row main">
+                                <span>TOTAL USD:</span>
+                                <span>$ ${fmt(sale.totalUSD)}</span>
+                            </div>
+                            <div style="text-align: right; margin-top: 8px; font-weight: bold; color: #4a5568; font-size: 15px;">
+                                TOTAL BS: ${fmt(sale.totalBs)}
                             </div>
                         </div>
-                    </div>
-                    ` : ''}
 
-                    <!-- Cuentas Bancarias -->
-                    ${bankAccounts.length > 0 ? `
-                    <div style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 20px;">
-                        <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px;">🏦 Datos de Pago</h3>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; font-size: 11px;">
-                            ${bankAccounts.map(acc => `
-                                <div style="background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                                    <div style="font-weight: bold; color: #2b6cb0;">${acc.bank}</div>
-                                    <div style="color: #718096; font-size: 10px; text-transform: uppercase;">${acc.type} (${acc.currency})</div>
-                                    <div style="font-family: monospace; font-size: 11px; margin-top: 4px;">${acc.number}</div>
-                                    ${acc.phone ? `<div style="font-size: 11px; margin-top: 2px;">📱 ${acc.phone}</div>` : ''}
+                        ${!isBudget && salePayments.length > 0 ? `
+                        <div style="margin-left: auto; width: 280px; margin-top: 25px; border-top: 1px solid #edf2f7; padding-top: 15px;">
+                            <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px; text-align: right;">Pagos Registrados</h3>
+                            <div style="font-size: 12px;">
+                                ${salePayments.map(p => `
+                                    <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px;">
+                                        <span style="color: #4a5568; text-align: right; flex: 1;">${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
+                                        <span style="font-weight: bold; text-align: right; min-width: 100px;">${p.currency} ${fmt(p.amount)}</span>
+                                    </div>
+                                `).join('')}
+                                <div style="display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; font-weight: bold; color: #e53e3e; border-top: 1px dashed #edf2f7; padding-top: 8px; font-size: 13px;">
+                                    <span style="flex: 1; text-align: right;">PENDIENTE POR COBRAR:</span>
+                                    <span style="text-align: right; min-width: 100px;">$ ${fmt(sale.remainingUSD || 0)}</span>
                                 </div>
-                            `).join('')}
+                            </div>
                         </div>
-                    </div>
-                    ` : ''}
+                        ` : ''}
 
-                    <div class="footer">
-                        <p>${isBudget ? 'Este presupuesto es informativo y tiene una validez de 24 horas.' : 'Gracias por su compra. Este documento es su comprobante de pago.'}</p>
-                        <p>Los precios expresados en Bolívares están sujetos a la tasa BCV del día.</p>
-                        <p>¡Gracias por elegirnos!</p>
+                        ${bankAccounts.length > 0 ? `
+                        <div style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 20px;">
+                            <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px;">🏦 Datos de Pago</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; font-size: 11px;">
+                                ${bankAccounts.map(acc => `
+                                    <div style="background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                        <div style="font-weight: bold; color: #2b6cb0;">${acc.bank}</div>
+                                        <div style="color: #718096; font-size: 10px; text-transform: uppercase;">${acc.type} (${acc.currency})</div>
+                                        <div style="font-family: monospace; font-size: 11px; margin-top: 4px;">${acc.number}</div>
+                                        ${acc.phone ? `<div style="font-size: 11px; margin-top: 2px;">📱 ${acc.phone}</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="footer">
+                            <p>${isBudget ? 'Este presupuesto es informativo y tiene una validez de 24 horas.' : 'Gracias por su compra. Este documento es su comprobante de pago.'}</p>
+                            <p>Los precios expresados en Bolívares están sujetos a la tasa BCV del día.</p>
+                            <p>¡Gracias por elegirnos!</p>
+                        </div>
                     </div>
                 </div>
+
+                <script>
+                    const fileName = "${fileNameWithExt}";
+                    const docTitle = "${customDocTitle}";
+
+                    async function buildPdf() {
+                        const pageEl = document.getElementById('documentPage');
+                        const canvas = await html2canvas(pageEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                        pdf.setProperties({ title: docTitle, subject: docTitle, author: "${bName}", creator: 'Orange App' });
+                        const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
+                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+                        if (imgHeight <= pageHeight) {
+                            pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight);
+                        } else {
+                            let heightLeft = imgHeight;
+                            let position = 0;
+                            pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
+                            heightLeft -= pageHeight;
+                            while (heightLeft > 0) {
+                                position = position - pageHeight;
+                                pdf.addPage();
+                                pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
+                                heightLeft -= pageHeight;
+                            }
+                        }
+                        return pdf;
+                    }
+
+                    document.getElementById('downloadPdfBtn').onclick = async function() {
+                        this.disabled = true;
+                        this.textContent = '⏳ Guardando...';
+                        try {
+                            const pdf = await buildPdf();
+                            pdf.save(fileName);
+                        } catch (e) {
+                            alert("Error al guardar PDF: " + e.message);
+                        } finally {
+                            this.disabled = false;
+                            this.innerHTML = '💾 GUARDAR PDF';
+                        }
+                    };
+
+                    document.getElementById('sharePdfBtn').onclick = async function() {
+                        this.disabled = true;
+                        this.textContent = '⏳ Generando...';
+                        try {
+                            const pdf = await buildPdf();
+                            const pdfBlob = pdf.output('blob');
+                            const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                            if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                                await navigator.share({ files: [pdfFile], title: docTitle });
+                            } else if (navigator.share) {
+                                await navigator.share({ title: docTitle, text: 'Documento: ' + docTitle });
+                            } else {
+                                pdf.save(fileName);
+                            }
+                        } catch (e) {
+                            if (e.name !== 'AbortError') {
+                                alert("Error al enviar: " + e.message);
+                            }
+                        } finally {
+                            this.disabled = false;
+                            this.innerHTML = '📤 ENVIAR ARCHIVO';
+                        }
+                    };
+                </script>
             </body>
             </html>
         `;
-        printWindow.document.write(html);
-        printWindow.document.close();
+
+        if (printWindow) {
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
+        }
     }
 
     loadData();
