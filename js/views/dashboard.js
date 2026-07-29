@@ -1256,6 +1256,9 @@ export function renderDashboard() {
     const logoutBtn = container.querySelector('#logoutBtn');
     logoutBtn.addEventListener('click', async () => {
         try {
+            if (document.fullscreenElement) {
+                await document.exitFullscreen().catch(e => console.log("Exit fullscreen error", e));
+            }
             await auth.signOut();
             localStorage.removeItem('businessId');
             localStorage.removeItem('userRole');
@@ -1385,6 +1388,9 @@ export function renderDashboard() {
 
                     // Limpieza total y Logout
                     localStorage.clear();
+                    if (document.fullscreenElement) {
+                        await document.exitFullscreen().catch(e => console.log("Exit fullscreen error", e));
+                    }
                     await auth.signOut();
                     navigate('#entrar');
                 },

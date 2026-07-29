@@ -337,6 +337,11 @@ export function renderLogin() {
                         localStorage.setItem('storeId', tData.ID_TIENDA);
                         localStorage.setItem('storeName', tData.NOMBRE_TIENDA);
                         localStorage.setItem('userEmail', email);
+                        
+                        if (window.innerWidth < 1024 && document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+                        }
+                        
                         navigate('#dashboard');
                         return;
                     }
@@ -395,6 +400,11 @@ export function renderLogin() {
                         localStorage.setItem('storeId', selectedStoreId);
                         localStorage.setItem('storeName', selectedStoreName);
                         localStorage.setItem('userEmail', email);
+                        
+                        if (window.innerWidth < 1024 && document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+                        }
+                        
                         navigate('#dashboard');
                     } catch (err) {
                         console.error("Error al abrir turno:", err);
@@ -469,6 +479,11 @@ export function renderLogin() {
             }
 
             localStorage.setItem('userEmail', email);
+            
+            if (window.innerWidth < 1024 && document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+            }
+            
             navigate('#dashboard');
 
         } catch (error) {
