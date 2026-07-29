@@ -23,6 +23,27 @@ export function renderSales(container, preSelectedClient = null) {
     let payAmountVal = '';
     let payRefVal = '';
 
+    // History and PopState Logic for Mobile Back Button
+    if (window._salesPopStateListener) {
+        window.removeEventListener('popstate', window._salesPopStateListener);
+    }
+    window._salesPopStateListener = (e) => {
+        if (!document.getElementById('sales-container')) return;
+        if (e.state && e.state.salesStep) {
+            currentMobileStep = e.state.salesStep;
+            render(); 
+        } else {
+            currentMobileStep = 1;
+            render();
+        }
+    };
+    window.addEventListener('popstate', window._salesPopStateListener);
+    
+    // Solo registrar el estado inicial si estamos montando de nuevo y no en un retroceso
+    if (!history.state || !history.state.salesStep) {
+        history.replaceState({ salesStep: currentMobileStep }, "", window.location.hash);
+    }
+
     // Attempt to restore state if returning from client creation or history
     const savedState = sessionStorage.getItem('sales_temp_state');
     if (savedState) {
@@ -460,7 +481,7 @@ export function renderSales(container, preSelectedClient = null) {
             return `
             <div class="product-card group bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 transition-all cursor-pointer relative focus:outline-none focus:ring-4 focus:ring-primary focus:border-primary" data-id="${p.id}" tabindex="0">
                 <div class="h-28 bg-surface-variant/30 flex items-center justify-center p-sm border-b border-outline-variant relative overflow-hidden group-hover:bg-primary/5 transition-colors bg-white">
-                    ${p.image ? `<img src="${p.image}" alt="${p.name}" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
+                    ${p.image ? `<img src="${p.image}" alt="${p.name}" loading="lazy" class="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300">` : `<span class="material-symbols-outlined text-[48px] text-outline-variant group-hover:text-primary/40 transition-colors" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">inventory_2</span>`}
                 </div>
                 <div class="p-sm flex-1 flex flex-col justify-between bg-surface-container-lowest" style="height: 120px;">
                     <div>
@@ -479,8 +500,9 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function attachProductClickEvents() {
-        const cards = Array.from(container.querySelectorAll('.product-card'));
+        const cards = Array.from(container.querySelectorAll('.product-card:not([data-events-bound="true"])'));
         cards.forEach((card, index) => {
+            card.dataset.eventsBound = "true";
             card.addEventListener('click', () => {
                 const id = card.dataset.id;
                 const p = products.find(prod => prod.id === id);
@@ -582,7 +604,12 @@ export function renderSales(container, preSelectedClient = null) {
         });
     }
 
+    let cachedProductListElement = null;
+    let lastSearchState = "";
+
     function renderSingleView() {
+        const currentSearchState = searchProductTerm + "|" + settings.priceType + "|" + products.length;
+
         const subtotalUSD = cart.reduce((sum, item) => sum + item.total, 0);
         const taxAmountUSD = taxConfig.enabled ? subtotalUSD * taxConfig.rate / 100 : 0;
         const baseWithTaxUSD = subtotalUSD + taxAmountUSD;
@@ -651,16 +678,22 @@ export function renderSales(container, preSelectedClient = null) {
                                     Pedidos
                                 </button>
                             </div>
-                            <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant w-full md:w-96">
-                                <span class="material-symbols-outlined text-outline">search</span>
-                                <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
+                            <div class="flex items-center gap-2 w-full md:w-96">
+                                <button id="btnBackFromStep2" class="lg:hidden btn btn-icon material-symbols-outlined text-white hover:bg-white/10 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-container-highest border border-outline-variant">arrow_back</button>
+                                <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant w-full">
+                                    <span class="material-symbols-outlined text-outline">search</span>
+                                    <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
+                                </div>
                             </div>
                         </div>
-                        <div id="productList" class="flex-1 overflow-y-auto px-container-margin pb-20">
-                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
-                                ${renderProductList()}
-                            </div>
-                        </div>
+                        ${(cachedProductListElement && lastSearchState === currentSearchState) 
+                            ? `<div id="productList-placeholder"></div>` 
+                            : `<div id="productList" class="flex-1 overflow-y-auto px-container-margin pb-20 custom-scrollbar">
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
+                                    ${renderProductList()}
+                                </div>
+                               </div>`
+                        }
                     </section>
                 </main>
 
@@ -734,6 +767,7 @@ export function renderSales(container, preSelectedClient = null) {
                         <div class="mb-md relative">
                             <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1 block">CLIENTE</label>
                             <div class="flex items-center gap-2">
+                                <button id="btnBackFromStep4" class="lg:hidden btn btn-icon material-symbols-outlined text-white hover:bg-white/10 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-container-highest border border-outline-variant">arrow_back</button>
                                 <div class="flex-1 flex items-center gap-sm p-sm bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-[#8ab4f8] transition-colors group">
                                     <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
                                     <div class="flex-1 relative">
@@ -861,7 +895,7 @@ export function renderSales(container, preSelectedClient = null) {
                             }
 
                             return `
-                                ${actualRem > 0.009 ? `
+                                ${(actualRem > 0.009 && saleStatus !== 'credito' && settings.type !== 'presupuesto') ? `
                                 <div class="mb-4">
                                     <label class="text-[10px] font-bold text-outline uppercase tracking-wider mb-2 block">MÉTODO DE PAGO</label>
                                     <div class="flex gap-2 mb-4 bg-surface-container-high p-1 rounded-xl border border-outline-variant">
@@ -1004,7 +1038,7 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
                 
                     <!-- 8. CARGAR PAGO -->
-                    <button id="openPaymentModalBtn" class="flex-2 h-full border-2 border-primary text-primary bg-transparent rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98] focus:bg-primary focus:text-white focus:outline-none" style="min-width: 140px;" ${settings.type === 'presupuesto' ? 'disabled style="opacity:0.5"' : ''}>CARGAR PAGO</button>
+                    <button id="openPaymentModalBtn" class="flex-2 h-full border-2 border-primary text-primary bg-transparent rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98] focus:bg-primary focus:text-white focus:outline-none" style="min-width: 140px;" ${(settings.type === 'presupuesto' || saleStatus === 'credito') ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>CARGAR PAGO</button>
                     <!-- 9. FINALIZAR -->
                     <button id="finishBtn" class="flex-2 h-full border-2 border-primary text-primary bg-transparent rounded-lg font-bold uppercase tracking-wider text-body-md hover:bg-primary/10 transition-all shadow-sm active:scale-[0.98] focus:bg-primary focus:text-white focus:outline-none" style="min-width: 140px;">${settings.type === 'presupuesto' ? 'PRESUPUESTO' : 'FINALIZAR'}</button>
                 </div>
@@ -1098,6 +1132,17 @@ export function renderSales(container, preSelectedClient = null) {
         </div>
         `;
 
+        // Restore DOM node
+        if (cachedProductListElement && lastSearchState === currentSearchState) {
+            const placeholder = container.querySelector('#productList-placeholder');
+            if (placeholder) {
+                placeholder.replaceWith(cachedProductListElement);
+            }
+        } else {
+            cachedProductListElement = container.querySelector('#productList');
+            lastSearchState = currentSearchState;
+        }
+
         // Clock and Date
         const clockSpan = container.querySelector('#clockSpan');
         const dateSpan = container.querySelector('#dateSpan');
@@ -1158,12 +1203,29 @@ export function renderSales(container, preSelectedClient = null) {
             render();
         });
 
-        container.querySelector('#btnNextStep1')?.addEventListener('click', () => { currentMobileStep = 2; render(); });
-        container.querySelector('#btnNextStep2')?.addEventListener('click', () => { currentMobileStep = 3; render(); });
-        container.querySelector('#btnPrevStep3')?.addEventListener('click', () => { currentMobileStep = 2; render(); });
-        container.querySelector('#btnNextStep3')?.addEventListener('click', () => { currentMobileStep = 4; render(); });
-        container.querySelector('#btnPrevStep4')?.addEventListener('click', () => { currentMobileStep = 3; render(); });
+        function goForwardStep(step) {
+            history.pushState({ salesStep: step }, "", window.location.hash);
+            currentMobileStep = step;
+            render();
+        }
+        
+        function goBackwardStep(fallbackStep) {
+            history.pushState({ salesStep: fallbackStep }, "", window.location.hash);
+            currentMobileStep = fallbackStep;
+            render();
+        }
 
+        container.querySelector('#btnNextStep1')?.addEventListener('click', () => goForwardStep(2));
+        container.querySelector('#btnNextStep2')?.addEventListener('click', () => goForwardStep(3));
+        container.querySelector('#btnNextStep3')?.addEventListener('click', () => goForwardStep(4));
+        
+        container.querySelector('#btnBackFromStep2')?.addEventListener('click', () => goBackwardStep(1));
+        container.querySelector('#btnPrevStep3')?.addEventListener('click', () => goBackwardStep(2));
+        container.querySelector('#btnBackFromStep3')?.addEventListener('click', () => goBackwardStep(2));
+        container.querySelector('#btnPrevStep4')?.addEventListener('click', () => goBackwardStep(3));
+        container.querySelector('#btnBackFromStep4')?.addEventListener('click', () => goBackwardStep(3));
+
+        let searchTimeout;
         const searchInput = container.querySelector('#productSearch');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
@@ -1199,16 +1261,12 @@ export function renderSales(container, preSelectedClient = null) {
                     return;
                 }
 
-                searchProductTerm = rawVal;
-                const productListWrapper = container.querySelector('#productList');
-                if (productListWrapper) {
-                    productListWrapper.innerHTML = `
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-md content-start">
-                            ${renderProductList()}
-                        </div>
-                    `;
-                }
-                attachProductClickEvents();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    searchProductTerm = rawVal;
+                    // Forzamos un re-render completo para actualizar el searchState
+                    render();
+                }, 300);
             });
 
             searchInput.addEventListener('keydown', (e) => {
@@ -1289,11 +1347,6 @@ export function renderSales(container, preSelectedClient = null) {
             }, "Sí, Cancelar", "No, Volver");
         });
 
-        container.querySelector('#btnBackFromStep3')?.addEventListener('click', () => {
-            currentMobileStep = 2;
-            render();
-        });
-
         container.querySelector('#cancelCartBtnMobile')?.addEventListener('click', () => {
             const btn = container.querySelector('#cancelCartBtn');
             if (btn) btn.click();
@@ -1360,9 +1413,12 @@ export function renderSales(container, preSelectedClient = null) {
                 if (createOpt) {
                     createOpt.addEventListener('click', () => {
                         const currentSearch = clientSearch.value;
-                        sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart', currentMobileStep }));
-                        sessionStorage.setItem('prefill_client_name', currentSearch);
-                        window.location.hash = '#clients';
+                        renderClients(container, (newClient) => {
+                            if (newClient) {
+                                selectedClient = newClient;
+                            }
+                            render();
+                        }, currentSearch);
                     });
                 }
             });
@@ -1394,8 +1450,13 @@ export function renderSales(container, preSelectedClient = null) {
         });
 
         container.querySelector('#createNewClientBtn')?.addEventListener('click', () => {
-            sessionStorage.setItem('sales_temp_state', JSON.stringify({ cart, payments, currentView: 'cart', currentMobileStep }));
-            window.location.hash = '#clients';
+            const currentSearch = container.querySelector('#clientSearch')?.value || '';
+            renderClients(container, (newClient) => {
+                if (newClient) {
+                    selectedClient = newClient;
+                }
+                render();
+            }, currentSearch);
         });
 
         const handleEditQty = (index) => {
