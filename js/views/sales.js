@@ -1281,7 +1281,17 @@ export function renderSales(container, preSelectedClient = null) {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     searchProductTerm = rawVal;
-                    // Forzamos un re-render completo para actualizar el searchState
+                    const productGrid = container.querySelector('#productList');
+                    if (productGrid) {
+                        const gridInner = productGrid.querySelector('.grid');
+                        if (gridInner) {
+                            gridInner.innerHTML = renderProductList();
+                            attachProductClickEvents();
+                            cachedProductListElement = productGrid;
+                            lastSearchState = searchProductTerm.trim() !== '' ? 'searching' : 'idle';
+                            return;
+                        }
+                    }
                     render();
                 }, 300);
             });
@@ -1728,7 +1738,7 @@ export function renderSales(container, preSelectedClient = null) {
 
                 <div class="form-group">
                     <label class="text-label-bold font-label-bold text-outline uppercase">Cantidad</label>
-                    <input type="text" inputmode="numeric" id="saleQty" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
+                    <input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" inputmode="numeric" id="saleQty" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
                 </div>
 
                 <div class="flex gap-md mt-sm pt-md border-t border-outline-variant">
