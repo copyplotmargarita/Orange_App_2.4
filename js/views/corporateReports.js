@@ -166,10 +166,7 @@ export function renderCorporateReports(container) {
         if (backBtn) {
             backBtn.onclick = () => {
                 document.getElementById('navHome')?.click();
-                const toggleIcon = document.getElementById('toggleIcon');
-                if (toggleIcon && toggleIcon.innerText === '▶') {
-                    document.getElementById('sidebarToggle')?.click();
-                }
+
             };
         }
 

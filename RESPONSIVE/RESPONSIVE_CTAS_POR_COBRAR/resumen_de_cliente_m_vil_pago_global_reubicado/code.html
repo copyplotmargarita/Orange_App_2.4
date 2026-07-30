@@ -1,0 +1,235 @@
+<!DOCTYPE html><html class="dark" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Resumen de Cliente - Obsidian Metric</title>
+<!-- Google Fonts: Hanken Grotesk -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              DEFAULT: '#10131c',
+              dim: '#10131c',
+              bright: '#363943',
+              lowest: '#0b0e16',
+              low: '#181b24',
+              container: '#1c212d',
+            },
+            primary: '#4a90e2',
+            accent: '#f87171', // For red amounts/status
+            warning: '#fbbf24', // For orange status
+            success: '#10b981', // For green navigation active
+          },
+          fontFamily: {
+            sans: ['Hanken Grotesk', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-scrollbar">
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .no-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+  </style>
+</head>
+<body class="bg-surface text-slate-200 font-sans min-h-screen flex flex-col">
+<!-- BEGIN: MainHeader -->
+<header class="sticky top-0 z-50 bg-surface/95 backdrop-blur-sm border-b border-white/5 px-4 py-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<button aria-label="Volver" class="p-1 hover:bg-white/10 rounded-full transition-colors">
+<svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<div class="flex items-center gap-2">
+<span class="text-xl">📋</span>
+<h1 class="text-lg font-bold text-white truncate">Resumen (Carmen Lugo)</h1>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative">
+<svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="absolute -top-1 -right-1 bg-red-500 text-[10px] text-white font-bold px-1 rounded-full border border-surface">5</span>
+</button>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 overflow-y-auto px-4 py-6 space-y-6 mb-20 no-scrollbar">
+<!-- BEGIN: TopMetrics -->
+<section class="grid grid-cols-2 gap-3" data-purpose="metrics-dashboard">
+<div class="bg-surface-container rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center text-center">
+<span class="text-[10px] font-bold text-slate-500 tracking-wider mb-2 uppercase">Facturas Pendientes</span>
+<span class="text-3xl font-extrabold text-white">4</span>
+</div>
+<div class="bg-surface-container rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center text-center relative overflow-hidden">
+<!-- Decoration for high value -->
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent/50 to-transparent"></div>
+<span class="text-[10px] font-bold text-slate-500 tracking-wider mb-2 uppercase">Total Pendiente ($)</span>
+<span class="text-2xl font-extrabold text-accent">$ 69,43</span>
+</div>
+</section><div class="flex justify-center py-2">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all text-sm uppercase tracking-wide">
+    Cargar Pago Global
+  </button>
+</div>
+<!-- END: TopMetrics -->
+<!-- BEGIN: InvoiceList -->
+<section class="space-y-4" data-purpose="invoice-list">
+<div class="flex items-center justify-between px-1">
+<h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Facturas Pendientes</h2>
+<span class="text-xs text-primary font-semibold">Ver todas</span>
+</div>
+<!-- Invoice Card 1 -->
+<article class="bg-surface-container rounded-2xl border border-white/5 p-5 space-y-4 transition-active active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<h3 class="text-primary font-bold text-lg">FAC-00000016</h3>
+<p class="text-xs text-slate-400 font-medium">Fecha: 23/06/2026</p>
+</div>
+<span class="bg-accent/10 text-accent text-[10px] font-black px-2 py-1 rounded border border-accent/20">CREDITO</span>
+</div>
+<div class="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto ($)</span>
+<span class="text-white font-extrabold text-lg">$ 11,87</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto (BS)</span>
+<span class="text-white font-extrabold text-lg">Bs. 8.837,36</span>
+</div>
+</div>
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all text-sm uppercase tracking-wide">
+          Cargar Pago
+        </button>
+</article>
+<!-- Invoice Card 2 -->
+<article class="bg-surface-container rounded-2xl border border-white/5 p-5 space-y-4 transition-active active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<h3 class="text-primary font-bold text-lg">FAC-00000017</h3>
+<p class="text-xs text-slate-400 font-medium">Fecha: 23/06/2026</p>
+</div>
+<span class="bg-accent/10 text-accent text-[10px] font-black px-2 py-1 rounded border border-accent/20">CREDITO</span>
+</div>
+<div class="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto ($)</span>
+<span class="text-white font-extrabold text-lg">$ 19,80</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto (BS)</span>
+<span class="text-white font-extrabold text-lg">Bs. 14.735,75</span>
+</div>
+</div>
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all text-sm uppercase tracking-wide">
+          Cargar Pago
+        </button>
+</article>
+<!-- Invoice Card 3 (Abono State) -->
+<article class="bg-surface-container rounded-2xl border border-white/5 p-5 space-y-4 transition-active active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<h3 class="text-primary font-bold text-lg">FAC-00000020</h3>
+<p class="text-xs text-slate-400 font-medium">Fecha: 23/06/2026</p>
+</div>
+<span class="bg-warning/10 text-warning text-[10px] font-black px-2 py-1 rounded border border-warning/20">ABONO</span>
+</div>
+<div class="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto ($)</span>
+<span class="text-white font-extrabold text-lg">$ 3,51</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto (BS)</span>
+<span class="text-white font-extrabold text-lg">Bs. 2.614,23</span>
+</div>
+</div>
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all text-sm uppercase tracking-wide">
+          Cargar Pago
+        </button>
+</article>
+<!-- Invoice Card 4 -->
+<article class="bg-surface-container rounded-2xl border border-white/5 p-5 space-y-4 transition-active active:scale-[0.98]">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<h3 class="text-primary font-bold text-lg">FAC-00000108</h3>
+<p class="text-xs text-slate-400 font-medium">Fecha: 26/07/2026</p>
+</div>
+<span class="bg-accent/10 text-accent text-[10px] font-black px-2 py-1 rounded border border-accent/20">CREDITO</span>
+</div>
+<div class="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto ($)</span>
+<span class="text-white font-extrabold text-lg">$ 34,24</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-slate-500 font-bold uppercase mb-1">Monto (BS)</span>
+<span class="text-white font-extrabold text-lg">Bs. 25.482,44</span>
+</div>
+</div>
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all text-sm uppercase tracking-wide">
+          Cargar Pago
+        </button>
+</article>
+</section>
+<!-- END: InvoiceList -->
+<!-- Global Action Placeholder -->
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: BottomNavBar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-surface-low border-t border-white/5 flex justify-around items-center px-2 py-2 safe-area-bottom shadow-2xl" data-purpose="main-navigation">
+<a class="flex flex-col items-center p-2 rounded-xl bg-success/10" data-purpose="nav-item" href="#">
+<div class="bg-success text-white p-1 rounded-md mb-1">
+<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-bold text-success uppercase">Ventas</span>
+</a>
+<a class="flex flex-col items-center p-2" data-purpose="nav-item" href="#">
+<div class="text-slate-500 mb-1">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-bold text-slate-500 uppercase">Métricas</span>
+</a>
+<a class="flex flex-col items-center p-2" data-purpose="nav-item" href="#">
+<div class="text-slate-500 mb-1">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-bold text-slate-500 uppercase">Tiendas</span>
+</a>
+<a class="flex flex-col items-center p-2" data-purpose="nav-item" href="#">
+<div class="text-slate-500 mb-1">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-bold text-slate-500 uppercase">Ajustes</span>
+</a>
+</nav>
+<!-- END: BottomNavBar -->
+
+
+</body></html>

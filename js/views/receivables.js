@@ -14,11 +14,13 @@ export async function renderReceivables(container) {
 
     container.innerHTML = `
         <div id="receivablesTopSticky" style="position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📋 Cuentas por Cobrar</h2>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 12px; height: 34px; font-size: 0.85rem; flex-shrink: 0;">&larr; Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.25rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">📋 Cuentas por Cobrar</h2>
+                </div>
                 
-                <div style="position: relative; width: 300px; margin-left: auto;" class="flex-stack-mobile">
+                <div style="position: relative; flex-grow: 1; min-width: 260px; max-width: 400px; margin-left: auto;">
                     <input type="text" id="searchClientInput" placeholder="🔍 Buscar cliente..." style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #ffffff; width: 100%; box-sizing: border-box; font-size: 14px;">
                 </div>
             </div>
@@ -40,15 +42,43 @@ export async function renderReceivables(container) {
             .premium-table tr.clickable-row:hover { background: rgba(255,255,255,0.05); }
             .premium-table tr.sale-row { cursor: pointer; transition: background 0.2s; }
             .premium-table tr.sale-row:hover { background: rgba(255,255,255,0.05); }
-            .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 4px; }
-            .badge { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-            .badge-warning { background: #fef3c7; color: #d97706; }
-            .badge-danger { background: #fee2e2; color: #ef4444; }
+            
+            /* Responsive Grid */
+            .clients-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 16px; margin-bottom: 20px; }
+            @media (min-width: 768px) { .clients-grid { grid-template-columns: repeat(2, 1fr); } }
+            @media (min-width: 1024px) { .clients-grid { grid-template-columns: repeat(3, 1fr); } }
+            @media (min-width: 1280px) { .clients-grid { grid-template-columns: repeat(4, 1fr); } }
+            
+            /* Responsive display classes */
+            @media (min-width: 768px) { .mobile-only { display: none !important; } }
+            @media (max-width: 767px) { .desktop-only { display: none !important; } }
+            
+            /* Obsidian Metric Cards */
+            .data-card { background-color: #1E2230; border: 1px solid #2A2F3E; padding: 16px; border-radius: 12px; cursor: pointer; transition: transform 0.15s ease, background 0.2s; }
+            .data-card:hover { background-color: #272a33; }
+            .data-card:active { transform: scale(0.98); }
+            .data-card-h3 { color: #e0e2ee; font-size: 16px; font-weight: 600; margin: 0; }
+            .data-card-badge { background: #32343e; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; color: #c1c7d3; }
+            .data-card-amount { color: #ffb4ab; font-size: 13px; font-weight: bold; font-family: 'JetBrains Mono', monospace; text-align: right; }
+            .data-card-amount.large { font-size: 16px; }
+            .data-card-meta { font-size: 10px; color: #c1c7d3; text-transform: uppercase; margin-bottom: 2px; }
+            .data-card-val { font-size: 14px; color: #e0e2ee; }
+            .data-card-divider { border-top: 1px solid rgba(65, 71, 81, 0.3); margin-top: 12px; padding-top: 12px; }
+
+            .invoice-card { background: #1c212d; border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: transform 0.15s; }
+            .invoice-card:active { transform: scale(0.98); }
+            
+            /* Metrics Grid */
+            .metrics-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 8px; }
+            .metrics-grid-2 .metric-box { background: #1E2230; border: 1px solid #2A2F3E; border-radius: 12px; padding: 16px; text-align: center; }
+            .metrics-grid-2 .metric-box.danger-top { border-top: 2px solid #ef4444; }
+            .metrics-grid-2 .title { font-size: 11px; color: #c1c7d3; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+            .metrics-grid-2 .value { font-size: 24px; font-weight: 700; color: #e0e2ee; }
             
             .metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px; }
-            .metric-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
-            .metric-box .title { font-size: 10px; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
-            .metric-box .value { font-size: 18px; font-weight: bold; color: #ffffff; }
+            .metrics-grid .metric-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
+            .metrics-grid .title { font-size: 10px; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+            .metrics-grid .value { font-size: 18px; font-weight: bold; color: #ffffff; }
             
             #searchClientInput:focus { border-color: #63b3ed; outline: none; background: rgba(255,255,255,0.05); }
             
@@ -70,15 +100,23 @@ export async function renderReceivables(container) {
     const backBtn = container.querySelector('#backToDashboardBtn');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            const navHome = document.getElementById('navHome');
-            if (navHome) {
-                navHome.click();
-                const toggleIcon = document.getElementById('toggleIcon');
-                if (toggleIcon && toggleIcon.innerText === '▶') {
-                    document.getElementById('sidebarToggle')?.click();
+            if (window.lastViewBeforeReceivables === 'ventas') {
+                window.lastViewBeforeReceivables = null;
+                const navVentas = document.getElementById('navVentas');
+                if (navVentas) {
+                    navVentas.click();
+
+                } else {
+                    window.location.hash = '#dashboard';
                 }
             } else {
-                window.location.hash = '#dashboard';
+                const navHome = document.getElementById('navHome');
+                if (navHome) {
+                    navHome.click();
+
+                } else {
+                    window.location.hash = '#dashboard';
+                }
             }
         });
     }
@@ -157,27 +195,39 @@ export async function renderReceivables(container) {
 
         // Función para renderizar métricas globales
         function renderGlobalMetrics() {
+            const metricsDiv = container.querySelector('#receivables-metrics');
+            if (!metricsDiv) return;
             metricsDiv.innerHTML = `
-                <div class="metrics-grid">
-                    <div class="metric-box">
-                        <div class="title">Clientes con Deuda</div>
-                        <div class="value">${debtorsSet.size}</div>
+                <div class="desktop-only">
+                    <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr);">
+                        <div class="metric-box">
+                            <div class="title">Total Deuda ($)</div>
+                            <div class="value" style="color: #ef4444;">$ ${fmt(totalDebtUSD)}</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="title">Total Deuda (Bs)</div>
+                            <div class="value" style="color: #ef4444;">Bs. ${fmt(totalDebtBs)}</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="title">Deuda Nueva (Hoy)</div>
+                            <div class="value">$ ${fmt(debtToday)}</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="title">Deuda Nueva (Esta Sem.)</div>
+                            <div class="value">$ ${fmt(debtWeek)}</div>
+                        </div>
                     </div>
-                    <div class="metric-box">
-                        <div class="title">Total Deuda ($)</div>
-                        <div class="value" style="color: #ef4444;">$ ${fmt(totalDebtUSD)}</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="title">Total Deuda (Bs)</div>
-                        <div class="value" style="color: #ef4444;">Bs. ${fmt(totalDebtBs)}</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="title">Deuda Nueva (Hoy)</div>
-                        <div class="value">$ ${fmt(debtToday)}</div>
-                    </div>
-                    <div class="metric-box">
-                        <div class="title">Deuda Nueva (Esta Sem.)</div>
-                        <div class="value">$ ${fmt(debtWeek)}</div>
+                </div>
+                <div class="mobile-only">
+                    <div class="metrics-grid-2">
+                        <div class="metric-box">
+                            <div class="title">Clientes con Deuda</div>
+                            <div class="value">${clientsArray.length}</div>
+                        </div>
+                        <div class="metric-box danger-top">
+                            <div class="title">Total Deuda ($)</div>
+                            <div class="value" style="color: #ffb4ab;">$ ${fmt(totalDebtUSD)}</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -195,34 +245,70 @@ export async function renderReceivables(container) {
             return;
         }
 
-        // Renderizar Tabla de Clientes
         contentDiv.innerHTML = `
-            <table class="premium-table" id="clientsTable" style="margin-bottom:0;">
-                <thead>
-                    <tr>
-                        <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Cliente</th>
-                        <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Facturas</th>
-                        <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Deuda ($)</th>
-                        <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Deuda (Bs)</th>
-                        <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">F. Más Antigua</th>
-                        <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Última Compra</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${clientsArray.map(client => `
-                        <tr class="clickable-row" data-client-id="${client.clientId}">
-                            <td style="font-weight: 500; color: #ffffff;">${client.clientName}</td>
-                            <td style="text-align: center; color: #ffffff;">${client.invoiceCount}</td>
-                            <td style="text-align: right; font-weight: bold; color: #e53e3e;">$ ${fmt(client.totalDebt)}</td>
-                            <td style="text-align: right; font-weight: bold; color: #e53e3e;">Bs. ${fmt(client.totalDebtBs)}</td>
-                            <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.oldestDate)}</td>
-                            <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.newestDate)}</td>
+            <div class="desktop-only">
+                <table class="premium-table" id="clientsTable" style="margin-bottom:0;">
+                    <thead>
+                        <tr>
+                            <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Cliente</th>
+                            <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Facturas</th>
+                            <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Deuda ($)</th>
+                            <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Deuda (Bs)</th>
+                            <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">F. Más Antigua</th>
+                            <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Última Compra</th>
                         </tr>
+                    </thead>
+                    <tbody>
+                        ${clientsArray.map(client => `
+                            <tr class="clickable-row desktop-row" data-client-id="${client.clientId}">
+                                <td style="font-weight: 500; color: #ffffff;">${client.clientName}</td>
+                                <td style="text-align: center; color: #ffffff;">${client.invoiceCount}</td>
+                                <td style="text-align: right; font-weight: bold; color: #e53e3e;">$ ${fmt(client.totalDebt)}</td>
+                                <td style="text-align: right; font-weight: bold; color: #e53e3e;">Bs. ${fmt(client.totalDebtBs)}</td>
+                                <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.oldestDate)}</td>
+                                <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.newestDate)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mobile-only">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 4px 12px 4px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #8b919d; text-transform: uppercase; letter-spacing: 0.05em;">Lista de Clientes</span>
+                    <span style="font-size: 11px; font-weight: 700; color: #a4c9ff;">Ver todos</span>
+                </div>
+                <div class="clients-grid">
+                    ${clientsArray.map(client => `
+                        <div class="data-card clickable-row mobile-row" data-client-id="${client.clientId}">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    <h3 class="data-card-h3">${client.clientName}</h3>
+                                    <div style="margin-top: 4px;">
+                                        <span class="data-card-badge">${client.invoiceCount} FACTURA${client.invoiceCount > 1 ? 'S' : ''}</span>
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div class="data-card-amount large">$ ${fmt(client.totalDebt)}</div>
+                                    <div class="data-card-amount large" style="opacity: 0.8; margin-top: 4px;">Bs. ${fmt(client.totalDebtBs)}</div>
+                                </div>
+                            </div>
+                            <div class="data-card-divider" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div>
+                                    <span class="data-card-meta block">F. Más Antigua</span>
+                                    <span class="data-card-val font-mono-data">${formatDateToDDMMYYYY(client.oldestDate)}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="data-card-meta block">Última Compra</span>
+                                    <span class="data-card-val font-mono-data">${formatDateToDDMMYYYY(client.newestDate)}</span>
+                                </div>
+                            </div>
+                        </div>
                     `).join('')}
-                </tbody>
-            </table>
+                </div>
+            </div>
         `;
-
+        
         // Init ResizeObserver for sticky header
         const topSticky = container.querySelector('#receivablesTopSticky');
         if (topSticky) {
@@ -241,7 +327,13 @@ export async function renderReceivables(container) {
             const term = e.target.value.toLowerCase();
             const rows = contentDiv.querySelectorAll('.clickable-row');
             rows.forEach(row => {
-                const clientName = row.querySelector('td').textContent.toLowerCase();
+                let clientName = "";
+                if (row.classList.contains('desktop-row')) {
+                    clientName = row.querySelector('td').textContent.toLowerCase();
+                } else if (row.classList.contains('mobile-row')) {
+                    clientName = row.querySelector('.data-card-h3').textContent.toLowerCase();
+                }
+                
                 if (clientName.includes(term)) {
                     row.style.display = '';
                 } else {
@@ -254,8 +346,7 @@ export async function renderReceivables(container) {
         contentDiv.querySelectorAll('.clickable-row').forEach(row => {
             row.addEventListener('click', () => {
                 const clientId = row.dataset.clientId;
-                renderClientReceivables(clientsMap[clientId], contentDiv, () => {
-                    renderGlobalMetrics();
+                renderClientReceivables(clientsMap[clientId], container, () => {
                     renderReceivables(container);
                 });
             });
@@ -268,90 +359,181 @@ export async function renderReceivables(container) {
 }
 
 function renderClientReceivables(clientData, container, backToMainCallback) {
-    // Obtener la tasa BCV del día desde el localStorage
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
 
-    // Actualizar métricas para el cliente seleccionado
-    const metricsDiv = document.querySelector('#receivables-metrics');
-    if (metricsDiv) {
-        metricsDiv.innerHTML = `
-            <div class="metrics-grid" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="metric-box">
-                    <div class="title">Facturas Pendientes</div>
-                    <div class="value">${clientData.invoiceCount}</div>
+    container.innerHTML = `
+        <div id="receivablesTopSticky" style="position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="btn btn-outline" id="backToReceivablesBtn" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 12px; height: 34px; font-size: 0.85rem; flex-shrink: 0;">&larr; Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.25rem; font-weight: 800; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">📋 ${clientData.clientName}</h2>
                 </div>
-                <div class="metric-box">
-                    <div class="title">Total Pendiente ($)</div>
-                    <div class="value" style="color: #ef4444;">$ ${fmt(clientData.totalDebt)}</div>
-                </div>
-                <div class="metric-box">
-                    <div class="title">Total Pendiente (Bs)</div>
-                    <div class="value" style="color: #ef4444;">Bs. ${fmt(clientData.totalDebt * currentBcvRate)}</div>
+                
+                <div style="width: 100%; display: flex; justify-content: flex-end; flex-grow: 1; max-width: 400px;">
+                    <button class="btn btn-primary" id="massPayBtn" style="width: 100%; padding: 0 16px; height: 42px; font-weight: 700; font-size: 0.9rem; white-space: nowrap; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">💰 Cargar Pago Global</button>
                 </div>
             </div>
-        `;
-    }
+            
+            <div id="receivables-metrics">
+                <div class="metrics-grid" style="display: flex; gap: 10px; width: 100%;">
+                    <div class="metric-box desktop-only" style="flex: 1;">
+                        <div class="title">Facturas Pendientes</div>
+                        <div class="value">${clientData.invoiceCount}</div>
+                    </div>
+                    <div class="metric-box" style="flex: 1;">
+                        <div class="title">Total Pendiente ($)</div>
+                        <div class="value" style="color: #ef4444;">$ ${fmt(clientData.totalDebt)}</div>
+                    </div>
+                    <div class="metric-box" style="flex: 1;">
+                        <div class="title">Total Pendiente (Bs)</div>
+                        <div class="value" style="color: #ef4444;">Bs. ${fmt(clientData.totalDebt * currentBcvRate)}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    // Actualizar el encabezado principal
-    const topHeader = document.querySelector('#mainContentArea > div:first-child');
-    if (topHeader) {
-        const title = topHeader.querySelector('h2');
-        if (title) title.innerHTML = `👤 ${clientData.clientName}`;
-        
-        const actionArea = topHeader.querySelector('div:last-child');
-        if (actionArea) {
-            actionArea.style.display = 'flex';
-            actionArea.style.justifyContent = 'flex-end';
-            actionArea.innerHTML = `<button class="btn btn-primary" id="massPayBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">💰 Pago Masivo</button>`;
-        }
-        
-        const backBtn = topHeader.querySelector('#backToDashboardBtn');
-        if (backBtn) {
-            // Clonar el botón para eliminar todos los listeners anteriores (que abrían la barra lateral)
-            const newBackBtn = backBtn.cloneNode(true);
-            backBtn.parentNode.replaceChild(newBackBtn, backBtn);
-            newBackBtn.onclick = () => {
-                backToMainCallback();
-            };
-        }
-    }
+        <div class="desktop-only">
+            <div class="card" style="padding:0;overflow:visible;border-radius:12px;">
+                <div id="receivables-content">
+                    <table class="premium-table" style="margin-bottom:0;">
+                        <thead>
+                            <tr>
+                                <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Correlativo</th>
+                                <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Fecha</th>
+                                <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto ($)</th>
+                                <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto (Bs)</th>
+                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Estado</th>
+                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${clientData.sales.map(sale => `
+                                <tr class="sale-row desktop-sale-row" data-sale-id="${sale.id}">
+                                    <td style="font-family: monospace; font-weight: bold; color: #63b3ed;">${sale.correlative || sale.id.slice(-6).toUpperCase()}</td>
+                                    <td style="color: #e2e8f0;">${formatDateToDDMMYYYY(sale.date)}</td>
+                                    <td style="text-align: right; font-weight: bold; color: #e2e8f0;">$ ${fmt(sale.remainingUSD || 0)}</td>
+                                    <td style="text-align: right; color: #a0aec0;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</td>
+                                    <td style="text-align: center;">
+                                        <span style="color: ${sale.status === 'credito' ? '#ef4444' : '#f59e0b'}; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">${sale.status}</span>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <button class="btn btn-primary pay-btn" data-sale-id="${sale.id}" style="width: auto; padding: 4px 12px; font-size: 12px;">Cargar Pago</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-    container.innerHTML = `
-        <table class="premium-table" style="margin-bottom:0;">
-            <thead>
-                <tr>
-                    <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Correlativo</th>
-                    <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Fecha</th>
-                    <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto ($)</th>
-                    <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto (Bs)</th>
-                    <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Estado</th>
-                    <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${clientData.sales.map(sale => `
-                    <tr class="sale-row" data-sale-id="${sale.id}">
-                        <td style="font-family: monospace; font-weight: bold; color: #63b3ed;">${sale.correlative || sale.id.slice(-6).toUpperCase()}</td>
-                        <td style="color: #e2e8f0;">${formatDateToDDMMYYYY(sale.date)}</td>
-                        <td style="text-align: right; font-weight: bold; color: #e2e8f0;">$ ${fmt(sale.remainingUSD || 0)}</td>
-                        <td style="text-align: right; color: #a0aec0;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</td>
-                        <td style="text-align: center;">
-                            <span style="color: ${sale.status === 'credito' ? '#ef4444' : '#f59e0b'}; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">${sale.status}</span>
-                        </td>
-                        <td style="text-align: center;">
-                            <button class="btn btn-primary pay-btn" data-sale-id="${sale.id}" style="width: auto; padding: 4px 12px; font-size: 12px;">Cargar Pago</button>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
+        <div class="mobile-only" style="padding: 0 4px; overflow: visible; border-radius: 12px; margin-top: 1rem;">
+            <div id="receivables-content-mobile">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #8b919d; text-transform: uppercase; letter-spacing: 0.05em;">Facturas Pendientes</span>
+                    <span style="font-size: 11px; font-weight: 700; color: #4a90e2;">Ver todas</span>
+                </div>
+                
+                <div class="clients-grid">
+                    ${clientData.sales.map(sale => `
+                        <article class="invoice-card sale-row mobile-sale-row" data-sale-id="${sale.id}">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                                <div>
+                                    <h3 style="color: #4a90e2; font-weight: 700; font-size: 18px; margin: 0;">${sale.correlative || sale.id.slice(-6).toUpperCase()}</h3>
+                                    <p style="font-size: 12px; color: #8b919d; font-weight: 500; margin: 4px 0 0 0;">Fecha: ${formatDateToDDMMYYYY(sale.date)}</p>
+                                </div>
+                                <span style="background: ${sale.status === 'credito' ? 'rgba(248, 113, 113, 0.1)' : 'rgba(251, 191, 36, 0.1)'}; color: ${sale.status === 'credito' ? '#f87171' : '#fbbf24'}; font-size: 10px; font-weight: 900; padding: 4px 8px; border-radius: 4px; border: 1px solid ${sale.status === 'credito' ? 'rgba(248, 113, 113, 0.2)' : 'rgba(251, 191, 36, 0.2)'}; text-transform: uppercase;">
+                                    ${sale.status}
+                                </span>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 16px;">
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="font-size: 10px; color: #8b919d; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Monto ($)</span>
+                                    <span style="color: #ffb4ab; font-weight: 800; font-size: 18px;">$ ${fmt(sale.remainingUSD || 0)}</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                                    <span style="font-size: 10px; color: #8b919d; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Monto (BS)</span>
+                                    <span style="color: #ffb4ab; opacity: 0.8; font-weight: 800; font-size: 18px;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</span>
+                                </div>
+                            </div>
+                            
+                            <button class="pay-btn" data-sale-id="${sale.id}" style="width: 100%; background: #4a90e2; color: #ffffff; font-weight: 700; padding: 12px 16px; border-radius: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer; box-shadow: 0 4px 14px 0 rgba(74, 144, 226, 0.2); transition: background 0.15s;">
+                                Cargar Pago
+                            </button>
+                        </article>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            .premium-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            .premium-table th { text-align: left; padding: 12px; background: rgba(255,255,255,0.05); color: #a0aec0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+            .premium-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; color: #e2e8f0; }
+            .premium-table tr.clickable-row { cursor: pointer; transition: background 0.2s; }
+            .premium-table tr.clickable-row:hover { background: rgba(255,255,255,0.05); }
+            .premium-table tr.sale-row { cursor: pointer; transition: background 0.2s; }
+            .premium-table tr.sale-row:hover { background: rgba(255,255,255,0.05); }
+            .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+            .badge { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+            .badge-warning { background: #fef3c7; color: #d97706; }
+            .badge-danger { background: #fee2e2; color: #ef4444; }
+            
+            /* Responsive display classes */
+            @media (min-width: 768px) { .mobile-only { display: none !important; } }
+            @media (max-width: 767px) { .desktop-only { display: none !important; } }
+            
+            /* Responsive Grid */
+            .clients-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 16px; margin-bottom: 20px; }
+            @media (min-width: 768px) { .clients-grid { grid-template-columns: repeat(2, 1fr); } }
+            @media (min-width: 1024px) { .clients-grid { grid-template-columns: repeat(3, 1fr); } }
+            @media (min-width: 1280px) { .clients-grid { grid-template-columns: repeat(4, 1fr); } }
+            
+            /* Obsidian Metric Cards */
+            .data-card { background-color: #1E2230; border: 1px solid #2A2F3E; padding: 16px; border-radius: 12px; cursor: pointer; transition: transform 0.15s ease, background 0.2s; }
+            .data-card:hover { background-color: #272a33; }
+            .data-card:active { transform: scale(0.98); }
+            .data-card-h3 { color: #e0e2ee; font-size: 16px; font-weight: 600; margin: 0; }
+            .data-card-badge { background: #32343e; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; color: #c1c7d3; }
+            .data-card-amount { color: #ffb4ab; font-size: 13px; font-weight: bold; font-family: 'JetBrains Mono', monospace; text-align: right; }
+            .data-card-amount.large { font-size: 16px; }
+            .data-card-meta { font-size: 10px; color: #c1c7d3; text-transform: uppercase; margin-bottom: 2px; }
+            .data-card-val { font-size: 14px; color: #e0e2ee; }
+            .data-card-divider { border-top: 1px solid rgba(65, 71, 81, 0.3); margin-top: 12px; padding-top: 12px; }
+
+            .invoice-card { background: #1c212d; border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: transform 0.15s; }
+            .invoice-card:active { transform: scale(0.98); }
+            
+            .metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px; }
+            .metric-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
+            .metric-box .title { font-size: 10px; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+            .metric-box .value { font-size: 18px; font-weight: bold; color: #ffffff; }
+            
+            #searchClientInput:focus, #searchInvoiceInput:focus { border-color: #63b3ed; outline: none; background: rgba(255,255,255,0.05); }
+            
+            /* Clases ultra-compactas para el modal */
+            .form-group { margin-bottom: 0.6rem !important; }
+            .form-group label { display: block; color: #a0aec0; font-size: 0.8rem; margin-bottom: 0.2rem !important; }
+            
+            .form-control { width: 100%; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #ffffff; box-sizing: border-box; font-size: 13px; }
+            .form-control:focus { border-color: #63b3ed; outline: none; }
+            
+            /* Forzar fondo oscuro en las opciones del select */
+            .form-control option { background: #1a202c; color: #ffffff; }
+        </style>
     `;
 
-
+    // Event listeners
+    container.querySelector('#backToReceivablesBtn').addEventListener('click', () => {
+        backToMainCallback();
+    });
+    
+    // (Removed searchInvoiceInput listener)
 
     // Update sticky headers for detail view
     setTimeout(() => {
-        const topSticky = document.querySelector('#receivablesTopSticky');
+        const topSticky = container.querySelector('#receivablesTopSticky');
         if (topSticky) {
             const h = topSticky.offsetHeight - 12;
             container.querySelectorAll('.sticky-th').forEach(th => th.style.top = h + 'px');
@@ -381,8 +563,8 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
         });
     });
 
-    document.getElementById('massPayBtn')?.addEventListener('click', () => {
-        showCustomAlert("Información", "Cargar pago masivo para " + clientData.clientName, () => {
+    container.querySelector('#massPayBtn').addEventListener('click', () => {
+        showCustomAlert("Información", "Cargar pago global para " + clientData.clientName, () => {
             showMassPaymentModal(clientData, () => {
                 // Callback para refrescar la vista después de pagar
                 renderClientReceivables(clientData, container, backToMainCallback);
@@ -441,21 +623,26 @@ function showPaymentModal(sale, onComplete) {
             <div class="form-group">
                 <label for="payMethod">Método de Pago</label>
                 <select id="payMethod" class="form-control">
-                    <option value="Bs. Efectivo">Bs. Efectivo</option>
-                    <option value="Pago Móvil">Pago Móvil</option>
-                    <option value="Punto de Venta">Punto de Venta</option>
-                    <option value="BioPago">BioPago</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Binance">Binance</option>
-                    <option value="Dólares en Efectivo">Dólares en Efectivo</option>
-                    <option value="Paypal">Paypal</option>
-                    <option value="Zelle">Zelle</option>
+                    <option value="BS_EFECTIVO">Bs. Efectivo</option>
+                    <option value="BS_PAGO_MOVIL">Pago Móvil</option>
+                    <option value="BS_PUNTO">Punto de Venta</option>
+                    <option value="BS_BIO_PAGO">BioPago</option>
+                    <option value="BS_TRANSFERENCIA">Transferencia</option>
+                    <option value="USD_EFECTIVO">Dólares en Efectivo</option>
+                    <option value="USD_BINANCE">Binance</option>
+                    <option value="USD_PAYPAL">Paypal</option>
+                    <option value="USD_ZELLE">Zelle</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="payAmount" id="payAmountLabel">Monto a Pagar ($)</label>
-                <input type="text" id="payAmount" class="form-control">
+            <div id="payAmountContainerUSD" class="form-group" style="display: none;">
+                <label for="payAmountUSD">Monto a Pagar ($)</label>
+                <input type="text" id="payAmountUSD" class="form-control" style="background: rgba(255,255,255,0.05);">
+            </div>
+
+            <div id="payAmountContainerBS" class="form-group">
+                <label for="payAmountBS">Monto a Pagar (Bs)</label>
+                <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
             </div>
 
             <div class="form-group" style="margin-bottom: 1.2rem !important;">
@@ -470,20 +657,23 @@ function showPaymentModal(sale, onComplete) {
     document.body.appendChild(modal);
 
     const payMethodSelect = modal.querySelector('#payMethod');
-    const payAmountLabel = modal.querySelector('#payAmountLabel');
-    const payAmountInput = modal.querySelector('#payAmount');
+    const payAmountContainerUSD = modal.querySelector('#payAmountContainerUSD');
+    const payAmountContainerBS = modal.querySelector('#payAmountContainerBS');
+    const payAmountUSDInput = modal.querySelector('#payAmountUSD');
+    const payAmountBSInput = modal.querySelector('#payAmountBS');
     const payDateInput = modal.querySelector('#payDate');
 
     // Inicializar valores
     payDateInput.value = todayStr;
-    payAmountInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    payAmountUSDInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    payAmountBSInput.value = remainingBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     // Función para formatear en tiempo real (ATM style)
     function formatCurrencyInput(input) {
         let value = input.value.replace(/\D/g, ''); // Remover todo lo que no sea dígito
         if (value === '') {
             input.value = '';
-            return;
+            return 0;
         }
         
         // Convertir a float (los últimos 2 dígitos son decimales)
@@ -491,32 +681,46 @@ function showPaymentModal(sale, onComplete) {
         
         // Formatear con . para miles y , para decimales
         input.value = floatValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return floatValue;
     }
 
-    payAmountInput.addEventListener('input', (e) => {
-        formatCurrencyInput(e.target);
+    payAmountUSDInput.addEventListener('input', (e) => {
+        const valUSD = formatCurrencyInput(e.target);
+        if (valUSD !== 0 || e.target.value !== '') {
+            const valBS = valUSD * currentBcvRate;
+            payAmountBSInput.value = valBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            payAmountBSInput.value = '';
+        }
     });
 
-    // Lógica dinámica para cambiar de $ a Bs según el método de pago
+    payAmountBSInput.addEventListener('input', (e) => {
+        const valBS = formatCurrencyInput(e.target);
+        if (valBS !== 0 || e.target.value !== '') {
+            const valUSD = valBS / currentBcvRate;
+            payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            payAmountUSDInput.value = '';
+        }
+    });
+
+    // Lógica dinámica para mostrar campos y referencia
     payMethodSelect.addEventListener('change', (e) => {
-        const method = e.target.value;
-        
-        // Definir qué métodos son en Bolívares según CONTEXT.md
-        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
-        const isBs = bsMethods.includes(method);
+        const methodVal = e.target.value;
+        const isBs = methodVal.startsWith('BS_');
         
         if (isBs) {
-            payAmountLabel.textContent = "Monto a Pagar (Bs)";
-            const valBs = remainingUSD * currentBcvRate;
-            payAmountInput.value = valBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountContainerBS.style.display = 'block';
+            payAmountContainerUSD.style.display = 'none';
         } else {
-            payAmountLabel.textContent = "Monto a Pagar ($)";
-            payAmountInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountContainerBS.style.display = 'none';
+            payAmountContainerUSD.style.display = 'block';
         }
         
-        // Lógica de referencia obligatoria según CONTEXT.md
-        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
-        const requiresRef = refMethods.includes(method);
+        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+        // Métodos que exigen referencia obligatoria
+        const refMethods = ['PAGO_MOVIL', 'TRANSFERENCIA', 'BINANCE', 'PAYPAL', 'ZELLE'];
+        const requiresRef = refMethods.includes(methodID);
         
         const payReferenceLabel = modal.querySelector('#payReferenceLabel');
         const payReferenceInput = modal.querySelector('#payReference');
@@ -529,31 +733,39 @@ function showPaymentModal(sale, onComplete) {
             payReferenceInput.placeholder = "Opcional";
         }
     });
+    // Disparar evento para cargar el estado inicial
+    payMethodSelect.dispatchEvent(new Event('change'));
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
     modal.querySelector('#confirmPayBtn').addEventListener('click', async () => {
-        // Convertir el valor formateado de vuelta a un número flotante estándar
-        const rawValue = payAmountInput.value.replace(/\./g, '').replace(',', '.');
-        const amountValue = parseFloat(rawValue);
-        const method = payMethodSelect.value;
+        const methodVal = payMethodSelect.value;
+        const isBs = methodVal.startsWith('BS_');
+        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+        
+        let amountValue;
+        if (isBs) {
+            const rawBS = payAmountBSInput.value.replace(/\./g, '').replace(',', '.');
+            amountValue = parseFloat(rawBS);
+        } else {
+            const rawUSD = payAmountUSDInput.value.replace(/\./g, '').replace(',', '.');
+            amountValue = parseFloat(rawUSD);
+        }
+        
         const reference = modal.querySelector('#payReference').value;
         const payDate = modal.querySelector('#payDate').value;
 
-        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
-        const isBs = bsMethods.includes(method);
-        
         if (isNaN(amountValue) || amountValue <= 0) {
             showCustomAlert("Error", "Por favor ingresa un monto válido.");
             return;
         }
 
-        // Validación de referencia obligatoria según CONTEXT.md
-        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
-        const requiresRef = refMethods.includes(method);
+        // Validación de referencia obligatoria
+        const refMethods = ['PAGO_MOVIL', 'TRANSFERENCIA', 'BINANCE', 'PAYPAL', 'ZELLE'];
+        const requiresRef = refMethods.includes(methodID);
         
         if (requiresRef && !reference.trim()) {
-            showCustomAlert("Validación", `El método ${method} requiere un número de referencia.`);
+            showCustomAlert("Validación", `Este método de pago requiere un número de referencia.`);
             return;
         }
 
@@ -578,7 +790,7 @@ function showPaymentModal(sale, onComplete) {
                 clientId: sale.clientId,
                 amount: amountValue, // Guardamos el monto numérico real
                 currency: isBs ? 'BS' : 'USD', // DASHBOARD usa 'BS' en mayúsculas
-                method: method,
+                method: methodID,
                 reference: reference,
                 date: payDate, // Usamos la fecha seleccionada
                 bcvRate: currentBcvRate, // Guardamos la tasa usada para este pago
@@ -660,7 +872,7 @@ function showMassPaymentModal(clientData, onComplete) {
             
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
                 <div>
-                    <h3 style="color: #ffffff; margin: 0; font-size: 1.3rem;">Pago Masivo</h3>
+                    <h3 style="color: #ffffff; margin: 0; font-size: 1.3rem;">Pago Global</h3>
                     <div style="color: #63b3ed; font-family: monospace; font-weight: bold; font-size: 1rem; margin-top: 0.1rem;">👤 ${clientData.clientName}</div>
                 </div>
                 <div style="text-align: right; font-size: 0.75rem; color: #a0aec0;">
@@ -682,21 +894,26 @@ function showMassPaymentModal(clientData, onComplete) {
             <div class="form-group">
                 <label for="payMethod">Método de Pago</label>
                 <select id="payMethod" class="form-control">
-                    <option value="Bs. Efectivo">Bs. Efectivo</option>
-                    <option value="Pago Móvil">Pago Móvil</option>
-                    <option value="Punto de Venta">Punto de Venta</option>
-                    <option value="BioPago">BioPago</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Binance">Binance</option>
-                    <option value="Dólares en Efectivo">Dólares en Efectivo</option>
-                    <option value="Paypal">Paypal</option>
-                    <option value="Zelle">Zelle</option>
+                    <option value="BS_EFECTIVO">Bs. Efectivo</option>
+                    <option value="BS_PAGO_MOVIL">Pago Móvil</option>
+                    <option value="BS_PUNTO">Punto de Venta</option>
+                    <option value="BS_BIO_PAGO">BioPago</option>
+                    <option value="BS_TRANSFERENCIA">Transferencia</option>
+                    <option value="USD_EFECTIVO">Dólares en Efectivo</option>
+                    <option value="USD_BINANCE">Binance</option>
+                    <option value="USD_PAYPAL">Paypal</option>
+                    <option value="USD_ZELLE">Zelle</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="payAmount" id="payAmountLabel">Monto a Pagar ($)</label>
-                <input type="text" id="payAmount" class="form-control">
+            <div id="payAmountContainerUSD" class="form-group" style="display: none;">
+                <label for="payAmountUSD">Monto a Pagar ($)</label>
+                <input type="text" id="payAmountUSD" class="form-control" style="background: rgba(255,255,255,0.05);">
+            </div>
+
+            <div id="payAmountContainerBS" class="form-group">
+                <label for="payAmountBS">Monto a Pagar (Bs)</label>
+                <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
             </div>
 
             <div class="form-group" style="margin-bottom: 1.2rem !important;">
@@ -711,38 +928,59 @@ function showMassPaymentModal(clientData, onComplete) {
     document.body.appendChild(modal);
 
     const payMethodSelect = modal.querySelector('#payMethod');
-    const payAmountLabel = modal.querySelector('#payAmountLabel');
-    const payAmountInput = modal.querySelector('#payAmount');
+    const payAmountContainerUSD = modal.querySelector('#payAmountContainerUSD');
+    const payAmountContainerBS = modal.querySelector('#payAmountContainerBS');
+    const payAmountUSDInput = modal.querySelector('#payAmountUSD');
+    const payAmountBSInput = modal.querySelector('#payAmountBS');
     const payDateInput = modal.querySelector('#payDate');
 
     payDateInput.value = todayStr;
-    payAmountInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    payAmountUSDInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    payAmountBSInput.value = totalDebtBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     function formatCurrencyInput(input) {
         let value = input.value.replace(/\D/g, '');
-        if (value === '') { input.value = ''; return; }
+        if (value === '') { input.value = ''; return 0; }
         let floatValue = parseFloat(value) / 100;
         input.value = floatValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return floatValue;
     }
 
-    payAmountInput.addEventListener('input', (e) => { formatCurrencyInput(e.target); });
+    payAmountUSDInput.addEventListener('input', (e) => {
+        const valUSD = formatCurrencyInput(e.target);
+        if (valUSD !== 0 || e.target.value !== '') {
+            const valBS = valUSD * currentBcvRate;
+            payAmountBSInput.value = valBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            payAmountBSInput.value = '';
+        }
+    });
+
+    payAmountBSInput.addEventListener('input', (e) => {
+        const valBS = formatCurrencyInput(e.target);
+        if (valBS !== 0 || e.target.value !== '') {
+            const valUSD = valBS / currentBcvRate;
+            payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            payAmountUSDInput.value = '';
+        }
+    });
 
     payMethodSelect.addEventListener('change', (e) => {
-        const method = e.target.value;
-        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
-        const isBs = bsMethods.includes(method);
+        const methodVal = e.target.value;
+        const isBs = methodVal.startsWith('BS_');
         
         if (isBs) {
-            payAmountLabel.textContent = "Monto a Pagar (Bs)";
-            const valBs = totalDebtUSD * currentBcvRate;
-            payAmountInput.value = valBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountContainerBS.style.display = 'block';
+            payAmountContainerUSD.style.display = 'none';
         } else {
-            payAmountLabel.textContent = "Monto a Pagar ($)";
-            payAmountInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountContainerBS.style.display = 'none';
+            payAmountContainerUSD.style.display = 'block';
         }
         
-        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
-        const requiresRef = refMethods.includes(method);
+        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+        const refMethods = ['PAGO_MOVIL', 'TRANSFERENCIA', 'BINANCE', 'PAYPAL', 'ZELLE'];
+        const requiresRef = refMethods.includes(methodID);
         
         const payReferenceLabel = modal.querySelector('#payReferenceLabel');
         const payReferenceInput = modal.querySelector('#payReference');
@@ -755,29 +993,37 @@ function showMassPaymentModal(clientData, onComplete) {
             payReferenceInput.placeholder = "Opcional";
         }
     });
+    payMethodSelect.dispatchEvent(new Event('change'));
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
     modal.querySelector('#confirmPayBtn').addEventListener('click', async () => {
-        const rawValue = payAmountInput.value.replace(/\./g, '').replace(',', '.');
-        const amountValue = parseFloat(rawValue);
-        const method = payMethodSelect.value;
+        const methodVal = payMethodSelect.value;
+        const isBs = methodVal.startsWith('BS_');
+        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+        
+        let amountValue;
+        if (isBs) {
+            const rawBS = payAmountBSInput.value.replace(/\./g, '').replace(',', '.');
+            amountValue = parseFloat(rawBS);
+        } else {
+            const rawUSD = payAmountUSDInput.value.replace(/\./g, '').replace(',', '.');
+            amountValue = parseFloat(rawUSD);
+        }
+        
         const reference = modal.querySelector('#payReference').value;
         const payDate = modal.querySelector('#payDate').value;
-
-        const bsMethods = ['Bs. Efectivo', 'Pago Móvil', 'Punto de Venta', 'BioPago', 'Transferencia'];
-        const isBs = bsMethods.includes(method);
 
         if (isNaN(amountValue) || amountValue <= 0) {
             showCustomAlert("Error", "Por favor ingresa un monto válido.");
             return;
         }
 
-        const refMethods = ['Pago Móvil', 'Transferencia', 'Binance', 'Paypal', 'Zelle'];
-        const requiresRef = refMethods.includes(method);
+        const refMethods = ['PAGO_MOVIL', 'TRANSFERENCIA', 'BINANCE', 'PAYPAL', 'ZELLE'];
+        const requiresRef = refMethods.includes(methodID);
         
         if (requiresRef && !reference.trim()) {
-            showCustomAlert("Validación", `El método ${method} requiere un número de referencia.`);
+            showCustomAlert("Validación", `Este método de pago requiere un número de referencia.`);
             return;
         }
 
@@ -811,7 +1057,7 @@ function showMassPaymentModal(clientData, onComplete) {
                     clientId: sale.clientId,
                     amount: isBs ? amountToApplyBs : amountToApplyUSD, // Monto aplicado en la moneda del pago
                     currency: isBs ? 'BS' : 'USD',
-                    method: method,
+                    method: methodID,
                     reference: reference,
                     date: payDate,
                     bcvRate: currentBcvRate,
@@ -843,12 +1089,12 @@ function showMassPaymentModal(clientData, onComplete) {
                 remainingPayUSD -= amountToApplyUSD;
             }
 
-            showCustomAlert("Éxito", "🎉 Pago masivo registrado con éxito.");
+            showCustomAlert("Éxito", "🎉 Pago global registrado con éxito.");
             modal.remove();
             onComplete();
         } catch (error) {
-            console.error("Error al registrar el pago masivo:", error);
-            showCustomAlert("Error", `Error al registrar el pago masivo: ${error.message}`);
+            console.error("Error al registrar el pago global:", error);
+            showCustomAlert("Error", `Error al registrar el pago global: ${error.message}`);
         }
     });
 }
@@ -870,104 +1116,221 @@ async function showSaleDetail(sale) {
     modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
     
     modal.innerHTML = `
-        <div style="background: #1a202c; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative; border: 1px solid rgba(255,255,255,0.1);">
-            <button id="closeModalBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #a0aec0;">×</button>
+        <style>
+            .sale-modal-container { background: #1a202c; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+            .obsidian-text-xs { font-size: 10px; font-weight: 700; color: #8b919d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+            .obsidian-pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; letter-spacing: 0.05em; }
+            .obsidian-pill.credito { color: #f87171; background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.2); }
+            .obsidian-pill.pagado { color: #4ae183; background: rgba(74, 225, 131, 0.2); border: 1px solid rgba(74, 225, 131, 0.2); }
+            .obsidian-pill.presupuesto { color: #fbbf24; background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.2); }
             
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <div style="font-size: 0.7rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.1em;">
+            /* Mobile adaptations */
+            @media (max-width: 767px) {
+                .sale-modal-container { background: #10131c; padding: 1.5rem; max-width: 450px; border-color: #363943; border-radius: 4px; }
+                .desktop-only-modal { display: none !important; }
+            }
+            @media (min-width: 768px) {
+                .mobile-only-modal { display: none !important; }
+            }
+            
+            /* Scrollbar for mobile payments table */
+            .mobile-payments-table-container::-webkit-scrollbar { width: 4px; height: 4px; }
+            .mobile-payments-table-container::-webkit-scrollbar-thumb { background: #363943; border-radius: 10px; }
+        </style>
+        <div class="sale-modal-container">
+            <button id="closeModalBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #a0aec0; transition: color 0.2s;">×</button>
+            
+            <div style="text-align: center; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <div class="obsidian-text-xs">
                     ${isBudget ? 'Resumen de Presupuesto' : 'Resumen de Venta'}
                 </div>
-                <h2 style="margin: 0.5rem 0; color: #ffffff;">
+                <h2 style="margin: 0.25rem 0; color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: -0.025em;">
                     ${sale.correlative || sale.id.slice(-6).toUpperCase()}
                 </h2>
-                <div style="font-size: 0.85rem; color: #a0aec0;">${formatDateToDDMMYYYY(sale.date)}</div>
+                <div style="font-size: 14px; color: #a0aec0;">${formatDateToDDMMYYYY(sale.date)}</div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
                 <div>
-                    <h4 style="font-size: 0.8rem; text-transform: uppercase; color: #a0aec0; margin-bottom: 0.5rem;">Cliente</h4>
-                    <p style="font-weight: bold; margin: 0; color: #e2e8f0;">${sale.clientName}</p>
-                    <p style="font-size: 0.8rem; color: #a0aec0; margin: 0;">${sale.clientId}</p>
+                    <div class="obsidian-text-xs">Cliente</div>
+                    <p style="font-size: 16px; font-weight: bold; margin: 0; color: #ffffff;">${sale.clientName}</p>
+                    <p style="font-size: 14px; color: #a0aec0; margin: 0;">${sale.clientId}</p>
                 </div>
                 <div style="text-align: right;">
-                    <h4 style="font-size: 0.8rem; text-transform: uppercase; color: #a0aec0; margin-bottom: 0.5rem;">Estado</h4>
-                    <span class="badge ${sale.status === 'credito' ? 'badge-danger' : 'badge-warning'}">${sale.status}</span>
+                    <div class="obsidian-text-xs">Estado</div>
+                    <span class="obsidian-pill ${sale.status === 'credito' ? 'credito' : (sale.status === 'presupuesto' ? 'presupuesto' : 'pagado')}">${sale.status.toUpperCase()}</span>
                 </div>
             </div>
 
-            <!-- Tabla de items -->
-            <table class="premium-table" style="margin-bottom: 1.5rem;">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th style="text-align: center;">Cant.</th>
-                        <th style="text-align: right;">Precio</th>
-                        <th style="text-align: right;">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sale.items ? sale.items.map(item => `
+            <!-- ====== DESKTOP VIEWS (Tables) ====== -->
+            <div class="desktop-only-modal">
+                <table class="premium-table" style="margin-bottom: 1.5rem;">
+                    <thead>
                         <tr>
-                            <td style="color: #e2e8f0;">${item.name}</td>
-                            <td style="text-align: center; color: #e2e8f0;">${item.qty}</td>
-                            <td style="text-align: right; color: #e2e8f0;">$ ${fmt(item.price)}</td>
-                            <td style="text-align: right; font-weight: bold; color: #ffffff;">$ ${fmt(item.price * item.qty)}</td>
+                            <th>Producto</th>
+                            <th style="text-align: center;">Cant.</th>
+                            <th style="text-align: right;">Precio</th>
+                            <th style="text-align: right;">Total</th>
                         </tr>
-                    `).join('') : '<tr><td colspan="4" style="text-align: center; color: #a0aec0;">No hay items</td></tr>'}
-                </tbody>
-            </table>
-
-            <!-- Sección de Pagos Recibidos Modificada -->
-            <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 1rem; text-align: left;">
-                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: #a0aec0; margin-bottom: 0.5rem;">Pagos Recibidos</h4>
-                ${salePayments.length > 0 ? `
-                    <table class="premium-table" style="margin-bottom: 1rem; font-size: 12px;">
-                        <thead>
+                    </thead>
+                    <tbody>
+                        ${sale.items ? sale.items.map(item => `
                             <tr>
-                                <th style="padding: 6px 8px;">Fecha</th>
-                                <th style="padding: 6px 8px;">Método</th>
-                                <th style="text-align: right; padding: 6px 8px;">Monto Bs.</th>
-                                <th style="text-align: right; padding: 6px 8px;">Monto $</th>
-                                <th style="text-align: right; padding: 6px 8px;">Equivalente $</th>
+                                <td style="color: #e2e8f0;">${item.name}</td>
+                                <td style="text-align: center; color: #e2e8f0;">${item.qty}</td>
+                                <td style="text-align: right; color: #e2e8f0;">$ ${fmt(item.price)}</td>
+                                <td style="text-align: right; font-weight: bold; color: #ffffff;">$ ${fmt(item.price * item.qty)}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            ${salePayments.map(p => {
-                                const isBs = p.currency === 'BS' || p.currency === 'Bs';
-                                const amount = p.amount || 0;
-                                const rate = p.bcvRate || currentBcvRate;
-                                
-                                let montoBs = '-';
-                                let montoUSD = '-';
-                                let equivalenteUSD = '-';
-                                
-                                if (isBs) {
-                                    montoBs = `Bs. ${fmt(amount)}`;
-                                    equivalenteUSD = `$ ${fmt(amount / rate)}`;
-                                } else {
-                                    montoUSD = `$ ${fmt(amount)}`;
-                                }
+                        `).join('') : '<tr><td colspan="4" style="text-align: center; color: #a0aec0;">No hay items</td></tr>'}
+                    </tbody>
+                </table>
 
-                                return `
-                                    <tr>
-                                        <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.date || 'N/A'}</td>
-                                        <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.method}</td>
-                                        <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoBs}</td>
-                                        <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoUSD}</td>
-                                        <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 6px 8px; white-space: nowrap;">${equivalenteUSD}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                ` : '<p style="color: #a0aec0; font-size: 0.85rem; margin-bottom: 1rem;">No hay pagos registrados para esta factura.</p>'}
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 1rem; text-align: left;">
+                    <h4 style="font-size: 0.8rem; text-transform: uppercase; color: #a0aec0; margin-bottom: 0.5rem;">Pagos Recibidos</h4>
+                    ${salePayments.length > 0 ? `
+                        <table class="premium-table" style="margin-bottom: 1rem; font-size: 12px;">
+                            <thead>
+                                <tr>
+                                    <th style="padding: 6px 8px;">Fecha</th>
+                                    <th style="padding: 6px 8px;">Método</th>
+                                    <th style="text-align: right; padding: 6px 8px;">Monto Bs.</th>
+                                    <th style="text-align: right; padding: 6px 8px;">Monto $</th>
+                                    <th style="text-align: right; padding: 6px 8px;">Equivalente $</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${salePayments.map(p => {
+                                    const isBs = p.currency === 'BS' || p.currency === 'Bs';
+                                    const amount = p.amount || 0;
+                                    const rate = p.bcvRate || currentBcvRate;
+                                    
+                                    let montoBs = '-';
+                                    let montoUSD = '-';
+                                    let equivalenteUSD = '-';
+                                    
+                                    if (isBs) {
+                                        montoBs = `Bs. ${fmt(amount)}`;
+                                        equivalenteUSD = `$ ${fmt(amount / rate)}`;
+                                    } else {
+                                        montoUSD = `$ ${fmt(amount)}`;
+                                    }
+
+                                    return `
+                                        <tr>
+                                            <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.date || 'N/A'}</td>
+                                            <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.method}</td>
+                                            <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoBs}</td>
+                                            <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoUSD}</td>
+                                            <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 6px 8px; white-space: nowrap;">${equivalenteUSD}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    ` : '<p style="color: #a0aec0; font-size: 0.85rem; margin-bottom: 1rem;">No hay pagos registrados para esta factura.</p>'}
+                </div>
+                
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; text-align: right;">
+                    <div style="font-size: 0.9rem; color: #a0aec0;">Subtotal: $ ${fmt(sale.subtotal || sale.totalUSD)}</div>
+                    <div style="font-size: 1.2rem; font-weight: bold; color: #ffffff; margin-top: 0.5rem;">Total Factura: $ ${fmt(sale.totalUSD)}</div>
+                    <div style="font-size: 1rem; font-weight: bold; color: #ef4444; margin-top: 0.25rem;">Resta por Pagar: $ ${fmt(sale.remainingUSD || 0)}</div>
+                    <div style="font-size: 0.9rem; color: #a0aec0;">Total Bs (Al cambio de hoy): Bs. ${fmt((sale.remainingUSD || 0) * currentBcvRate)}</div>
+                </div>
             </div>
 
-            <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; text-align: right;">
-                <div style="font-size: 0.9rem; color: #a0aec0;">Subtotal: $ ${fmt(sale.subtotal || sale.totalUSD)}</div>
-                <div style="font-size: 1.2rem; font-weight: bold; color: #ffffff; margin-top: 0.5rem;">Total Factura: $ ${fmt(sale.totalUSD)}</div>
-                <div style="font-size: 1rem; font-weight: bold; color: #ef4444; margin-top: 0.25rem;">Resta por Pagar: $ ${fmt(sale.remainingUSD || 0)}</div>
-                <div style="font-size: 0.9rem; color: #a0aec0;">Total Bs (Al cambio de hoy): Bs. ${fmt((sale.remainingUSD || 0) * currentBcvRate)}</div>
+            <!-- ====== MOBILE VIEWS (Ticket / Obsidian Metric) ====== -->
+            <div class="mobile-only-modal">
+                <!-- Mobile Products -->
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #363943; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+                    <h2 class="obsidian-text-xs" style="margin: 0;">Productos</h2>
+                    <div style="display: flex; gap: 1rem;" class="obsidian-text-xs">
+                        <span style="width: 3rem; text-align: center; margin: 0;">Cant.</span>
+                        <span style="width: 4rem; text-align: right; margin: 0;">Total</span>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+                    ${sale.items ? sale.items.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1; padding-right: 1rem;">
+                                <p style="font-size: 14px; font-weight: 500; color: #ffffff; margin: 0;">${item.name}</p>
+                                <p style="font-size: 12px; color: #8b919d; margin: 2px 0 0 0;">P.U: $ ${fmt(item.price)}</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span style="width: 3rem; text-align: center; font-size: 14px; font-weight: 600; color: #c1c7d3;">${fmt(item.qty)}</span>
+                                <span style="width: 4rem; text-align: right; font-size: 14px; font-weight: 700; color: #ffffff;">$ ${fmt(item.price * item.qty)}</span>
+                            </div>
+                        </div>
+                    `).join('') : '<p style="color: #8b919d; text-align: center; font-size: 14px;">No hay items</p>'}
+                </div>
+
+                <!-- Mobile Payments -->
+                <div style="margin-bottom: 2rem;">
+                    <h2 class="obsidian-text-xs" style="margin-bottom: 0.75rem;">Pagos Recibidos</h2>
+                    <div class="mobile-payments-table-container" style="overflow-x: auto;">
+                        <table style="width: 100%; text-align: left; border-collapse: collapse; min-width: 400px;">
+                            <thead style="border-bottom: 1px solid #363943;">
+                                <tr class="obsidian-text-xs">
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; font-weight: 700;">Fecha</th>
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; font-weight: 700;">Método</th>
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; text-align: right; font-weight: 700;">Monto Bs.</th>
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; text-align: right; font-weight: 700;">Monto $</th>
+                                    <th style="padding-bottom: 0.5rem; text-align: right; font-weight: 700;">Eqv. $</th>
+                                </tr>
+                            </thead>
+                            <tbody style="border-bottom: 1px solid rgba(54, 57, 67, 0.3);">
+                                ${salePayments.length > 0 ? salePayments.map(p => {
+                                    const isBs = p.currency === 'BS' || p.currency === 'Bs';
+                                    const amount = p.amount || 0;
+                                    const rate = p.bcvRate || currentBcvRate;
+                                    
+                                    let montoBs = '-';
+                                    let montoUSD = '-';
+                                    let equivalenteUSD = '-';
+                                    
+                                    if (isBs) {
+                                        montoBs = `Bs. ${fmt(amount)}`;
+                                        equivalenteUSD = `$ ${fmt(amount / rate)}`;
+                                    } else {
+                                        montoUSD = `$ ${fmt(amount)}`;
+                                    }
+
+                                    return `
+                                        <tr style="font-size: 12px; color: #c1c7d3; border-bottom: 1px solid rgba(54, 57, 67, 0.3);">
+                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; white-space: nowrap;">${p.date || 'N/A'}</td>
+                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; text-transform: uppercase; white-space: nowrap;">${p.method}</td>
+                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; text-align: right; white-space: nowrap;">${montoBs}</td>
+                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; text-align: right; white-space: nowrap;">${montoUSD}</td>
+                                            <td style="padding: 0.75rem 0; text-align: right; font-weight: bold; color: #ffffff; white-space: nowrap;">${equivalenteUSD}</td>
+                                        </tr>
+                                    `;
+                                }).join('') : '<tr><td colspan="5" style="padding: 1rem 0; text-align: center; font-size: 12px; color: #8b919d;">No hay pagos registrados para esta factura.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Mobile Footer -->
+                <div style="background: #181b24; border-top: 1px solid #363943; padding: 1.5rem; margin: 0 -1.5rem -1.5rem -1.5rem; border-radius: 0 0 4px 4px; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; color: #8b919d;">
+                        <span style="font-size: 14px;">Subtotal:</span>
+                        <span style="font-size: 14px; font-weight: 500;">$ ${fmt(sale.subtotal || sale.totalUSD)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; color: #ffffff;">
+                        <span style="font-size: 18px; font-weight: 700;">Total Factura:</span>
+                        <span style="font-size: 24px; font-weight: 900;">$ ${fmt(sale.totalUSD)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 14px; font-weight: 700; color: #f87171;">Resta por Pagar:</span>
+                        <span style="font-size: 18px; font-weight: 700; color: #f87171;">$ ${fmt(sale.remainingUSD || 0)}</span>
+                    </div>
+                    <div style="padding-top: 0.5rem; text-align: right; border-top: 1px solid rgba(54, 57, 67, 0.5);">
+                        <p style="font-size: 12px; color: #8b919d; margin: 0;">
+                            Total Bs (Al cambio de hoy): 
+                            <span style="color: #c1c7d3; font-weight: 600; display: block; margin-top: 2px;">Bs. ${fmt((sale.remainingUSD || 0) * currentBcvRate)}</span>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     `;

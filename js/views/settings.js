@@ -470,10 +470,7 @@ export async function renderSettings(mainContentArea) {
     if (backBtn) {
         backBtn.addEventListener('click', () => {
             document.getElementById('navHome')?.click();
-            const toggleIcon = document.getElementById('toggleIcon');
-            if (toggleIcon && toggleIcon.innerText === '▶') {
-                document.getElementById('sidebarToggle')?.click();
-            }
+
         });
     }
 
