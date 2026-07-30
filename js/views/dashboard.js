@@ -762,11 +762,12 @@ export function renderDashboard() {
             const productStats = {};
             const clientStats = {};
 
+            const currentUserEmail = localStorage.getItem('userEmail');
             snap.forEach(doc => {
                 const data = doc.data();
 
                 // Strict session filter: ALWAYS filter by the logged-in user and their active store
-                let pass = (data.employeeEmail === auth.currentUser?.email);
+                let pass = (data.employeeEmail === currentUserEmail);
                 if (storeId && storeId !== 'general' && data.storeId && data.storeId !== storeId) pass = false;
                 if (!pass) return;
                 

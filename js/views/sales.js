@@ -2,6 +2,7 @@ import { auth, db } from '../services/firebase.js';
 import { toTitleCase, showNotification, formatDateToDDMMYYYY } from '../utils.js';
 import { doc, setDoc, getDocs, getDoc, updateDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { renderClients } from './clients.js';
+import { showPaymentModal, showCustomAlert } from './receivables.js';
 
 export function renderSales(container, preSelectedClient = null) {
     // State
@@ -105,10 +106,10 @@ export function renderSales(container, preSelectedClient = null) {
     let stores = [];
     const businessId = localStorage.getItem('businessId');
     const role = localStorage.getItem('userRole');
+    const storeId = role === 'admin' ? null : localStorage.getItem('storeId');
     const userEmail = localStorage.getItem('userEmail');
     const cachedName = userEmail ? localStorage.getItem(`userName_${userEmail}`) : null;
     const currentEmployeeName = cachedName || 'Admin';
-    const storeId = role === 'admin' ? null : localStorage.getItem('storeId');
     const storeName = role === 'admin' ? 'Almacén General' : (localStorage.getItem('storeName') || 'Sucursal');
 
     const fmt = (n) => {
@@ -3626,6 +3627,7 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     async function showSaleDetail(sale) {
+        const businessId = localStorage.getItem('businessId');
         const isBudget = sale.status === 'presupuesto' || (sale.status === 'facturado' && !sale.isOrder);
         const isOrder = sale.isOrder || sale.status === 'pedido';
         
@@ -3636,7 +3638,7 @@ export function renderSales(container, preSelectedClient = null) {
         if (!isBudget) {
             const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
             const paySnap = await getDocs(q);
-            salePayments = paySnap.docs.map(doc => doc.data());
+            salePayments = paySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
         let headerType = isBudget ? 'Presupuesto' : isOrder ? 'Pedido' : 'Venta';
@@ -3713,9 +3715,15 @@ export function renderSales(container, preSelectedClient = null) {
                 <div style="margin-bottom: 1rem;">
                     ${salePayments.length === 0 ? '<p class="text-sm text-muted">No se registraron pagos.</p>' : 
                       salePayments.map(p => `
-                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 0.4rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
                             <span>${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
-                            <span style="font-weight: bold;">${p.currency} ${fmt(p.amount)}</span>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-weight: bold;">${p.currency} ${fmt(p.amount)}</span>
+                                <div style="display: flex; gap: 8px;">
+                                    <span class="material-symbols-outlined edit-pay-btn" data-id="${p.id}" style="color: #63b3ed; cursor: pointer; font-size: 1.1rem;" title="Editar Pago">edit</span>
+                                    <span class="material-symbols-outlined delete-pay-btn" data-id="${p.id}" style="color: #f87171; cursor: pointer; font-size: 1.1rem; font-weight: bold;" title="Eliminar Pago">delete</span>
+                                </div>
+                            </div>
                         </div>
                       `).join('')
                     }
@@ -3791,7 +3799,13 @@ export function renderSales(container, preSelectedClient = null) {
                         : salePayments.map(p => `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(54,57,67,0.3);">
                                 <p style="font-size: 14px; font-weight: 500; color: #e0e2ee; margin: 0;">${p.method}${p.ref ? ` (Ref: ${p.ref})` : ''}</p>
-                                <p style="font-size: 14px; font-weight: 700; color: #e0e2ee; margin: 0;">${p.currency} ${fmt(p.amount)}</p>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <p style="font-size: 14px; font-weight: 700; color: #e0e2ee; margin: 0;">${p.currency} ${fmt(p.amount)}</p>
+                                    <div style="display: flex; gap: 8px;">
+                                        <span class="material-symbols-outlined edit-pay-btn" data-id="${p.id}" style="color: #63b3ed; cursor: pointer; font-size: 1.2rem;">edit</span>
+                                        <span class="material-symbols-outlined delete-pay-btn" data-id="${p.id}" style="color: #f87171; cursor: pointer; font-size: 1.2rem; font-weight: bold;">delete</span>
+                                    </div>
+                                </div>
                             </div>
                         `).join('')
                     }
@@ -3824,6 +3838,61 @@ export function renderSales(container, preSelectedClient = null) {
         const closeBtnMobile = content.querySelector('#modalCloseBtnMobile');
         if (closeBtnDesktop) closeBtnDesktop.onclick = closeModal;
         if (closeBtnMobile) closeBtnMobile.onclick = closeModal;
+
+        // Cierre al hacer click afuera
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        // Event Listeners para Pagos
+        content.querySelectorAll('.edit-pay-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const payId = btn.dataset.id;
+                const paymentData = salePayments.find(p => p.id === payId);
+                if (paymentData) {
+                    closeModal(); 
+                    showPaymentModal(sale, () => {
+                        showSaleDetail(sale); 
+                    }, paymentData);
+                }
+            });
+        });
+
+        content.querySelectorAll('.delete-pay-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const payId = btn.dataset.id;
+                const paymentData = salePayments.find(p => p.id === payId);
+                if (paymentData) {
+                    showCustomAlert("Confirmación", "¿Estás seguro de que deseas eliminar este pago? El monto adeudado aumentará.", async () => {
+                        try {
+                            const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+                            const isBs = paymentData.currency === 'BS' || paymentData.currency === 'Bs';
+                            const rate = paymentData.bcvRate || currentBcvRate;
+                            const paymentUSD = isBs ? paymentData.amount / rate : paymentData.amount;
+
+                            await deleteDoc(doc(db, "businesses", businessId, "payments", payId));
+
+                            const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
+                            const newRemainingUSD = (sale.remainingUSD || 0) + paymentUSD;
+                            const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (sale.status === 'credito' ? 'credito' : 'abono');
+
+                            await updateDoc(saleRef, {
+                                remainingUSD: newRemainingUSD,
+                                status: newStatus
+                            });
+
+                            sale.remainingUSD = newRemainingUSD;
+                            sale.status = newStatus;
+                            showCustomAlert("Éxito", "Pago eliminado exitosamente.");
+                            showSaleDetail(sale); 
+                        } catch (error) {
+                            console.error("Error al eliminar pago:", error);
+                            showCustomAlert("Error", "Ocurrió un error al eliminar el pago.");
+                        }
+                    });
+                }
+            });
+        });
 
         modal.style.display = 'flex';
     }
@@ -3865,6 +3934,16 @@ export function renderSales(container, preSelectedClient = null) {
         const bName = businessData.name || localStorage.getItem('businessName') || 'ORANGE APP';
         const logoUrl = businessData.logoUrl || localStorage.getItem('businessLogo');
         const sName = sale.storeName || 'Sucursal';
+        
+        let contactHtml = '';
+        if (businessData.address) {
+            const loc = [businessData.address, businessData.municipality, businessData.state].filter(Boolean).join(', ');
+            contactHtml += `<p style="margin: 2px 0; font-size: 11px; color: #718096; max-width: 250px;">📍 ${loc}</p>`;
+        }
+        if (businessData.ownerPhone) contactHtml += `<p style="margin: 2px 0; font-size: 11px; color: #718096;">📞 ${businessData.ownerPhone}</p>`;
+        if (businessData.email || localStorage.getItem('userEmail')) {
+            contactHtml += `<p style="margin: 2px 0; font-size: 11px; color: #718096;">✉️ ${businessData.email || localStorage.getItem('userEmail')}</p>`;
+        }
         
         let formattedDate = sale.date;
         try {
@@ -3911,7 +3990,7 @@ export function renderSales(container, preSelectedClient = null) {
                 <style>
                     body { font-family: 'Arial', sans-serif; padding: 20px; color: #1a202c; line-height: 1.5; background: #f8fafc; margin: 0; }
                     .page-wrapper { overflow-x: auto; width: 100%; }
-                    .page { background: white; width: 210mm; min-height: 297mm; padding: 20mm; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; position: relative; box-sizing: border-box; }
+                    .page { background: white; width: 210mm; padding: 20mm; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; position: relative; box-sizing: border-box; }
                     .no-print-toolbar { position: sticky; top: 0; background: #2d3748; padding: 10px; display: flex; justify-content: center; gap: 15px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); border-radius: 6px; flex-wrap: wrap; }
                     .btn-tb { border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; color: white; }
                     .btn-tb:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -3957,8 +4036,8 @@ export function renderSales(container, preSelectedClient = null) {
                                 ${logoUrl ? `<img src="${logoUrl}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 50%;">` : ''}
                                 <div>
                                     <h1 style="margin: 0; color: #2b6cb0; font-size: 22px; font-weight: bold; text-transform: uppercase;">${bName}</h1>
-                                    <p style="margin: 2px 0; font-size: 12px; color: #718096;">${localStorage.getItem('userRole') === 'admin' ? 'Sede Principal' : sName}</p>
-                                    <p style="margin: 2px 0; font-size: 12px; color: #718096;">Vendedor: ${sale.employeeName}</p>
+                                    ${contactHtml}
+                                    <p style="margin: 2px 0; font-size: 11px; color: #718096; margin-top: 8px;">Vendedor: ${sale.employeeName}</p>
                                 </div>
                             </div>
                             <div class="budget-id">
@@ -4017,14 +4096,20 @@ export function renderSales(container, preSelectedClient = null) {
                         <div style="margin-left: auto; width: 280px; margin-top: 25px; border-top: 1px solid #edf2f7; padding-top: 15px;">
                             <h3 style="font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 10px; text-align: right;">Pagos Registrados</h3>
                             <div style="font-size: 12px;">
-                                ${salePayments.map(p => `
+                                ${salePayments.filter(p => p.amount >= 0).map(p => `
                                     <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px;">
-                                        <span style="color: #4a5568; text-align: right; flex: 1;">${p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
+                                        <span style="color: #4a5568; text-align: right; flex: 1;">${p.method === 'EFECTIVO' ? 'Efectivo ' + (p.currency === 'USD' ? '$' : 'Bs.') : p.method} ${p.ref ? `(Ref: ${p.ref})` : ''}</span>
                                         <span style="font-weight: bold; text-align: right; min-width: 100px;">${p.currency} ${fmt(p.amount)}</span>
                                     </div>
                                 `).join('')}
+                                ${salePayments.filter(p => p.amount < 0).map(p => `
+                                    <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; color: #38a169;">
+                                        <span style="text-align: right; flex: 1; font-weight: bold;">VUELTO EN ${p.currency === 'USD' ? '$' : 'BS'}:</span>
+                                        <span style="font-weight: bold; text-align: right; min-width: 100px;">${p.currency} ${fmt(Math.abs(p.amount))}</span>
+                                    </div>
+                                `).join('')}
                                 <div style="display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; font-weight: bold; color: #e53e3e; border-top: 1px dashed #edf2f7; padding-top: 8px; font-size: 13px;">
-                                    <span style="flex: 1; text-align: right;">PENDIENTE POR COBRAR:</span>
+                                    <span style="flex: 1; text-align: right; white-space: nowrap;">PENDIENTE POR COBRAR:</span>
                                     <span style="text-align: right; min-width: 100px;">$ ${fmt(sale.remainingUSD || 0)}</span>
                                 </div>
                             </div>
@@ -4048,9 +4133,7 @@ export function renderSales(container, preSelectedClient = null) {
                         ` : ''}
 
                         <div class="footer">
-                            <p>${isBudget ? 'Este presupuesto es informativo y tiene una validez de 24 horas.' : 'Gracias por su compra. Este documento es su comprobante de pago.'}</p>
-                            <p>Los precios expresados en Bolívares están sujetos a la tasa BCV del día.</p>
-                            <p>¡Gracias por elegirnos!</p>
+                            <p style="margin: 0;">Los precios expresados en Bolivares estan sujetos a la tasa BCV del dia.</p>
                         </div>
                     </div>
                 </div>
@@ -4063,27 +4146,12 @@ export function renderSales(container, preSelectedClient = null) {
                         const pageEl = document.getElementById('documentPage');
                         const canvas = await html2canvas(pageEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
                         const { jsPDF } = window.jspdf;
-                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-                        pdf.setProperties({ title: docTitle, subject: docTitle, author: "${bName}", creator: 'Orange App' });
-                        const pageWidth = pdf.internal.pageSize.getWidth();
-                        const pageHeight = pdf.internal.pageSize.getHeight();
-                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                        const pageWidth = 210; // ancho fijo en mm
                         const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-                        if (imgHeight <= pageHeight) {
-                            pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight);
-                        } else {
-                            let heightLeft = imgHeight;
-                            let position = 0;
-                            pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
-                            heightLeft -= pageHeight;
-                            while (heightLeft > 0) {
-                                position = position - pageHeight;
-                                pdf.addPage();
-                                pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeight);
-                                heightLeft -= pageHeight;
-                            }
-                        }
+                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [pageWidth, imgHeight] });
+                        pdf.setProperties({ title: docTitle, subject: docTitle, author: "${bName}", creator: 'Orange App' });
+                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight);
                         return pdf;
                     }
 
