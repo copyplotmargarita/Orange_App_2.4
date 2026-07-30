@@ -22,6 +22,7 @@ export function renderSales(container, preSelectedClient = null) {
     let activePayMethod = '';
     let payAmountVal = '';
     let payRefVal = '';
+    let lastActualRem = 0;
 
     // History and PopState Logic for Mobile Back Button
     if (window._salesPopStateListener) {
@@ -892,6 +893,11 @@ export function renderSales(container, preSelectedClient = null) {
                             let totalPaid = 0;
                             payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
                             const actualRem = effectiveTotalUSD - totalPaid;
+
+                            if (Math.abs(actualRem - lastActualRem) > 0.001) {
+                                payAmountVal = '';
+                                lastActualRem = actualRem;
+                            }
 
                             if (!payAmountVal && actualRem > 0) {
                                 payAmountVal = fmt(activePayCurrency === 'BS' ? actualRem * bcvRate : actualRem);
