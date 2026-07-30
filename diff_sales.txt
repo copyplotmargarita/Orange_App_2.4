@@ -1,0 +1,43 @@
+﻿diff --git a/js/views/sales.js b/js/views/sales.js
+index 30c5935..8e2eecc 100644
+--- a/js/views/sales.js
++++ b/js/views/sales.js
+@@ -22,6 +22,7 @@ export function renderSales(container, preSelectedClient = null) {
+     let activePayMethod = '';
+     let payAmountVal = '';
+     let payRefVal = '';
++    let lastActualRem = 0;
+ 
+     // History and PopState Logic for Mobile Back Button
+     if (window._salesPopStateListener) {
+@@ -893,6 +894,11 @@ export function renderSales(container, preSelectedClient = null) {
+                             payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                             const actualRem = effectiveTotalUSD - totalPaid;
+ 
++                            if (Math.abs(actualRem - lastActualRem) > 0.001) {
++                                payAmountVal = '';
++                                lastActualRem = actualRem;
++                            }
++
+                             if (!payAmountVal && actualRem > 0) {
+                                 payAmountVal = fmt(activePayCurrency === 'BS' ? actualRem * bcvRate : actualRem);
+                             }
+@@ -1281,7 +1287,17 @@ export function renderSales(container, preSelectedClient = null) {
+                 clearTimeout(searchTimeout);
+                 searchTimeout = setTimeout(() => {
+                     searchProductTerm = rawVal;
+-                    // Forzamos un re-render completo para actualizar el searchState
++                    const productGrid = container.querySelector('#productList');
++                    if (productGrid) {
++                        const gridInner = productGrid.querySelector('.grid');
++                        if (gridInner) {
++                            gridInner.innerHTML = renderProductList();
++                            attachProductClickEvents();
++                            cachedProductListElement = productGrid;
++                            lastSearchState = searchProductTerm.trim() !== '' ? 'searching' : 'idle';
++                            return;
++                        }
++                    }
+                     render();
+                 }, 300);
+             });

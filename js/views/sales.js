@@ -22,6 +22,7 @@ export function renderSales(container, preSelectedClient = null) {
     let activePayMethod = '';
     let payAmountVal = '';
     let payRefVal = '';
+    let lastActualRem = 0;
 
     // History and PopState Logic for Mobile Back Button
     if (window._salesPopStateListener) {
@@ -685,7 +686,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 <button id="btnBackFromStep2" class="lg:hidden btn btn-icon material-symbols-outlined text-white hover:bg-white/10 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-container-highest border border-outline-variant">arrow_back</button>
                                 <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant w-full">
                                     <span class="material-symbols-outlined text-outline">search</span>
-                                    <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
+                                    <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" value="${searchProductTerm}">
                                 </div>
                             </div>
                         </div>
@@ -774,7 +775,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 <div class="flex-1 flex items-center gap-sm p-sm bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-[#8ab4f8] transition-colors group">
                                     <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
                                     <div class="flex-1 relative">
-                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
+                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" value="${selectedClient ? selectedClient.fullName : ''}"/>
                                         ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
                                         <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface-container-highest border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-xl shadow-xl mt-1 hidden"></div>
                                     </div>
@@ -892,6 +893,11 @@ export function renderSales(container, preSelectedClient = null) {
                             let totalPaid = 0;
                             payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
                             const actualRem = effectiveTotalUSD - totalPaid;
+
+                            if (Math.abs(actualRem - lastActualRem) > 0.001) {
+                                payAmountVal = '';
+                                lastActualRem = actualRem;
+                            }
 
                             if (!payAmountVal && actualRem > 0) {
                                 payAmountVal = fmt(activePayCurrency === 'BS' ? actualRem * bcvRate : actualRem);
@@ -1281,7 +1287,17 @@ export function renderSales(container, preSelectedClient = null) {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     searchProductTerm = rawVal;
-                    // Forzamos un re-render completo para actualizar el searchState
+                    const productGrid = container.querySelector('#productList');
+                    if (productGrid) {
+                        const gridInner = productGrid.querySelector('.grid');
+                        if (gridInner) {
+                            gridInner.innerHTML = renderProductList();
+                            attachProductClickEvents();
+                            cachedProductListElement = productGrid;
+                            lastSearchState = searchProductTerm.trim() !== '' ? 'searching' : 'idle';
+                            return;
+                        }
+                    }
                     render();
                 }, 300);
             });
@@ -1298,9 +1314,9 @@ export function renderSales(container, preSelectedClient = null) {
                 }
             });
             
-            // Auto-focus on render (only desktop or step 2)
+            // Auto-focus on render (only desktop)
             setTimeout(() => {
-                if (document.activeElement !== searchInput && (window.innerWidth >= 1024 || currentMobileStep === 2)) {
+                if (document.activeElement !== searchInput && window.innerWidth >= 1024) {
                     searchInput.focus();
                     const val = searchInput.value;
                     searchInput.value = '';
@@ -1728,7 +1744,7 @@ export function renderSales(container, preSelectedClient = null) {
 
                 <div class="form-group">
                     <label class="text-label-bold font-label-bold text-outline uppercase">Cantidad</label>
-                    <input type="text" inputmode="numeric" id="saleQty" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
+                    <input type="text" autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" id="saleQty" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
                 </div>
 
                 <div class="flex gap-md mt-sm pt-md border-t border-outline-variant">
