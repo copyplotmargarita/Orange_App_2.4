@@ -1729,7 +1729,7 @@ export function renderSales(container, preSelectedClient = null) {
         }
 
         modal.innerHTML = `
-            <form autocomplete="off" onsubmit="event.preventDefault();" class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-sm p-lg shadow-2xl flex flex-col gap-md">
+            <div class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-sm p-lg shadow-2xl flex flex-col gap-md">
                 <h3 class="text-headline-md font-bold text-primary">${product.name}</h3>
                 
                 <div class="form-group">
@@ -1744,20 +1744,20 @@ export function renderSales(container, preSelectedClient = null) {
 
                 <div class="form-group">
                     <label class="text-label-bold font-label-bold text-outline uppercase">Cantidad</label>
-                    <input type="text" autocomplete="new-password" name="nopwd_${Date.now()}" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" inputmode="numeric" id="saleQtyUnique" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
+                    <input type="text" inputmode="numeric" id="saleQty" class="w-full bg-surface-container-high border border-outline-variant rounded-lg text-body-md mt-xs text-on-surface px-sm py-2 font-bold focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none" value="">
                 </div>
 
                 <div class="flex gap-md mt-sm pt-md border-t border-outline-variant">
-                    <button type="button" id="cancelModalBtn" class="flex-1 bg-surface-variant text-primary border border-primary rounded-lg font-bold py-2 hover:bg-primary/10 transition-colors">CANCELAR</button>
-                    <button type="button" id="confirmModalBtn" class="flex-1 bg-primary text-white rounded-lg font-bold py-2 hover:bg-primary/90 transition-colors">AÑADIR</button>
+                    <button id="cancelModalBtn" class="flex-1 bg-surface-variant text-primary border border-primary rounded-lg font-bold py-2 hover:bg-primary/10 transition-colors">CANCELAR</button>
+                    <button id="confirmModalBtn" class="flex-1 bg-primary text-white rounded-lg font-bold py-2 hover:bg-primary/90 transition-colors">AÑADIR</button>
                 </div>
-            </form>
+            </div>
         `;
         
         document.body.appendChild(modal);
 
         // Autofocus and format for ATM styling
-        const qtyInput = modal.querySelector('#saleQtyUnique');
+        const qtyInput = modal.querySelector('#saleQty');
         
         const initialVal = parseFloat(initialQty) || 1;
         qtyInput.value = initialVal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
