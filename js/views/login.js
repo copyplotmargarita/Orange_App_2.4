@@ -306,44 +306,47 @@ export function renderLogin() {
                 const qTurno = query(
                     collection(db, "businesses", businessId, "turnos"), 
                     where("CORREO_USUARIO_LOGUEADO", "==", email),
-                    where("ESTADO_TURNO", "==", "ABIERTO")
                 );
                 const turnoSnap = await getDocs(qTurno);
 
+                let hasValidShift = false;
                 if (!turnoSnap.empty) {
-                    const tDoc = turnoSnap.docs[0];
-                    const tData = tDoc.data();
-                    
-                    const shiftStart = new Date(tData.TIMESTAMP_INICIO_TURNO);
-                    const now = new Date();
-                    const hoursPassed = (now - shiftStart) / (1000 * 60 * 60);
+                    const sortedDocs = [...turnoSnap.docs].sort((a, b) => 
+                        new Date(a.data().TIMESTAMP_INICIO_TURNO) - new Date(b.data().TIMESTAMP_INICIO_TURNO)
+                    );
+                    for (const tDoc of sortedDocs) {
+                        const tData = tDoc.data();
+                        const shiftStart = new Date(tData.TIMESTAMP_INICIO_TURNO);
+                        const now = new Date();
+                        const hoursPassed = (now - shiftStart) / (1000 * 60 * 60);
 
-                    if (hoursPassed >= 16) {
-                        // Auto-cerrar turno olvidado (16 hrs)
-                        await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
-                            ESTADO_TURNO: 'CERRADO',
-                            TIMESTAMP_CIERRE_TURNO: now.toISOString(),
-                            autoClosed: true
-                        });
-                        // Continúa el flujo hacia abajo para crear uno nuevo
-                    } else {
-                        // Actualizar el activeDeviceId para este turno
-                        await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
-                            activeDeviceId: deviceId
-                        });
+                        if (hoursPassed >= 16) {
+                            // Auto-cerrar turno olvidado (16 hrs)
+                            await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                                ESTADO_TURNO: 'CERRADO',
+                                TIMESTAMP_CIERRE_TURNO: now.toISOString(),
+                                autoClosed: true
+                            });
+                        } else if (!hasValidShift) {
+                            hasValidShift = true;
+                            // Actualizar el activeDeviceId para este turno
+                            await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                                activeDeviceId: deviceId
+                            });
 
-                        localStorage.setItem('currentShiftId', tDoc.id);
-                        localStorage.setItem('shiftStartTime', tData.TIMESTAMP_INICIO_TURNO);
-                        localStorage.setItem('storeId', tData.ID_TIENDA);
-                        localStorage.setItem('storeName', tData.NOMBRE_TIENDA);
-                        localStorage.setItem('userEmail', email);
-                        
-                        if (window.innerWidth < 1024 && document.documentElement.requestFullscreen) {
-                            document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+                            localStorage.setItem('currentShiftId', tDoc.id);
+                            localStorage.setItem('shiftStartTime', tData.TIMESTAMP_INICIO_TURNO);
+                            localStorage.setItem('storeId', tData.ID_TIENDA);
+                            localStorage.setItem('storeName', tData.NOMBRE_TIENDA);
+                            localStorage.setItem('userEmail', email);
+                            
+                            if (window.innerWidth < 1024 && document.documentElement.requestFullscreen) {
+                                document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+                            }
+                            
+                            navigate('#dashboard');
+                            return; // Salir inmediatamente tras encontrar el válido
                         }
-                        
-                        navigate('#dashboard');
-                        return;
                     }
                 }
 
@@ -428,32 +431,35 @@ export function renderLogin() {
 
             let adminHasOpenShift = false;
             if (!adminTurnoSnap.empty) {
-                const tDoc = adminTurnoSnap.docs[0];
-                const tData = tDoc.data();
-                
-                const shiftStart = new Date(tData.TIMESTAMP_INICIO_TURNO);
-                const now = new Date();
-                const hoursPassed = (now - shiftStart) / (1000 * 60 * 60);
+                const sortedDocs = [...adminTurnoSnap.docs].sort((a, b) => 
+                    new Date(a.data().TIMESTAMP_INICIO_TURNO) - new Date(b.data().TIMESTAMP_INICIO_TURNO)
+                );
+                for (const tDoc of sortedDocs) {
+                    const tData = tDoc.data();
+                    const shiftStart = new Date(tData.TIMESTAMP_INICIO_TURNO);
+                    const now = new Date();
+                    const hoursPassed = (now - shiftStart) / (1000 * 60 * 60);
 
-                if (hoursPassed >= 16) {
-                    // Auto-cerrar turno olvidado (16 hrs)
-                    await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
-                        ESTADO_TURNO: 'CERRADO',
-                        TIMESTAMP_CIERRE_TURNO: now.toISOString(),
-                        autoClosed: true
-                    });
-                } else {
-                    adminHasOpenShift = true;
-                    // Actualizar el activeDeviceId para este turno
-                    await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
-                        activeDeviceId: deviceId
-                    });
+                    if (hoursPassed >= 16) {
+                        // Auto-cerrar turno olvidado (16 hrs)
+                        await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                            ESTADO_TURNO: 'CERRADO',
+                            TIMESTAMP_CIERRE_TURNO: now.toISOString(),
+                            autoClosed: true
+                        });
+                    } else if (!adminHasOpenShift) {
+                        adminHasOpenShift = true;
+                        // Actualizar el activeDeviceId para este turno
+                        await updateDoc(doc(db, "businesses", businessId, "turnos", tDoc.id), {
+                            activeDeviceId: deviceId
+                        });
 
-                    localStorage.setItem('currentShiftId', tDoc.id);
-                    localStorage.setItem('shiftStartTime', tData.TIMESTAMP_INICIO_TURNO);
-                    // Si el admin tenía una tienda específica (poco común pero posible), la respetamos
-                    localStorage.setItem('storeId', tData.ID_TIENDA || 'general');
-                    localStorage.setItem('storeName', tData.NOMBRE_TIENDA || 'Sede Principal');
+                        localStorage.setItem('currentShiftId', tDoc.id);
+                        localStorage.setItem('shiftStartTime', tData.TIMESTAMP_INICIO_TURNO);
+                        // Si el admin tenía una tienda específica (poco común pero posible), la respetamos
+                        localStorage.setItem('storeId', tData.ID_TIENDA || 'general');
+                        localStorage.setItem('storeName', tData.NOMBRE_TIENDA || 'Sede Principal');
+                    }
                 }
             }
 

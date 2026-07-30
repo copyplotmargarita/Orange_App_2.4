@@ -1,6 +1,6 @@
 import { db } from '../services/firebase.js';
 import { formatDateToDDMMYYYY } from '../utils.js';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export async function renderReceivables(container) {
     if (!container) return;
@@ -573,11 +573,22 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
     });
 }
 
-function showPaymentModal(sale, onComplete) {
+export function showPaymentModal(sale, onComplete, paymentData = null) {
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
-    const remainingUSD = sale.remainingUSD || 0;
-    const remainingBs = remainingUSD * currentBcvRate;
-    const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+    
+    // Si estamos editando, el "monto pendiente real" incluye el monto del pago que estamos a punto de modificar
+    let previousPaymentUSD = 0;
+    let activeModalBcvRate = currentBcvRate;
+    if (paymentData) {
+        const isBs = paymentData.currency === 'BS' || paymentData.currency === 'Bs';
+        activeModalBcvRate = paymentData.bcvRate || currentBcvRate;
+        previousPaymentUSD = isBs ? paymentData.amount / activeModalBcvRate : paymentData.amount;
+    }
+    
+    const trueRemainingUSD = (sale.remainingUSD || 0) + previousPaymentUSD;
+    const remainingUSD = trueRemainingUSD;
+    const remainingBs = remainingUSD * activeModalBcvRate;
+    const todayStr = paymentData ? paymentData.date : new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
     
     const businessId = localStorage.getItem('businessId');
     
@@ -600,7 +611,7 @@ function showPaymentModal(sale, onComplete) {
             <!-- Encabezado con alineación baseline para uniformidad -->
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
                 <div>
-                    <h3 style="color: #ffffff; margin: 0; font-size: 1.3rem;">Cargar Pago</h3>
+                    <h3 style="color: #ffffff; margin: 0; font-size: 1.3rem;">${paymentData ? 'Editar Pago' : 'Cargar Pago'}</h3>
                     <div style="color: #63b3ed; font-family: monospace; font-weight: bold; font-size: 1rem; margin-top: 0.1rem;">#${sale.correlative || sale.id.slice(-6).toUpperCase()}</div>
                 </div>
                 <div style="text-align: right; font-size: 0.75rem; color: #a0aec0;">
@@ -635,14 +646,16 @@ function showPaymentModal(sale, onComplete) {
                 </select>
             </div>
 
-            <div id="payAmountContainerUSD" class="form-group" style="display: none;">
-                <label for="payAmountUSD">Monto a Pagar ($)</label>
-                <input type="text" id="payAmountUSD" class="form-control" style="background: rgba(255,255,255,0.05);">
-            </div>
+            <div id="amountsWrapper" style="display: flex; flex-direction: column;">
+                <div id="payAmountContainerUSD" class="form-group">
+                    <label for="payAmountUSD" id="labelAmountUSD">Monto a Pagar ($)</label>
+                    <input type="text" id="payAmountUSD" class="form-control" style="background: rgba(255,255,255,0.05);">
+                </div>
 
-            <div id="payAmountContainerBS" class="form-group">
-                <label for="payAmountBS">Monto a Pagar (Bs)</label>
-                <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
+                <div id="payAmountContainerBS" class="form-group">
+                    <label for="payAmountBS" id="labelAmountBS">Monto a Pagar (Bs)</label>
+                    <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
+                </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 1.2rem !important;">
@@ -650,7 +663,7 @@ function showPaymentModal(sale, onComplete) {
                 <input type="text" id="payReference" class="form-control" placeholder="Opcional">
             </div>
 
-            <button id="confirmPayBtn" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: bold; font-size: 14px;">Confirmar Pago</button>
+            <button id="confirmPayBtn" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: bold; font-size: 14px;">${paymentData ? 'Guardar Cambios' : 'Confirmar Pago'}</button>
         </div>
     `;
 
@@ -665,8 +678,58 @@ function showPaymentModal(sale, onComplete) {
 
     // Inicializar valores
     payDateInput.value = todayStr;
-    payAmountUSDInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    payAmountBSInput.value = remainingBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (window.flatpickr) {
+        flatpickr(payDateInput, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/Y",
+            defaultDate: todayStr,
+            onChange: async function(selectedDates, dateStr) {
+                if (dateStr) {
+                    try {
+                        const safeDateStr = dateStr.replace(/\//g, '-');
+                        const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
+                        if (docSnap.exists()) {
+                            activeModalBcvRate = docSnap.data().rate;
+                        } else {
+                            activeModalBcvRate = currentBcvRate;
+                        }
+                        const isBsMethod = payMethodSelect.value.startsWith('BS_');
+                        if (isBsMethod) {
+                            const valBs = parseFloat(payAmountBSInput.value.replace(/\D/g, '')) / 100 || 0;
+                            if (valBs > 0) payAmountUSDInput.value = (valBs / activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        } else {
+                            const valUSD = parseFloat(payAmountUSDInput.value.replace(/\D/g, '')) / 100 || 0;
+                            if (valUSD > 0) payAmountBSInput.value = (valUSD * activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        }
+                    } catch(e) { console.error("Error al buscar tasa BCV:", e); }
+                }
+            }
+        });
+    }
+    
+    if (paymentData) {
+        // Modo edición: pre-llenar valores
+        const isBs = paymentData.currency === 'BS' || paymentData.currency === 'Bs';
+        payMethodSelect.value = isBs ? `BS_${paymentData.method}` : `USD_${paymentData.method}`;
+        
+        if (isBs) {
+            const valBs = paymentData.amount;
+            const valUSD = valBs / currentBcvRate;
+            payAmountBSInput.value = valBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            const valUSD = paymentData.amount;
+            const valBs = valUSD * currentBcvRate;
+            payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountBSInput.value = valBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        modal.querySelector('#payReference').value = paymentData.reference || '';
+    } else {
+        // Modo nuevo pago
+        payAmountUSDInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        payAmountBSInput.value = remainingBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
     // Función para formatear en tiempo real (ATM style)
     function formatCurrencyInput(input) {
@@ -687,7 +750,7 @@ function showPaymentModal(sale, onComplete) {
     payAmountUSDInput.addEventListener('input', (e) => {
         const valUSD = formatCurrencyInput(e.target);
         if (valUSD !== 0 || e.target.value !== '') {
-            const valBS = valUSD * currentBcvRate;
+            const valBS = valUSD * activeModalBcvRate;
             payAmountBSInput.value = valBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         } else {
             payAmountBSInput.value = '';
@@ -697,7 +760,7 @@ function showPaymentModal(sale, onComplete) {
     payAmountBSInput.addEventListener('input', (e) => {
         const valBS = formatCurrencyInput(e.target);
         if (valBS !== 0 || e.target.value !== '') {
-            const valUSD = valBS / currentBcvRate;
+            const valUSD = valBS / activeModalBcvRate;
             payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         } else {
             payAmountUSDInput.value = '';
@@ -709,12 +772,27 @@ function showPaymentModal(sale, onComplete) {
         const methodVal = e.target.value;
         const isBs = methodVal.startsWith('BS_');
         
+        const containerUSD = modal.querySelector('#payAmountContainerUSD');
+        const containerBS = modal.querySelector('#payAmountContainerBS');
+        
         if (isBs) {
-            payAmountContainerBS.style.display = 'block';
-            payAmountContainerUSD.style.display = 'none';
+            modal.querySelector('#labelAmountBS').textContent = 'Monto a Pagar (Bs)';
+            modal.querySelector('#labelAmountUSD').textContent = 'Equivalente en $';
+            containerBS.style.order = "1";
+            containerUSD.style.order = "2";
+            payAmountBSInput.readOnly = false;
+            payAmountUSDInput.readOnly = true;
+            payAmountUSDInput.style.opacity = "0.7";
+            payAmountBSInput.style.opacity = "1";
         } else {
-            payAmountContainerBS.style.display = 'none';
-            payAmountContainerUSD.style.display = 'block';
+            modal.querySelector('#labelAmountUSD').textContent = 'Monto a Pagar ($)';
+            modal.querySelector('#labelAmountBS').textContent = 'Equivalente en Bs';
+            containerUSD.style.order = "1";
+            containerBS.style.order = "2";
+            payAmountUSDInput.readOnly = false;
+            payAmountBSInput.readOnly = true;
+            payAmountBSInput.style.opacity = "0.7";
+            payAmountUSDInput.style.opacity = "1";
         }
         
         const methodID = methodVal.replace('BS_', '').replace('USD_', '');
@@ -772,48 +850,64 @@ function showPaymentModal(sale, onComplete) {
         // Calcular el equivalente en dólares si el pago fue en Bs
         let amountUSD = amountValue;
         if (isBs) {
-            amountUSD = amountValue / currentBcvRate;
+            amountUSD = amountValue / activeModalBcvRate;
         }
 
         // Validar que no pague más de lo que debe (con un pequeño margen por decimales)
-        if (amountUSD > remainingUSD + 0.01) {
+        if (amountUSD > trueRemainingUSD + 0.01) {
             showCustomAlert("Validación", "El monto no puede ser mayor a la deuda pendiente.");
             return;
         }
 
         try {
-            // 1. Guardar el pago en la colección 'payments'
             const payRef = collection(db, "businesses", businessId, "payments");
             const today = new Date();
-            await addDoc(payRef, {
-                saleId: sale.id,
-                clientId: sale.clientId,
-                amount: amountValue, // Guardamos el monto numérico real
-                currency: isBs ? 'BS' : 'USD', // DASHBOARD usa 'BS' en mayúsculas
-                method: methodID,
-                reference: reference,
-                date: payDate, // Usamos la fecha seleccionada
-                bcvRate: currentBcvRate, // Guardamos la tasa usada para este pago
-                timestamp: today,
-                createdAt: today, // DASHBOARD busca por 'createdAt'
-                recordedBy: loggedInUser,
-                employeeEmail: userEmail || '', // DASHBOARD filtra por email de empleado
-                storeName: currentStore,
-                storeId: storeId, // DASHBOARD filtra por storeId
-                correlative: sale.correlative || sale.id.slice(-6).toUpperCase()
-            });
+            
+            if (paymentData) {
+                // 1. EDITAR pago existente
+                const docRef = doc(db, "businesses", businessId, "payments", paymentData.id);
+                await updateDoc(docRef, {
+                    amount: amountValue,
+                    currency: isBs ? 'BS' : 'USD',
+                    method: methodID,
+                    reference: reference,
+                    date: payDate,
+                    bcvRate: activeModalBcvRate,
+                    // No sobreescribir createdAt, recordedBy, etc.
+                });
+            } else {
+                // 1. CREAR nuevo pago
+                await addDoc(payRef, {
+                    saleId: sale.id,
+                    clientId: sale.clientId,
+                    amount: amountValue, 
+                    currency: isBs ? 'BS' : 'USD',
+                    method: methodID,
+                    reference: reference,
+                    date: payDate,
+                    bcvRate: activeModalBcvRate,
+                    timestamp: today,
+                    createdAt: today,
+                    recordedBy: loggedInUser,
+                    employeeEmail: userEmail || '',
+                    storeName: currentStore,
+                    storeId: storeId,
+                    correlative: sale.correlative || sale.id.slice(-6).toUpperCase()
+                });
+            }
 
             // 2. Actualizar la factura
             const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
-            const newRemainingUSD = Math.max(0, remainingUSD - amountUSD);
-            const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : 'abono'; 
+            const newRemainingUSD = Math.max(0, trueRemainingUSD - amountUSD);
+            const isFullyUnpaid = Math.abs(newRemainingUSD - (sale.totalUSD || 0)) < 0.02;
+            const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (isFullyUnpaid ? 'credito' : 'abono'); 
 
             await updateDoc(saleRef, {
                 remainingUSD: newRemainingUSD,
                 status: newStatus
             });
 
-            showCustomAlert("Éxito", "🎉 Pago registrado con éxito.");
+            showCustomAlert("Éxito", paymentData ? "🎉 Pago actualizado con éxito." : "🎉 Pago registrado con éxito.");
             modal.remove();
             
             // Refrescar los datos en memoria del cliente
@@ -829,7 +923,7 @@ function showPaymentModal(sale, onComplete) {
 }
 
 // Función para mostrar alertas personalizadas estilo modal
-function showCustomAlert(title, message, onAccept) {
+export function showCustomAlert(title, message, onAccept) {
     const modal = document.createElement('div');
     modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
     
@@ -852,8 +946,9 @@ function showCustomAlert(title, message, onAccept) {
 
 function showMassPaymentModal(clientData, onComplete) {
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+    let activeModalBcvRate = currentBcvRate;
     const totalDebtUSD = clientData.totalDebt || 0;
-    const totalDebtBs = totalDebtUSD * currentBcvRate;
+    const totalDebtBs = totalDebtUSD * activeModalBcvRate;
     const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
     
     const businessId = localStorage.getItem('businessId');
@@ -906,14 +1001,16 @@ function showMassPaymentModal(clientData, onComplete) {
                 </select>
             </div>
 
-            <div id="payAmountContainerUSD" class="form-group" style="display: none;">
-                <label for="payAmountUSD">Monto a Pagar ($)</label>
-                <input type="text" id="payAmountUSD" class="form-control" style="background: rgba(255,255,255,0.05);">
-            </div>
+            <div id="amountsWrapper_mass" style="display: flex; flex-direction: column;">
+                <div id="payAmountContainerUSD" class="form-group">
+                    <label for="payAmountUSD" id="labelAmountUSD_mass">Monto a Pagar ($)</label>
+                    <input type="text" id="payAmountUSD" class="form-control" style="background: rgba(255,255,255,0.05);">
+                </div>
 
-            <div id="payAmountContainerBS" class="form-group">
-                <label for="payAmountBS">Monto a Pagar (Bs)</label>
-                <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
+                <div id="payAmountContainerBS" class="form-group">
+                    <label for="payAmountBS" id="labelAmountBS_mass">Monto a Pagar (Bs)</label>
+                    <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
+                </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 1.2rem !important;">
@@ -935,6 +1032,36 @@ function showMassPaymentModal(clientData, onComplete) {
     const payDateInput = modal.querySelector('#payDate');
 
     payDateInput.value = todayStr;
+    if (window.flatpickr) {
+        flatpickr(payDateInput, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/Y",
+            defaultDate: todayStr,
+            onChange: async function(selectedDates, dateStr) {
+                if (dateStr) {
+                    try {
+                        const safeDateStr = dateStr.replace(/\//g, '-');
+                        const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
+                        if (docSnap.exists()) {
+                            activeModalBcvRate = docSnap.data().rate;
+                        } else {
+                            activeModalBcvRate = currentBcvRate;
+                        }
+                        const isBsMethod = payMethodSelect.value.startsWith('BS_');
+                        if (isBsMethod) {
+                            const valBs = parseFloat(payAmountBSInput.value.replace(/\D/g, '')) / 100 || 0;
+                            if (valBs > 0) payAmountUSDInput.value = (valBs / activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        } else {
+                            const valUSD = parseFloat(payAmountUSDInput.value.replace(/\D/g, '')) / 100 || 0;
+                            if (valUSD > 0) payAmountBSInput.value = (valUSD * activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        }
+                    } catch(e) { console.error("Error al buscar tasa BCV:", e); }
+                }
+            }
+        });
+    }
+
     payAmountUSDInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     payAmountBSInput.value = totalDebtBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -949,7 +1076,7 @@ function showMassPaymentModal(clientData, onComplete) {
     payAmountUSDInput.addEventListener('input', (e) => {
         const valUSD = formatCurrencyInput(e.target);
         if (valUSD !== 0 || e.target.value !== '') {
-            const valBS = valUSD * currentBcvRate;
+            const valBS = valUSD * activeModalBcvRate;
             payAmountBSInput.value = valBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         } else {
             payAmountBSInput.value = '';
@@ -959,7 +1086,7 @@ function showMassPaymentModal(clientData, onComplete) {
     payAmountBSInput.addEventListener('input', (e) => {
         const valBS = formatCurrencyInput(e.target);
         if (valBS !== 0 || e.target.value !== '') {
-            const valUSD = valBS / currentBcvRate;
+            const valUSD = valBS / activeModalBcvRate;
             payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         } else {
             payAmountUSDInput.value = '';
@@ -970,12 +1097,27 @@ function showMassPaymentModal(clientData, onComplete) {
         const methodVal = e.target.value;
         const isBs = methodVal.startsWith('BS_');
         
+        const containerUSD = modal.querySelector('#payAmountContainerUSD');
+        const containerBS = modal.querySelector('#payAmountContainerBS');
+        
         if (isBs) {
-            payAmountContainerBS.style.display = 'block';
-            payAmountContainerUSD.style.display = 'none';
+            modal.querySelector('#labelAmountBS_mass').textContent = 'Monto a Pagar (Bs)';
+            modal.querySelector('#labelAmountUSD_mass').textContent = 'Equivalente en $';
+            containerBS.style.order = "1";
+            containerUSD.style.order = "2";
+            payAmountBSInput.readOnly = false;
+            payAmountUSDInput.readOnly = true;
+            payAmountUSDInput.style.opacity = "0.7";
+            payAmountBSInput.style.opacity = "1";
         } else {
-            payAmountContainerBS.style.display = 'none';
-            payAmountContainerUSD.style.display = 'block';
+            modal.querySelector('#labelAmountUSD_mass').textContent = 'Monto a Pagar ($)';
+            modal.querySelector('#labelAmountBS_mass').textContent = 'Equivalente en Bs';
+            containerUSD.style.order = "1";
+            containerBS.style.order = "2";
+            payAmountUSDInput.readOnly = false;
+            payAmountBSInput.readOnly = true;
+            payAmountBSInput.style.opacity = "0.7";
+            payAmountUSDInput.style.opacity = "1";
         }
         
         const methodID = methodVal.replace('BS_', '').replace('USD_', '');
@@ -1028,7 +1170,7 @@ function showMassPaymentModal(clientData, onComplete) {
         }
 
         let amountUSD = amountValue;
-        if (isBs) { amountUSD = amountValue / currentBcvRate; }
+        if (isBs) { amountUSD = amountValue / activeModalBcvRate; }
 
         if (amountUSD > totalDebtUSD + 0.01) {
             showCustomAlert("Validación", "El monto no puede ser mayor a la deuda total.");
@@ -1049,7 +1191,7 @@ function showMassPaymentModal(clientData, onComplete) {
                 if (remainingPayUSD <= 0) break;
 
                 const amountToApplyUSD = Math.min(remainingPayUSD, sale.remainingUSD);
-                const amountToApplyBs = amountToApplyUSD * currentBcvRate;
+                const amountToApplyBs = amountToApplyUSD * activeModalBcvRate;
 
                 // 1. Guardar el pago para esta factura
                 await addDoc(payRef, {
@@ -1060,7 +1202,7 @@ function showMassPaymentModal(clientData, onComplete) {
                     method: methodID,
                     reference: reference,
                     date: payDate,
-                    bcvRate: currentBcvRate,
+                    bcvRate: activeModalBcvRate,
                     timestamp: today,
                     createdAt: today,
                     recordedBy: loggedInUser,
@@ -1108,7 +1250,7 @@ async function showSaleDetail(sale) {
     if (!isBudget) {
         const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
         const paySnap = await getDocs(q);
-        salePayments = paySnap.docs.map(doc => doc.data());
+        salePayments = paySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
     
     // Crear modal dinámicamente
@@ -1188,14 +1330,15 @@ async function showSaleDetail(sale) {
                 <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 1rem; text-align: left;">
                     <h4 style="font-size: 0.8rem; text-transform: uppercase; color: #a0aec0; margin-bottom: 0.5rem;">Pagos Recibidos</h4>
                     ${salePayments.length > 0 ? `
-                        <table class="premium-table" style="margin-bottom: 1rem; font-size: 12px;">
+                        <table class="premium-table" style="margin-bottom: 1rem; font-size: 11px;">
                             <thead>
                                 <tr>
-                                    <th style="padding: 6px 8px;">Fecha</th>
-                                    <th style="padding: 6px 8px;">Método</th>
-                                    <th style="text-align: right; padding: 6px 8px;">Monto Bs.</th>
-                                    <th style="text-align: right; padding: 6px 8px;">Monto $</th>
-                                    <th style="text-align: right; padding: 6px 8px;">Equivalente $</th>
+                                    <th style="padding: 4px 6px;">Fecha</th>
+                                    <th style="padding: 4px 6px;">Método</th>
+                                    <th style="text-align: right; padding: 4px 6px;">Monto Bs.</th>
+                                    <th style="text-align: right; padding: 4px 6px;">Monto $</th>
+                                    <th style="text-align: right; padding: 4px 6px;">Eqv. $</th>
+                                    <th style="text-align: center; padding: 4px 6px; width: 50px;">Acc.</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1217,11 +1360,15 @@ async function showSaleDetail(sale) {
 
                                     return `
                                         <tr>
-                                            <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.date || 'N/A'}</td>
-                                            <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.method}</td>
-                                            <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoBs}</td>
-                                            <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoUSD}</td>
-                                            <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 6px 8px; white-space: nowrap;">${equivalenteUSD}</td>
+                                            <td style="color: #e2e8f0; padding: 4px 6px; white-space: nowrap;">${p.date ? formatDateToDDMMYYYY(p.date) : 'N/A'}</td>
+                                            <td style="color: #e2e8f0; padding: 4px 6px; white-space: nowrap; text-transform: uppercase;">${p.method}</td>
+                                            <td style="text-align: right; color: #e2e8f0; padding: 4px 6px; white-space: nowrap;">${montoBs}</td>
+                                            <td style="text-align: right; color: #e2e8f0; padding: 4px 6px; white-space: nowrap;">${montoUSD}</td>
+                                            <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 4px 6px; white-space: nowrap;">${equivalenteUSD}</td>
+                                            <td style="text-align: center; padding: 4px 6px; white-space: nowrap;">
+                                                <span class="material-symbols-outlined edit-pay-btn" data-id="${p.id}" style="color: #63b3ed; cursor: pointer; font-size: 1rem; margin-right: 4px;" title="Editar Pago">edit</span>
+                                                <span class="material-symbols-outlined delete-pay-btn" data-id="${p.id}" style="color: #f87171; cursor: pointer; font-size: 1rem; font-weight: bold;" title="Eliminar Pago">delete</span>
+                                            </td>
                                         </tr>
                                     `;
                                 }).join('')}
@@ -1270,12 +1417,13 @@ async function showSaleDetail(sale) {
                     <div class="mobile-payments-table-container" style="overflow-x: auto;">
                         <table style="width: 100%; text-align: left; border-collapse: collapse; min-width: 400px;">
                             <thead style="border-bottom: 1px solid #363943;">
-                                <tr class="obsidian-text-xs">
-                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; font-weight: 700;">Fecha</th>
-                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; font-weight: 700;">Método</th>
-                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; text-align: right; font-weight: 700;">Monto Bs.</th>
-                                    <th style="padding-bottom: 0.5rem; padding-right: 0.5rem; text-align: right; font-weight: 700;">Monto $</th>
-                                    <th style="padding-bottom: 0.5rem; text-align: right; font-weight: 700;">Eqv. $</th>
+                                <tr class="obsidian-text-xs" style="font-size: 10px;">
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.25rem; font-weight: 700;">Fecha</th>
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.25rem; font-weight: 700;">Método</th>
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.25rem; text-align: right; font-weight: 700;">Bs.</th>
+                                    <th style="padding-bottom: 0.5rem; padding-right: 0.25rem; text-align: right; font-weight: 700;">$</th>
+                                    <th style="padding-bottom: 0.5rem; text-align: right; font-weight: 700;">Eqv.$</th>
+                                    <th style="padding-bottom: 0.5rem; text-align: center; font-weight: 700;">Acc.</th>
                                 </tr>
                             </thead>
                             <tbody style="border-bottom: 1px solid rgba(54, 57, 67, 0.3);">
@@ -1296,15 +1444,19 @@ async function showSaleDetail(sale) {
                                     }
 
                                     return `
-                                        <tr style="font-size: 12px; color: #c1c7d3; border-bottom: 1px solid rgba(54, 57, 67, 0.3);">
-                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; white-space: nowrap;">${p.date || 'N/A'}</td>
-                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; text-transform: uppercase; white-space: nowrap;">${p.method}</td>
-                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; text-align: right; white-space: nowrap;">${montoBs}</td>
-                                            <td style="padding: 0.75rem 0.5rem 0.75rem 0; text-align: right; white-space: nowrap;">${montoUSD}</td>
-                                            <td style="padding: 0.75rem 0; text-align: right; font-weight: bold; color: #ffffff; white-space: nowrap;">${equivalenteUSD}</td>
+                                        <tr style="font-size: 11px; color: #c1c7d3; border-bottom: 1px solid rgba(54, 57, 67, 0.3);">
+                                            <td style="padding: 0.5rem 0.25rem 0.5rem 0; white-space: nowrap;">${p.date ? formatDateToDDMMYYYY(p.date) : 'N/A'}</td>
+                                            <td style="padding: 0.5rem 0.25rem 0.5rem 0; text-transform: uppercase; white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis;">${p.method.replace('PAGO_MOVIL', 'P.MOVIL')}</td>
+                                            <td style="padding: 0.5rem 0.25rem 0.5rem 0; text-align: right; white-space: nowrap;">${montoBs}</td>
+                                            <td style="padding: 0.5rem 0.25rem 0.5rem 0; text-align: right; white-space: nowrap;">${montoUSD}</td>
+                                            <td style="padding: 0.5rem 0; text-align: right; font-weight: bold; color: #ffffff; white-space: nowrap;">${equivalenteUSD}</td>
+                                            <td style="padding: 0.5rem 0; text-align: center; white-space: nowrap;">
+                                                <span class="material-symbols-outlined edit-pay-btn" data-id="${p.id}" style="color: #63b3ed; cursor: pointer; font-size: 1rem; margin-right: 4px;">edit</span>
+                                                <span class="material-symbols-outlined delete-pay-btn" data-id="${p.id}" style="color: #f87171; cursor: pointer; font-size: 1rem; font-weight: bold;">delete</span>
+                                            </td>
                                         </tr>
                                     `;
-                                }).join('') : '<tr><td colspan="5" style="padding: 1rem 0; text-align: center; font-size: 12px; color: #8b919d;">No hay pagos registrados para esta factura.</td></tr>'}
+                                }).join('') : '<tr><td colspan="6" style="padding: 1rem 0; text-align: center; font-size: 12px; color: #8b919d;">No hay pagos registrados para esta factura.</td></tr>'}
                             </tbody>
                         </table>
                     </div>
@@ -1343,6 +1495,61 @@ async function showSaleDetail(sale) {
     
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.remove();
+    });
+    
+    // Attach event listeners for payment actions
+    modal.querySelectorAll('.edit-pay-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const payId = btn.dataset.id;
+            const paymentData = salePayments.find(p => p.id === payId);
+            if (paymentData) {
+                modal.remove(); // Close detail modal first
+                showPaymentModal(sale, () => {
+                    showSaleDetail(sale); // Re-open after edit
+                }, paymentData);
+            }
+        });
+    });
+
+    modal.querySelectorAll('.delete-pay-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const payId = btn.dataset.id;
+            const paymentData = salePayments.find(p => p.id === payId);
+            if (paymentData) {
+                showCustomAlert("Confirmación", "¿Estás seguro de que deseas eliminar este pago? El monto adeudado aumentará.", async () => {
+                    try {
+                        const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+                        const isBs = paymentData.currency === 'BS' || paymentData.currency === 'Bs';
+                        const rate = paymentData.bcvRate || currentBcvRate;
+                        const paymentUSD = isBs ? paymentData.amount / rate : paymentData.amount;
+
+                        // 1. Delete payment doc
+                        await deleteDoc(doc(db, "businesses", businessId, "payments", payId));
+
+                        // 2. Update sale remaining USD
+                        const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
+                        const newRemainingUSD = (sale.remainingUSD || 0) + paymentUSD;
+                        const isFullyUnpaid = Math.abs(newRemainingUSD - (sale.totalUSD || 0)) < 0.02;
+                        const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (isFullyUnpaid ? 'credito' : 'abono');
+
+                        await updateDoc(saleRef, {
+                            remainingUSD: newRemainingUSD,
+                            status: newStatus
+                        });
+
+                        // 3. Update local state and refresh modal
+                        sale.remainingUSD = newRemainingUSD;
+                        sale.status = newStatus;
+                        showCustomAlert("Éxito", "Pago eliminado exitosamente.");
+                        modal.remove();
+                        showSaleDetail(sale); // Re-open to refresh data
+                    } catch (error) {
+                        console.error("Error al eliminar pago:", error);
+                        showCustomAlert("Error", "Ocurrió un error al eliminar el pago.");
+                    }
+                });
+            }
+        });
     });
 }
 

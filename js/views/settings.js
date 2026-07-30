@@ -88,7 +88,11 @@ export async function renderSettings(mainContentArea) {
                     </div>
                     <div id="pagoMovilGrid" class="grid-2 mb-2" style="display: none;">
                         <div class="form-group"><label>Teléfono</label><input type="tel" id="pagoMovilPhone" class="form-control sm"></div>
-                        <div class="form-group"><label>Documento ID</label><div class="input-group-custom"><select id="bankAccPrefix" class="form-control sm prefix-select"><option value="V-">V-</option><option value="J-">J-</option></select><input type="text" id="bankAccDoc" class="form-control sm"></div></div>
+                        <div class="form-group"><label>Documento ID</label><div class="input-group-custom"><select id="bankAccPrefix" class="form-control sm prefix-select"><option value="V-">V-</option><option value="E-">E-</option><option value="G-">G-</option><option value="J-">J-</option></select><input type="text" id="bankAccDoc" class="form-control sm"></div></div>
+                    </div>
+                    <div id="bankHolderGrid" class="grid-2 mb-2" style="display: grid;">
+                        <div class="form-group"><label>Nombre del Titular</label><input type="text" id="bankAccHolder" class="form-control sm"></div>
+                        <div class="form-group"><label>Documento ID</label><div class="input-group-custom"><select id="bankAccHolderPrefix" class="form-control sm prefix-select"><option value="V-">V-</option><option value="E-">E-</option><option value="G-">G-</option><option value="J-">J-</option></select><input type="text" id="bankAccHolderDoc" class="form-control sm"></div></div>
                     </div>
                     <div id="normalAccFormat" class="form-group mb-2"><label>Número de Cuenta</label><input type="text" id="accountNumber" class="form-control sm" required></div>
                     <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">＋ Añadir Cuenta</button>
@@ -134,18 +138,36 @@ export async function renderSettings(mainContentArea) {
                 <form id="editBankModalForm" class="bank-form-compact">
                     <div class="form-group mb-2" style="position: relative;"><label>Banco</label><input type="text" id="modalBankName" class="form-control sm" required><div id="modalBankSuggestions" class="suggestions-panel"></div></div>
                     <div class="grid-2 mb-2">
-                        <div class="form-group"><label>Tipo</label><select id="modalAccountType" class="form-control sm"><option value="Corriente">Corriente</option><option value="Pago Móvil">Pago Móvil</option></select></div>
-                        <div class="form-group"><label>Moneda</label><select id="modalAccountCurrency" class="form-control sm"><option value="BS">BS</option><option value="USD">USD</option></select></div>
+                        <div class="form-group"><label>Tipo</label><select id="modalAccountType" class="form-control sm"><option value="Corriente">Corriente</option><option value="Pago Móvil">Pago Móvil</option><option value="Ahorro">Ahorro</option><option value="Zelle / ACH">Zelle / ACH</option></select></div>
+                        <div class="form-group"><label>Moneda</label><select id="modalAccountCurrency" class="form-control sm"><option value="BS">BS</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="COP">COP</option></select></div>
                     </div>
                     <div id="modalPmGrid" class="grid-2 mb-2" style="display: none;">
                         <div class="form-group"><label>Teléfono</label><input type="tel" id="modalPmPhone" class="form-control sm"></div>
-                        <div class="form-group"><label>Documento</label><div class="input-group-custom"><select id="modalPmPrefix" class="form-control sm prefix-select"><option value="V-">V-</option></select><input type="text" id="modalPmDoc" class="form-control sm"></div></div>
+                        <div class="form-group"><label>Documento</label><div class="input-group-custom"><select id="modalPmPrefix" class="form-control sm prefix-select"><option value="V-">V-</option><option value="E-">E-</option><option value="G-">G-</option><option value="J-">J-</option></select><input type="text" id="modalPmDoc" class="form-control sm"></div></div>
+                    </div>
+                    <div id="modalBankHolderGrid" class="grid-2 mb-2" style="display: grid;">
+                        <div class="form-group"><label>Nombre del Titular</label><input type="text" id="modalBankAccHolder" class="form-control sm"></div>
+                        <div class="form-group"><label>Documento ID</label><div class="input-group-custom"><select id="modalBankAccHolderPrefix" class="form-control sm prefix-select"><option value="V-">V-</option><option value="E-">E-</option><option value="G-">G-</option><option value="J-">J-</option></select><input type="text" id="modalBankAccHolderDoc" class="form-control sm"></div></div>
                     </div>
                     <div id="modalNormalAcc" class="form-group mb-3"><label>Número</label><input type="text" id="modalAccountNumber" class="form-control sm"></div>
                     <button type="submit" class="btn btn-primary btn-sm w-100">💾 Guardar Cambios</button>
                 </form>
             </div>
         </div>
+
+        <!-- MODAL ELIMINAR -->
+        <div id="bankDeleteModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content card compact-card" style="max-width: 350px; text-align: center; padding: 2rem !important;">
+                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🗑️</div>
+                <h3 style="color: var(--danger); font-size: 1.3rem; font-weight: 800; margin-bottom: 0.5rem;">Eliminar Cuenta</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.4;">¿Estás seguro de que deseas eliminar esta cuenta bancaria? Esta acción no se puede deshacer.</p>
+                <div class="grid-2">
+                    <button id="cancelDeleteBankBtn" class="btn btn-outline w-100">Cancelar</button>
+                    <button id="confirmDeleteBankBtn" class="btn w-100" style="background: var(--danger); color: white; border: none;">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
 
         <style>
             .settings-stack { max-width: 500px; margin: 0 auto; animation: fadeIn 0.3s ease; }
@@ -236,7 +258,26 @@ export async function renderSettings(mainContentArea) {
             list.appendChild(div);
         });
         list.querySelectorAll('.delete-bank-btn').forEach(btn => {
-            btn.onclick = async (e) => { e.stopPropagation(); if (confirm('¿Eliminar?')) { await deleteDoc(doc(db, "businesses", businessId, "bank_accounts", btn.dataset.id)); loadBanks(); } };
+            btn.onclick = (e) => { 
+                e.stopPropagation(); 
+                const bankId = btn.dataset.id;
+                const deleteModal = mainContentArea.querySelector('#bankDeleteModal');
+                deleteModal.style.display = 'flex';
+                
+                const confirmBtn = deleteModal.querySelector('#confirmDeleteBankBtn');
+                const cancelBtn = deleteModal.querySelector('#cancelDeleteBankBtn');
+                
+                confirmBtn.onclick = async () => {
+                    await deleteDoc(doc(db, "businesses", businessId, "bank_accounts", bankId)); 
+                    deleteModal.style.display = 'none';
+                    showNotification('Cuenta eliminada', 'success');
+                    loadBanks(); 
+                };
+                
+                cancelBtn.onclick = () => {
+                    deleteModal.style.display = 'none';
+                };
+            };
         });
     }
 
@@ -245,8 +286,19 @@ export async function renderSettings(mainContentArea) {
         const modal = mainContentArea.querySelector('#bankEditModal');
         modal.style.display = 'flex';
         modal.querySelector('#modalBankName').value = data.bank;
+        modal.querySelector('#modalAccountCurrency').value = data.currency || 'BS';
         modal.querySelector('#modalAccountType').value = data.type;
         modal.querySelector('#modalAccountType').dispatchEvent(new Event('change'));
+        
+        modal.querySelector('#modalBankAccHolder').value = data.holderName || '';
+        if (data.holderDoc?.includes('-')) {
+            const p = data.holderDoc.split('-');
+            modal.querySelector('#modalBankAccHolderPrefix').value = p[0] + '-';
+            modal.querySelector('#modalBankAccHolderDoc').value = p[1];
+        } else {
+            modal.querySelector('#modalBankAccHolderDoc').value = data.holderDoc || '';
+        }
+
         if (data.type === 'Pago Móvil') {
             if (data.number?.includes('-')) {
                 const p = data.number.split('-');
@@ -254,7 +306,9 @@ export async function renderSettings(mainContentArea) {
                 modal.querySelector('#modalPmDoc').value = p[1];
             } else modal.querySelector('#modalPmDoc').value = data.number;
             if (data.phone) window.intlTelInputGlobals.getInstance(modal.querySelector('#modalPmPhone'))?.setNumber(data.phone);
-        } else modal.querySelector('#modalAccountNumber').value = data.number;
+        } else {
+            modal.querySelector('#modalAccountNumber').value = data.number;
+        }
     }
 
     // --- LOGICA BANCOS ---
@@ -262,18 +316,24 @@ export async function renderSettings(mainContentArea) {
         const typeEl = area.querySelector(`#${prefix}accountType`) || area.querySelector(`#${prefix}AccountType`);
         const pmGrid = area.querySelector(`#${prefix}pagoMovilGrid`) || area.querySelector(`#${prefix}PmGrid`);
         const normalAcc = area.querySelector(`#${prefix}normalAccFormat`) || area.querySelector(`#${prefix}NormalAcc`);
+        const bankHolderGrid = area.querySelector(`#${prefix}bankHolderGrid`) || area.querySelector(`#${prefix}BankHolderGrid`);
         const bankInput = area.querySelector(`#${prefix}bankName`) || area.querySelector(`#${prefix}BankName`);
         const suggestions = area.querySelector(`#${prefix}bankSuggestions`) || area.querySelector(`#${prefix}BankSuggestions`);
 
         if (typeEl) typeEl.onchange = (e) => {
             const isPM = e.target.value === 'Pago Móvil';
+            const isNormalBank = e.target.value === 'Corriente' || e.target.value === 'Ahorro';
             if (pmGrid) pmGrid.style.display = isPM ? 'grid' : 'none';
+            if (bankHolderGrid) bankHolderGrid.style.display = isNormalBank ? 'grid' : 'none';
+            
             if (normalAcc) {
                 normalAcc.style.display = isPM ? 'none' : 'block';
                 const input = normalAcc.querySelector('input');
                 if (input) input.required = !isPM;
             }
         };
+
+        if (typeEl) typeEl.dispatchEvent(new Event('change'));
 
         if (bankInput) bankInput.oninput = (e) => {
             const val = e.target.value.toLowerCase();
@@ -333,8 +393,14 @@ export async function renderSettings(mainContentArea) {
             const f = mainContentArea.querySelector('#bankAccountForm');
             const type = f.querySelector('#accountType').value;
             const num = (type === 'Pago Móvil') ? `${f.querySelector('#bankAccPrefix').value}${f.querySelector('#bankAccDoc').value}` : f.querySelector('#accountNumber').value;
-            const data = { bank: f.querySelector('#bankName').value, number: num, type: type, currency: f.querySelector('#accountCurrency').value, createdAt: new Date().toISOString() };
+            const data = { bank: toTitleCase(f.querySelector('#bankName').value), number: num, type: type, currency: f.querySelector('#accountCurrency').value, createdAt: new Date().toISOString() };
             
+            if (type === 'Corriente' || type === 'Ahorro') {
+                data.holderName = toTitleCase(f.querySelector('#bankAccHolder').value);
+                const hDoc = f.querySelector('#bankAccHolderDoc').value;
+                if (hDoc) data.holderDoc = `${f.querySelector('#bankAccHolderPrefix').value}${hDoc}`;
+            }
+
             if (type === 'Pago Móvil') {
                 const phoneInput = window.intlTelInputGlobals.getInstance(f.querySelector('#pagoMovilPhone'));
                 if (phoneInput) {
@@ -361,7 +427,14 @@ export async function renderSettings(mainContentArea) {
         const f = mainContentArea.querySelector('#editBankModalForm');
         const type = f.querySelector('#modalAccountType').value;
         const num = (type === 'Pago Móvil') ? `${f.querySelector('#modalPmPrefix').value}${f.querySelector('#modalPmDoc').value}` : f.querySelector('#modalAccountNumber').value;
-        const data = { bank: f.querySelector('#modalBankName').value, number: num, type: type, currency: f.querySelector('#modalAccountCurrency').value, updatedAt: new Date().toISOString() };
+        const data = { bank: toTitleCase(f.querySelector('#modalBankName').value), number: num, type: type, currency: f.querySelector('#modalAccountCurrency').value, updatedAt: new Date().toISOString() };
+        
+        if (type === 'Corriente' || type === 'Ahorro') {
+            data.holderName = toTitleCase(f.querySelector('#modalBankAccHolder').value);
+            const hDoc = f.querySelector('#modalBankAccHolderDoc').value;
+            if (hDoc) data.holderDoc = `${f.querySelector('#modalBankAccHolderPrefix').value}${hDoc}`;
+        }
+
         if (type === 'Pago Móvil') data.phone = window.intlTelInputGlobals.getInstance(f.querySelector('#modalPmPhone')).getNumber();
         await updateDoc(doc(db, "businesses", businessId, "bank_accounts", currentEditingId), data);
         mainContentArea.querySelector('#bankEditModal').style.display = 'none'; loadBanks(); showNotification('Actualizada', 'success');
