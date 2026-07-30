@@ -1,0 +1,307 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Cuentas por Cobrar - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#231b00",
+                        "surface-variant": "#32343e",
+                        "outline-variant": "#414751",
+                        "tertiary-container": "#cea700",
+                        "primary-fixed": "#d4e3ff",
+                        "on-tertiary-container": "#4e3e00",
+                        "surface-tint": "#a4c9ff",
+                        "surface-dim": "#10131c",
+                        "tertiary-fixed": "#ffe084",
+                        "on-primary-fixed-variant": "#004883",
+                        "surface-container-lowest": "#0b0e16",
+                        "surface-container-high": "#272a33",
+                        "on-primary-container": "#002a51",
+                        "primary-container": "#4d93e5",
+                        "surface-container-low": "#181b24",
+                        "inverse-on-surface": "#2d303a",
+                        "on-tertiary-fixed-variant": "#574500",
+                        "on-error-container": "#ffdad6",
+                        "secondary": "#4ae183",
+                        "secondary-container": "#06bb63",
+                        "on-surface-variant": "#c1c7d3",
+                        "inverse-surface": "#e0e2ee",
+                        "surface-bright": "#363943",
+                        "surface-container-highest": "#32343e",
+                        "on-primary": "#00315d",
+                        "tertiary-fixed-dim": "#eec209",
+                        "on-secondary-fixed-variant": "#005228",
+                        "background": "#10131c",
+                        "on-surface": "#e0e2ee",
+                        "on-secondary-fixed": "#00210c",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "outline": "#8b919d",
+                        "surface": "#10131c",
+                        "secondary-fixed": "#6bfe9c",
+                        "on-secondary": "#003919",
+                        "primary-fixed-dim": "#a4c9ff",
+                        "on-tertiary": "#3c2f00",
+                        "secondary-fixed-dim": "#4ae183",
+                        "tertiary": "#efc209",
+                        "primary": "#a4c9ff",
+                        "on-background": "#e0e2ee",
+                        "inverse-primary": "#0060ac",
+                        "on-primary-fixed": "#001c39",
+                        "surface-container": "#1c1f28",
+                        "on-secondary-container": "#00431f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "unit": "4px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "gutter": "12px",
+                        "margin-mobile": "16px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "label-caps": ["Hanken Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-caps": ["11px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "data-mono": ["13px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0F111A;
+            color: #e0e2ee;
+            font-family: 'Hanken Grotesk', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .data-card {
+            background-color: #1E2230;
+            border: 1px solid #2A2F3E;
+        }
+        .input-recessed {
+            background-color: #141721;
+            border: 1px solid #2A2F3E;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen pb-20">
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface dock full-width top-0 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant flex items-center justify-between px-margin-mobile h-16 w-full sticky top-0 z-40">
+<div class="flex items-center gap-4">
+
+
+</div>
+<div class="flex items-center gap-2">
+<button class="active:scale-95 transition-transform text-primary dark:text-primary hover:bg-surface-variant dark:hover:bg-surface-variant p-2 rounded-full">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+</div>
+</header>
+<main class="flex-1 px-margin-mobile py-4 space-y-6">
+<!-- Context Title -->
+<div class="flex items-center gap-3"><button class="active:scale-95 transition-transform text-primary dark:text-primary hover:bg-surface-variant dark:hover:bg-surface-variant p-2 rounded-full"><span class="material-symbols-outlined">arrow_back</span></button>
+<span class="text-2xl">📋</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Cuentas por Cobrar</h2>
+</div>
+<!-- Search Bar -->
+<div class="relative">
+<div class="input-recessed flex items-center px-4 h-12 rounded-xl">
+<span class="material-symbols-outlined text-outline mr-3">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md w-full placeholder-outline" placeholder="Buscar cliente..." type="text">
+</div>
+</div>
+<!-- Summary Metric Cards (Horizontal Scroll) -->
+<div class="grid grid-cols-2 gap-gutter pb-2">
+<!-- Card 1 -->
+<div class="data-card p-4 rounded-xl flex flex-col justify-center items-center text-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-1">CLIENTES CON DEUDA</span>
+<span class="font-headline-lg text-headline-lg text-on-surface">10</span>
+</div>
+<!-- Card 2 -->
+<div class="data-card p-4 rounded-xl flex flex-col justify-center items-center text-center border-t-2 border-t-error">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-1">TOTAL DEUDA ($)</span>
+<span class="font-headline-lg text-headline-lg text-error">$ 218,95</span>
+</div>
+</div>
+<!-- Client List -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-1">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-widest">Lista de Clientes</span>
+<span class="font-label-caps text-label-caps text-primary">Ver todos</span>
+</div>
+<!-- Client Card 1 -->
+<div class="data-card p-4 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-body-lg text-body-lg text-on-surface">Carmen Lugo</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-bold text-on-surface-variant">4 FACTURAS</span>
+</div>
+</div>
+<div class="text-right">
+<div class="font-data-mono text-data-mono text-error font-bold">$ 69,43</div>
+<div class="font-data-mono text-data-mono text-error font-bold opacity-80">Bs. 51.669,78</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-3 border-t border-outline-variant/30">
+<div>
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">F. Más Antigua</span>
+<span class="font-data-mono text-body-md text-on-surface">23/06/2026</span>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">Última Compra</span>
+<span class="font-data-mono text-body-md text-on-surface">26/07/2026</span>
+</div>
+</div>
+</div>
+<!-- Client Card 2 -->
+<div class="data-card p-4 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-body-lg text-body-lg text-on-surface">Maria Gomez</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-bold text-on-surface-variant">1 FACTURA</span>
+</div>
+</div>
+<div class="text-right">
+<div class="font-data-mono text-data-mono text-error font-bold">$ 2,66</div>
+<div class="font-data-mono text-data-mono text-error font-bold opacity-80">Bs. 1.978,16</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-3 border-t border-outline-variant/30">
+<div>
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">F. Más Antigua</span>
+<span class="font-data-mono text-body-md text-on-surface">07/07/2026</span>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">Última Compra</span>
+<span class="font-data-mono text-body-md text-on-surface">07/07/2026</span>
+</div>
+</div>
+</div>
+<!-- Client Card 3 -->
+<div class="data-card p-4 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-body-lg text-body-lg text-on-surface">Toditomarket, C.A.</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-bold text-on-surface-variant">1 FACTURA</span>
+</div>
+</div>
+<div class="text-right">
+<div class="font-data-mono text-data-mono text-error font-bold">$ 29,10</div>
+<div class="font-data-mono text-data-mono text-error font-bold opacity-80">Bs. 21.657,09</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-3 border-t border-outline-variant/30">
+<div>
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">F. Más Antigua</span>
+<span class="font-data-mono text-body-md text-on-surface">29/07/2026</span>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">Última Compra</span>
+<span class="font-data-mono text-body-md text-on-surface">29/07/2026</span>
+</div>
+</div>
+</div>
+<!-- Client Card 4 -->
+<div class="data-card p-4 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-body-lg text-body-lg text-on-surface">Jhoandres Diaz</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-bold text-on-surface-variant">1 FACTURA</span>
+</div>
+</div>
+<div class="text-right">
+<div class="font-data-mono text-data-mono text-error font-bold">$ 20,00</div>
+<div class="font-data-mono text-data-mono text-error font-bold opacity-80">Bs. 14.884,60</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-3 border-t border-outline-variant/30">
+<div>
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">F. Más Antigua</span>
+<span class="font-data-mono text-body-md text-on-surface">29/07/2026</span>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-[10px] text-on-surface-variant block uppercase">Última Compra</span>
+<span class="font-data-mono text-body-md text-on-surface">29/07/2026</span>
+</div>
+</div>
+</div>
+
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container dark:bg-surface-container bg-surface-container-highest dark:bg-surface-container-highest border-t border-outline-variant shadow-lg rounded-t-full">
+<!-- Ventas (Active based on context of business tracking) -->
+<div class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label-caps text-[10px] mt-0.5 uppercase">Ventas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-label-caps text-[10px] mt-0.5 uppercase">Métricas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-label-caps text-[10px] mt-0.5 uppercase">Tiendas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-[10px] mt-0.5 uppercase">Ajustes</span>
+</div>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('.data-card').forEach(card => {
+            card.addEventListener('touchstart', () => {
+                card.style.transform = 'scale(0.98)';
+                card.style.transition = 'transform 0.15s ease';
+            });
+            card.addEventListener('touchend', () => {
+                card.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+
+
+</body></html>

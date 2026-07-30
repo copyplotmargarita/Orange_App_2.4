@@ -160,10 +160,7 @@ export function renderClients(container, onFinish = null, initialName = '') {
                 navHome.click();
                 
                 // Abrir la barra lateral si está cerrada
-                const toggleIcon = document.getElementById('toggleIcon');
-                if (toggleIcon && toggleIcon.innerText === '▶') {
-                    document.getElementById('sidebarToggle')?.click();
-                }
+
             } else {
                 window.location.hash = '#dashboard';
             }

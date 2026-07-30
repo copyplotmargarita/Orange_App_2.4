@@ -160,10 +160,7 @@ export function renderEmployees(container) {
                 const navHome = document.getElementById('navHome');
                 if (navHome) {
                     navHome.click();
-                    const toggleIcon = document.getElementById('toggleIcon');
-                    if (toggleIcon && toggleIcon.innerText === '▶') {
-                        document.getElementById('sidebarToggle')?.click();
-                    }
+
                 } else {
                     window.location.hash = '#dashboard';
                 }

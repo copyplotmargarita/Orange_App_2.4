@@ -662,18 +662,21 @@ export function renderSales(container, preSelectedClient = null) {
                 <main class="flex-1 overflow-hidden bg-surface-dim ${mainIsVisible} flex-col">
                     <section class="flex-1 flex flex-col overflow-hidden">
                         <div class="flex px-container-margin pt-sm pb-sm mb-sm justify-between items-center shrink-0" style="min-height: 60px;">
-                            <div class="hidden lg:flex items-center flex-stack-mobile" style="gap: 1.5rem; flex: 1;">
+                            <div class="hidden lg:flex items-center flex-stack-mobile" style="gap: 0.5rem; flex: 1;">
                                 <button id="backToDashboardBtn2" class="btn btn-outline flex-shrink-0" style="height: 38px; width: auto; font-size: 0.85rem; padding: 0 1rem; white-space: nowrap;">← Volver</button>
-                                <h2 class="flex-shrink-0" style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0; white-space: nowrap; display: flex; align-items: center; gap: 0.5rem;">🛒 Ventas</h2>
-                                <button id="viewHistoryBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
+                                <h2 class="flex-shrink-0" style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0; white-space: nowrap; display: flex; align-items: center; gap: 0.5rem; margin-right: 0.5rem;">🛒 Ventas</h2>
+                                <button id="viewHistoryBtn" class="btn btn-primary" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 0.75rem; font-size: 0.85rem; gap: 0.4rem;">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">calendar_today</span>
                                     Ventas del Día
                                 </button>
-                                <button id="viewBudgetsBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
+                                <button id="viewReceivablesBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 0.75rem; font-size: 0.85rem; gap: 0.4rem;">
+                                    Ctas. x Cobrar
+                                </button>
+                                <button id="viewBudgetsBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 0.75rem; font-size: 0.85rem; gap: 0.4rem;">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">request_quote</span>
                                     Presupuestos
                                 </button>
-                                <button id="viewOrdersBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 1rem; font-size: 0.85rem; margin-left: 0.5rem; gap: 0.4rem;">
+                                <button id="viewOrdersBtn" class="btn btn-outline" style="width: auto; flex: none; font-weight: 700; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 0.75rem; font-size: 0.85rem; gap: 0.4rem;">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">package</span>
                                     Pedidos
                                 </button>
@@ -1047,10 +1050,14 @@ export function renderSales(container, preSelectedClient = null) {
                 <div class="flex lg:hidden gap-sm h-full items-center justify-between">
                     ${currentMobileStep === 1 ? `
                         <div class="flex flex-col gap-3 w-full">
-                            <div class="grid grid-cols-3 gap-2">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button id="mobileViewHistoryBtn" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-outline-variant bg-surface-container-high active:scale-95 transition-transform py-3 px-2">
                                     <span class="material-symbols-outlined text-primary" style="font-size:22px;">calendar_today</span>
                                     <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide leading-tight text-center">Ventas<br>del Día</span>
+                                </button>
+                                <button id="mobileViewReceivablesBtn" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-outline-variant bg-surface-container-high active:scale-95 transition-transform py-3 px-2">
+                                    <span class="material-symbols-outlined text-primary" style="font-size:22px;">account_balance_wallet</span>
+                                    <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide leading-tight text-center">Ctas x<br>Cobrar</span>
                                 </button>
                                 <button id="mobileViewBudgetsBtn" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-outline-variant bg-surface-container-high active:scale-95 transition-transform py-3 px-2">
                                     <span class="material-symbols-outlined text-primary" style="font-size:22px;">request_quote</span>
@@ -1157,8 +1164,7 @@ export function renderSales(container, preSelectedClient = null) {
             const navHome = document.getElementById('navHome');
             if (navHome) {
                 navHome.click();
-                const toggleIcon = document.getElementById('toggleIcon');
-                if (toggleIcon && toggleIcon.innerText === '▶') document.getElementById('sidebarToggle')?.click();
+
             } else {
                 window.location.hash = '#dashboard';
             }
@@ -1171,6 +1177,12 @@ export function renderSales(container, preSelectedClient = null) {
             currentView = 'history';
             await fetchDailySales();
             render();
+        });
+
+        container.querySelector('#viewReceivablesBtn')?.addEventListener('click', () => {
+            window.lastViewBeforeReceivables = 'ventas';
+            const navCobros = document.getElementById('navCobros');
+            if (navCobros) navCobros.click();
         });
 
         container.querySelector('#viewBudgetsBtn')?.addEventListener('click', async () => {
@@ -1191,6 +1203,11 @@ export function renderSales(container, preSelectedClient = null) {
             currentView = 'history';
             await fetchDailySales();
             render();
+        });
+        container.querySelector('#mobileViewReceivablesBtn')?.addEventListener('click', () => {
+            window.lastViewBeforeReceivables = 'ventas';
+            const navCobros = document.getElementById('navCobros');
+            if (navCobros) navCobros.click();
         });
         container.querySelector('#mobileViewBudgetsBtn')?.addEventListener('click', async () => {
             historyFilter = 'presupuestos';
