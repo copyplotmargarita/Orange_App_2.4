@@ -685,7 +685,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 <button id="btnBackFromStep2" class="lg:hidden btn btn-icon material-symbols-outlined text-white hover:bg-white/10 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-container-highest border border-outline-variant">arrow_back</button>
                                 <div class="relative flex items-center bg-surface-container-high rounded-xl px-md h-10 border border-outline-variant w-full">
                                     <span class="material-symbols-outlined text-outline">search</span>
-                                    <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="text" value="${searchProductTerm}">
+                                    <input id="productSearch" class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-sm text-on-surface placeholder-outline" placeholder="Buscar producto..." type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" value="${searchProductTerm}">
                                 </div>
                             </div>
                         </div>
@@ -774,7 +774,7 @@ export function renderSales(container, preSelectedClient = null) {
                                 <div class="flex-1 flex items-center gap-sm p-sm bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-[#8ab4f8] transition-colors group">
                                     <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
                                     <div class="flex-1 relative">
-                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="text" value="${selectedClient ? selectedClient.fullName : ''}"/>
+                                        <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" value="${selectedClient ? selectedClient.fullName : ''}"/>
                                         ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
                                         <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface-container-highest border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-xl shadow-xl mt-1 hidden"></div>
                                     </div>
@@ -1298,9 +1298,9 @@ export function renderSales(container, preSelectedClient = null) {
                 }
             });
             
-            // Auto-focus on render (only desktop or step 2)
+            // Auto-focus on render (only desktop)
             setTimeout(() => {
-                if (document.activeElement !== searchInput && (window.innerWidth >= 1024 || currentMobileStep === 2)) {
+                if (document.activeElement !== searchInput && window.innerWidth >= 1024) {
                     searchInput.focus();
                     const val = searchInput.value;
                     searchInput.value = '';

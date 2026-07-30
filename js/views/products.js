@@ -232,7 +232,7 @@ export function renderProducts(container) {
                 <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
                 <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
-                    <input type="text" id="searchProductInput" class="form-control" placeholder="🔍 Buscar producto..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
+                    <input type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" id="searchProductInput" class="form-control" placeholder="🔍 Buscar producto..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
                     <button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>
                 </div>
             </div>
