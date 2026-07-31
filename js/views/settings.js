@@ -253,7 +253,10 @@ export async function renderSettings(mainContentArea) {
             const acc = docSnap.data();
             const div = document.createElement('div');
             div.className = 'bank-acc-item shadow-sm';
-            div.innerHTML = `<span class="acc-type">${acc.type}</span><strong>${acc.bank}</strong><div class="acc-num">${acc.number}</div>${acc.phone ? `<div class="acc-num" style="font-size:0.7rem; opacity:0.8;">📱 ${acc.phone}</div>` : ''}<button class="delete-bank-btn" data-id="${docSnap.id}">🗑️</button>`;
+            let displayType = acc.type;
+            if (acc.type === 'Corriente') displayType = 'Cuenta Corriente';
+            else if (acc.type === 'Ahorro') displayType = 'Cuenta de Ahorros';
+            div.innerHTML = `<span class="acc-type">${displayType}</span><strong>${acc.bank}</strong>${acc.holderDoc ? `<div class="acc-num">${acc.holderDoc}</div>` : ''}<div class="acc-num">${acc.number}</div>${acc.phone ? `<div class="acc-num" style="font-size:0.7rem; opacity:0.8;">📱 ${acc.phone}</div>` : ''}<button class="delete-bank-btn" data-id="${docSnap.id}">🗑️</button>`;
             div.onclick = (e) => { if(!e.target.classList.contains('delete-bank-btn')) openEditModal(docSnap.id, acc); };
             list.appendChild(div);
         });

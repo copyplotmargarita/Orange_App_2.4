@@ -1,6 +1,7 @@
 import { db } from '../services/firebase.js';
 import { formatDateToDDMMYYYY } from '../utils.js';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { generateDocumentView } from './sales.js';
 
 export async function renderReceivables(container) {
     if (!container) return;
@@ -398,12 +399,12 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                     <table class="premium-table" style="margin-bottom:0;">
                         <thead>
                             <tr>
-                                <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px;">Correlativo</th>
-                                <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Fecha</th>
-                                <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto ($)</th>
-                                <th class="sticky-th" style="text-align: right; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Monto (Bs)</th>
-                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border);">Estado</th>
-                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px;">Acción</th>
+                                <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-left-radius: 12px; width: 15%;">Correlativo</th>
+                                <th class="sticky-th" style="position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); width: 15%;">Fecha</th>
+                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); width: 15%;">Monto ($)</th>
+                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); width: 20%;">Monto (Bs)</th>
+                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); width: 10%;">Estado</th>
+                                <th class="sticky-th" style="text-align: center; position: sticky; background: var(--surface); z-index: 10; border-bottom: 2px solid var(--border); border-top-right-radius: 12px; width: 25%;">Acción</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -411,13 +412,16 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                                 <tr class="sale-row desktop-sale-row" data-sale-id="${sale.id}">
                                     <td style="font-family: monospace; font-weight: bold; color: #63b3ed;">${sale.correlative || sale.id.slice(-6).toUpperCase()}</td>
                                     <td style="color: #e2e8f0;">${formatDateToDDMMYYYY(sale.date)}</td>
-                                    <td style="text-align: right; font-weight: bold; color: #e2e8f0;">$ ${fmt(sale.remainingUSD || 0)}</td>
-                                    <td style="text-align: right; color: #a0aec0;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</td>
+                                    <td style="text-align: center; font-weight: bold; color: #e2e8f0;">$ ${fmt(sale.remainingUSD || 0)}</td>
+                                    <td style="text-align: center; color: #a0aec0;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</td>
                                     <td style="text-align: center;">
                                         <span style="color: ${sale.status === 'credito' ? '#ef4444' : '#f59e0b'}; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">${sale.status}</span>
                                     </td>
                                     <td style="text-align: center;">
-                                        <button class="btn btn-primary pay-btn" data-sale-id="${sale.id}" style="width: auto; padding: 4px 12px; font-size: 12px;">Cargar Pago</button>
+                                        <div style="display: flex; gap: 0.4rem; justify-content: center;">
+                                            <button class="btn btn-outline print-invoice-btn" data-sale-id="${sale.id}" style="width: auto; padding: 4px 12px; font-size: 12px;" title="Ver Factura">📄 Ver Factura</button>
+                                            <button class="btn btn-primary pay-btn" data-sale-id="${sale.id}" style="width: auto; padding: 4px 12px; font-size: 12px;">Cargar Pago</button>
+                                        </div>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -442,9 +446,14 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                                     <h3 style="color: #4a90e2; font-weight: 700; font-size: 18px; margin: 0;">${sale.correlative || sale.id.slice(-6).toUpperCase()}</h3>
                                     <p style="font-size: 12px; color: #8b919d; font-weight: 500; margin: 4px 0 0 0;">Fecha: ${formatDateToDDMMYYYY(sale.date)}</p>
                                 </div>
-                                <span style="background: ${sale.status === 'credito' ? 'rgba(248, 113, 113, 0.1)' : 'rgba(251, 191, 36, 0.1)'}; color: ${sale.status === 'credito' ? '#f87171' : '#fbbf24'}; font-size: 10px; font-weight: 900; padding: 4px 8px; border-radius: 4px; border: 1px solid ${sale.status === 'credito' ? 'rgba(248, 113, 113, 0.2)' : 'rgba(251, 191, 36, 0.2)'}; text-transform: uppercase;">
-                                    ${sale.status}
-                                </span>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span style="background: ${sale.status === 'credito' ? 'rgba(248, 113, 113, 0.1)' : 'rgba(251, 191, 36, 0.1)'}; color: ${sale.status === 'credito' ? '#f87171' : '#fbbf24'}; font-size: 10px; font-weight: 900; padding: 4px 8px; border-radius: 4px; border: 1px solid ${sale.status === 'credito' ? 'rgba(248, 113, 113, 0.2)' : 'rgba(251, 191, 36, 0.2)'}; text-transform: uppercase;">
+                                        ${sale.status}
+                                    </span>
+                                    <button class="print-invoice-btn" data-sale-id="${sale.id}" title="Ver Factura" style="background: none; border: none; cursor: pointer; padding: 0; color: #a4c9ff; display: flex; align-items: center;">
+                                        <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
+                                    </button>
+                                </div>
                             </div>
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 16px;">
@@ -543,7 +552,7 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
     // Add listeners for sale rows (click to view detail)
     container.querySelectorAll('.sale-row').forEach(row => {
         row.addEventListener('click', (e) => {
-            if (e.target.classList.contains('pay-btn')) return; // Ignore if button clicked
+            if (e.target.closest('.pay-btn') || e.target.closest('.print-invoice-btn')) return; // Ignore if button clicked
             const saleId = row.dataset.saleId;
             const sale = clientData.sales.find(s => s.id === saleId);
             showSaleDetail(sale); // Call local function
@@ -569,6 +578,33 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                 // Callback para refrescar la vista después de pagar
                 renderClientReceivables(clientData, container, backToMainCallback);
             });
+        });
+    });
+
+    container.querySelectorAll('.print-invoice-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // Stop row click event
+            const btnEl = e.target.closest('.print-invoice-btn');
+            btnEl.disabled = true;
+            btnEl.style.opacity = '0.5';
+            
+            const saleId = btnEl.dataset.saleId;
+            const sale = clientData.sales.find(s => s.id === saleId);
+            
+            const businessId = localStorage.getItem('businessId');
+            let salePayments = [];
+            try {
+                const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
+                const paySnap = await getDocs(q);
+                salePayments = paySnap.docs.map(doc => doc.data());
+                
+                await generateDocumentView(sale, salePayments);
+            } catch (err) {
+                console.error("Error al generar PDF de factura:", err);
+            } finally {
+                btnEl.disabled = false;
+                btnEl.style.opacity = '1';
+            }
         });
     });
 }
