@@ -3921,7 +3921,15 @@ export function renderSales(container, preSelectedClient = null) {
         }, "Sí, Facturar", "Cancelar");
     }
 
-    async function generateDocumentView(sale, salePayments = []) {
+    loadData();
+}
+
+    export async function generateDocumentView(sale, salePayments = []) {
+        const fmt = (val) => {
+            if (val === null || val === undefined) return "0.00";
+            const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
+            return isNaN(num) ? "0.00" : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
         const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
         const printWindow = window.open('', '_blank');
         const businessId = localStorage.getItem('businessId');
@@ -4124,6 +4132,8 @@ export function renderSales(container, preSelectedClient = null) {
                                     <div style="background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
                                         <div style="font-weight: bold; color: #2b6cb0;">${acc.bank}</div>
                                         <div style="color: #718096; font-size: 10px; text-transform: uppercase;">${acc.type} (${acc.currency})</div>
+                                        ${acc.holderName ? `<div style="font-size: 11px; color: #4a5568; margin-top: 4px; text-transform: uppercase;">${acc.holderName}</div>` : ''}
+                                        ${acc.holderDoc ? `<div style="font-size: 11px; color: #4a5568;">${acc.holderDoc}</div>` : ''}
                                         <div style="font-family: monospace; font-size: 11px; margin-top: 4px;">${acc.number}</div>
                                         ${acc.phone ? `<div style="font-size: 11px; margin-top: 2px;">📱 ${acc.phone}</div>` : ''}
                                     </div>
@@ -4205,5 +4215,3 @@ export function renderSales(container, preSelectedClient = null) {
         }
     }
 
-    loadData();
-}
