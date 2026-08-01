@@ -1,5 +1,5 @@
 import { db } from '../services/firebase.js';
-import { formatDateToDDMMYYYY } from '../utils.js';
+import { formatDateToDDMMYYYY, showConfirmModal } from '../utils.js';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { generateDocumentView } from './sales.js';
 
@@ -852,10 +852,11 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
-    modal.querySelector('#confirmPayBtn').addEventListener('click', async () => {
-        const methodVal = payMethodSelect.value;
-        const isBs = methodVal.startsWith('BS_');
-        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+    modal.querySelector('#confirmPayBtn').addEventListener('click', () => {
+        showConfirmModal("Confirmar Pago", "¿Está seguro de registrar este pago?", async () => {
+            const methodVal = payMethodSelect.value;
+            const isBs = methodVal.startsWith('BS_');
+            const methodID = methodVal.replace('BS_', '').replace('USD_', '');
         
         let amountValue;
         if (isBs) {
@@ -955,6 +956,7 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
             console.error("Error al registrar el pago:", error);
             showCustomAlert("Error", `Error al registrar el pago: ${error.message}`);
         }
+        }, "Sí, Confirmar", "Cancelar");
     });
 }
 
@@ -1175,10 +1177,11 @@ function showMassPaymentModal(clientData, onComplete) {
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
-    modal.querySelector('#confirmPayBtn').addEventListener('click', async () => {
-        const methodVal = payMethodSelect.value;
-        const isBs = methodVal.startsWith('BS_');
-        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+    modal.querySelector('#confirmPayBtn').addEventListener('click', () => {
+        showConfirmModal("Confirmar Pago Global", "¿Está seguro de registrar este pago global? Esta acción afectará a múltiples facturas.", async () => {
+            const methodVal = payMethodSelect.value;
+            const isBs = methodVal.startsWith('BS_');
+            const methodID = methodVal.replace('BS_', '').replace('USD_', '');
         
         let amountValue;
         if (isBs) {
@@ -1274,13 +1277,15 @@ function showMassPaymentModal(clientData, onComplete) {
             console.error("Error al registrar el pago global:", error);
             showCustomAlert("Error", `Error al registrar el pago global: ${error.message}`);
         }
+        }, "Sí, Confirmar", "Cancelar");
     });
 }
 
-async function showSaleDetail(sale) {
+export async function showSaleDetail(sale) {
     const businessId = localStorage.getItem('businessId');
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
-    const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
+    const docType = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+    const isBudget = docType === 'presupuesto';
     
     let salePayments = [];
     if (!isBudget) {
@@ -1564,9 +1569,18 @@ async function showSaleDetail(sale) {
 
                         // 2. Update sale remaining USD
                         const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
-                        const newRemainingUSD = (sale.remainingUSD || 0) + paymentUSD;
-                        const isFullyUnpaid = Math.abs(newRemainingUSD - (sale.totalUSD || 0)) < 0.02;
-                        const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (isFullyUnpaid ? 'credito' : 'abono');
+                        const qRemaining = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id));
+                        const remainingSnap = await getDocs(qRemaining);
+                        
+                        let newRemainingUSD, newStatus;
+                        if (remainingSnap.empty) {
+                            newRemainingUSD = sale.totalUSD || 0;
+                            newStatus = 'credito';
+                        } else {
+                            newRemainingUSD = Math.min((sale.remainingUSD || 0) + paymentUSD, sale.totalUSD || 0);
+                            const isFullyUnpaid = Math.abs(newRemainingUSD - (sale.totalUSD || 0)) < 0.02;
+                            newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (isFullyUnpaid ? 'credito' : 'abono');
+                        }
 
                         await updateDoc(saleRef, {
                             remainingUSD: newRemainingUSD,
