@@ -1,5 +1,6 @@
 import { auth, db } from '../services/firebase.js';
 import { showConfirmModal, showNotification, formatDateToDDMMYYYY } from '../utils.js';
+import { showSaleDetail } from './receivables.js';
 import { 
     collection, 
     query, 
@@ -178,6 +179,14 @@ export function renderReports(container) {
                         </table>
                     </div>
                 `;
+
+                results.querySelectorAll('.btn-detail').forEach(btn => {
+                    btn.onclick = () => {
+                        const id = btn.dataset.id;
+                        const sale = sales.find(s => s.id === id);
+                        if (sale) showSaleDetail(sale);
+                    };
+                });
 
             } catch (err) {
                 results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;

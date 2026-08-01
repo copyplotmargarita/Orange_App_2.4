@@ -2978,8 +2978,9 @@ export function renderSales(container, preSelectedClient = null) {
                             <tbody>
                                 ${dailySales
                                     .filter(sale => {
-                                        if (historyFilter === 'ventas') return sale.status !== 'presupuesto' && sale.status !== 'facturado';
-                                        if (historyFilter === 'presupuestos') return sale.status === 'presupuesto' || sale.status === 'facturado';
+                                        const type = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+                                        if (historyFilter === 'ventas') return type === 'venta';
+                                        if (historyFilter === 'presupuestos') return type === 'presupuesto' && sale.status !== 'facturado';
                                         return true;
                                     })
                                     .map((sale, i) => {
@@ -3011,14 +3012,22 @@ export function renderSales(container, preSelectedClient = null) {
                                         </td>
                                         <td style="padding: 0.45rem 0.75rem; text-align: right; white-space: nowrap;">
                                             <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
-                                                ${sale.status === 'presupuesto' || sale.status === 'facturado' ? `
-                                                    ${sale.status === 'presupuesto' ? `
-                                                        <button class="btn btn-primary convert-to-sale" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; background: var(--primary); border-color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">🛒 Facturar</button>
-                                                    ` : ''}
-                                                    <button class="btn btn-outline print-presupuesto" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; border-color: var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">📄 Presupuesto</button>
-                                                ` : `
-                                                    <button class="btn btn-outline print-presupuesto" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; border-color: var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">📄 Ver Factura</button>
-                                                `}
+                                                ${(() => {
+                                                    const docType = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+                                                    const isBudgetDoc = docType === 'presupuesto';
+                                                    if (isBudgetDoc) {
+                                                        return `
+                                                            ${sale.status === 'presupuesto' ? `
+                                                                <button class="btn btn-primary convert-to-sale" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; background: var(--primary); border-color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">🛒 Facturar</button>
+                                                            ` : ''}
+                                                            <button class="btn btn-outline print-presupuesto" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; border-color: var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">📄 Presupuesto</button>
+                                                        `;
+                                                    } else {
+                                                        return `
+                                                            <button class="btn btn-outline print-presupuesto" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; border-color: var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px;">📄 Ver Factura</button>
+                                                        `;
+                                                    }
+                                                })()}
                                                 <button class="btn btn-outline view-sale-detail" data-index="${i}" style="width: 110px; padding: 0.2rem 0; font-size: 0.65rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px;">Ver Detalle</button>
                                             </div>
                                         </td>
@@ -3059,8 +3068,9 @@ export function renderSales(container, preSelectedClient = null) {
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                         <span style="font-size: 16px; font-weight: 700; color: #e0e2ee;">Transacciones</span>
                         <span style="font-size: 12px; font-weight: 500; color: #8b919d; font-family: 'JetBrains Mono', monospace;">${ dailySales.filter(sale => {
-                            if (historyFilter === 'ventas') return sale.status !== 'presupuesto' && sale.status !== 'facturado';
-                            if (historyFilter === 'presupuestos') return sale.status === 'presupuesto' || sale.status === 'facturado';
+                            const type = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+                            if (historyFilter === 'ventas') return type === 'venta';
+                            if (historyFilter === 'presupuestos') return type === 'presupuesto' && sale.status !== 'facturado';
                             return true;
                         }).length } items</span>
                     </div>
@@ -3070,15 +3080,17 @@ export function renderSales(container, preSelectedClient = null) {
                         ? '<p style="text-align: center; color: #8b919d; padding: 3rem 1rem;">No hay ventas registradas hoy.</p>'
                         : dailySales
                             .filter(sale => {
-                                if (historyFilter === 'ventas') return sale.status !== 'presupuesto' && sale.status !== 'facturado';
-                                if (historyFilter === 'presupuestos') return sale.status === 'presupuesto' || sale.status === 'facturado';
+                                const type = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+                                if (historyFilter === 'ventas') return type === 'venta';
+                                if (historyFilter === 'presupuestos') return type === 'presupuesto' && sale.status !== 'facturado';
                                 return true;
                             })
                             .map((sale, i) => {
                                 const statusColor = sale.status === 'contado' ? '#4ae183' : sale.status === 'abono' ? '#f59e0b' : '#ffb4ab';
                                 const statusBg = sale.status === 'contado' ? 'rgba(74,225,131,0.1)' : sale.status === 'abono' ? 'rgba(245,158,11,0.1)' : 'rgba(255,180,171,0.1)';
                                 const statusBorder = sale.status === 'contado' ? 'rgba(74,225,131,0.3)' : sale.status === 'abono' ? 'rgba(245,158,11,0.3)' : 'rgba(255,180,171,0.3)';
-                                const isBudgetCard = sale.status === 'presupuesto' || sale.status === 'facturado';
+                                const docType = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+                                const isBudgetCard = docType === 'presupuesto';
                                 return `
                                 <div style="background: #1c1f28; border: 1px solid #414751; border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
                                     <div style="padding: 14px 14px 10px 14px;">
@@ -3102,16 +3114,17 @@ export function renderSales(container, preSelectedClient = null) {
                                                 <span style="background: #32343e; color: #c1c7d3; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">${sale.paymentMethodStr || '--'}</span>
                                             </div>
                                             <div style="display: flex; gap: 6px;">
-                                                <button class="print-presupuesto" data-index="${i}" title="${isBudgetCard ? 'Ver Presupuesto' : 'Ver Factura'}" style="background: none; border: none; cursor: pointer; padding: 6px; color: #a4c9ff; border-radius: 6px; display: flex; align-items: center;">
-                                                    <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
+                                                <button class="view-sale-detail" data-index="${i}" title="Ver Detalle" style="background: none; border: none; cursor: pointer; padding: 6px; color: #a4c9ff; border-radius: 6px; display: flex; align-items: center;">
+                                                    <span class="material-symbols-outlined" style="font-size: 18px;">visibility</span>
                                                 </button>
-                                                <button class="view-sale-detail" data-index="${i}" title="Ver Detalle" style="background: none; border: none; cursor: pointer; padding: 6px; color: #8b919d; border-radius: 6px; display: flex; align-items: center;">
-                                                    <span class="material-symbols-outlined" style="font-size: 20px;">visibility</span>
+                                                <button class="print-presupuesto" data-index="${i}" title="${isBudgetCard ? 'Ver Presupuesto' : 'Ver Factura'}" style="background: none; border: none; cursor: pointer; padding: 6px; color: #a4c9ff; border-radius: 6px; display: flex; align-items: center;">
+                                                    <span class="material-symbols-outlined" style="font-size: 18px;">receipt_long</span>
                                                 </button>
                                                 ${isBudgetCard && sale.status === 'presupuesto' ? `
-                                                <button class="convert-to-sale" data-index="${i}" title="Facturar" style="background: none; border: none; cursor: pointer; padding: 6px; color: #4ae183; border-radius: 6px; display: flex; align-items: center;">
-                                                    <span class="material-symbols-outlined" style="font-size: 20px;">shopping_cart</span>
-                                                </button>` : ''}
+                                                    <button class="convert-to-sale" data-index="${i}" title="Facturar" style="background: none; border: none; cursor: pointer; padding: 6px; color: #4ae183; border-radius: 6px; display: flex; align-items: center;">
+                                                        <span class="material-symbols-outlined" style="font-size: 18px;">shopping_cart_checkout</span>
+                                                    </button>
+                                                ` : ''}
                                             </div>
                                         </div>
                                     </div>
@@ -3183,7 +3196,10 @@ export function renderSales(container, preSelectedClient = null) {
     }
 
     function renderOrdersView() {
-        const displayedPedidos = allPedidos.filter(p => selectedOrderStatusFilter === 'Todos' || p.orderStatus === selectedOrderStatusFilter || (!p.orderStatus && selectedOrderStatusFilter === 'Por Entregar'));
+        const displayedPedidos = allPedidos.filter(p => 
+            p.orderStatus !== 'Facturado' && 
+            (selectedOrderStatusFilter === 'Todos' || p.orderStatus === selectedOrderStatusFilter || (!p.orderStatus && selectedOrderStatusFilter === 'Por Entregar'))
+        );
         container.innerHTML = `
             <div style="position: absolute; top: 0.75rem; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
                 <div class="card" style="padding: 0.5rem 1.25rem; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex: none; margin: 0;">
@@ -3197,7 +3213,6 @@ export function renderSales(container, preSelectedClient = null) {
                             <option value="Todos" ${selectedOrderStatusFilter === 'Todos' ? 'selected' : ''}>Todos los Estados</option>
                             <option value="Por Entregar" ${selectedOrderStatusFilter === 'Por Entregar' ? 'selected' : ''}>Por Entregar</option>
                             <option value="Entregado" ${selectedOrderStatusFilter === 'Entregado' ? 'selected' : ''}>Entregado</option>
-                            <option value="Facturado" ${selectedOrderStatusFilter === 'Facturado' ? 'selected' : ''}>Facturado</option>
                         </select>
                         <button id="productionTodayBtn" class="btn btn-primary" style="width: auto; padding: 0.35rem 0.7rem; font-size: 0.8rem; background: var(--secondary); border-color: var(--secondary);">👨‍🍳 PRODUCCIÓN HOY</button>
                         <input type="text" id="orderDateFilter" class="bg-surface-container-high border border-outline-variant text-on-surface" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; height: 38px; border-radius: 8px;" value="${selectedPedidoDate}">
@@ -3628,8 +3643,9 @@ export function renderSales(container, preSelectedClient = null) {
 
     async function showSaleDetail(sale) {
         const businessId = localStorage.getItem('businessId');
-        const isBudget = sale.status === 'presupuesto' || (sale.status === 'facturado' && !sale.isOrder);
-        const isOrder = sale.isOrder || sale.status === 'pedido';
+        const docType = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+        const isBudget = docType === 'presupuesto';
+        const isOrder = docType === 'pedido';
         
         const modal = container.querySelector('#saleDetailModal');
         const content = container.querySelector('#modalContent');
@@ -3930,7 +3946,8 @@ export function renderSales(container, preSelectedClient = null) {
             const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
             return isNaN(num) ? "0.00" : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
-        const isBudget = sale.status === 'presupuesto' || sale.status === 'facturado';
+        const docType = sale.settings?.type || (sale.status === 'presupuesto' ? 'presupuesto' : (sale.status === 'pedido' ? 'pedido' : 'venta'));
+        const isBudget = docType === 'presupuesto';
         const printWindow = window.open('', '_blank');
         const businessId = localStorage.getItem('businessId');
         let businessData = {};
