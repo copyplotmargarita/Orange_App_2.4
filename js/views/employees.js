@@ -131,12 +131,55 @@ export function renderEmployees(container) {
 
     function renderList() {
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">👤 Empleados</h2>
-                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+            <style>
+            @media (max-width: 767px) {
+                .employees-header-container {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+                .employees-header-row1 {
+                    display: flex !important;
+                    align-items: center !important;
+                    width: 100% !important;
+                    margin-bottom: 10px !important;
+                }
+                .employees-header-row2 {
+                    display: flex !important;
+                    width: 100% !important;
+                    margin-left: 0 !important;
+                    gap: 0.5rem !important;
+                }
+                .employees-header-row2 input {
+                    flex: 1 !important;
+                    width: 100% !important;
+                }
+                #addEmployeeBtn {
+                    width: 42px !important;
+                    min-width: unset !important;
+                    padding: 0 !important;
+                    background: transparent !important;
+                    color: var(--primary) !important;
+                    border: 1px solid var(--border) !important;
+                }
+                #addEmployeeBtn .desktop-text {
+                    display: none !important;
+                }
+                #addEmployeeBtn .mobile-icon {
+                    display: inline-block !important;
+                }
+            }
+            </style>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -1rem; background: var(--background); z-index: 50; margin-top: -1rem; padding-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="employees-header-container">
+                <div class="employees-header-row1" style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">👤 Empleados</h2>
+                </div>
+                <div class="employees-header-row2" style="margin-left: auto; display: flex; gap: 1rem; align-items: center;">
                     <input type="text" id="searchEmployeeInput" class="form-control" placeholder="🔍 Buscar empleado..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    <button class="btn btn-primary" id="addEmployeeBtn" style="width: auto; min-width: 180px; padding: 0 1rem; white-space: nowrap; flex-shrink: 0; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Crear Empleado</button>
+                    <button class="btn btn-primary" id="addEmployeeBtn" style="width: auto; min-width: 180px; padding: 0 1rem; white-space: nowrap; flex-shrink: 0; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
+                        <span class="desktop-text">+ Crear Empleado</span>
+                        <span style="font-size: 1.5rem; display: none;" class="mobile-icon">➕</span>
+                    </button>
                 </div>
             </div>
             <div id="employeeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
@@ -170,9 +213,9 @@ export function renderEmployees(container) {
 
     function renderForm() {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ Nuevo Colaborador</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="new-employee-header">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">✨ Nuevo Colaborador</h2>
             </div>
             
             <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--primary);">

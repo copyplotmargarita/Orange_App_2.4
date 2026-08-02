@@ -140,6 +140,7 @@ export function renderPurchases(container) {
     let currentFilterSupplier = '';
     let currentFilterStatus = '';
     let currentFilterType = 'TODOS';
+    let currentSearchQuery = '';
     
     // Rango de fechas por defecto: últimos 7 días
     const initialEndDateObj = new Date();
@@ -168,21 +169,73 @@ export function renderPurchases(container) {
         if (currentFilterStatus) filteredPurchases = filteredPurchases.filter(p => p.status === currentFilterStatus);
 
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🧾 Cuentas por Pagar</h2>
-                <div style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                    <select id="filterType" class="form-control filter-dropdown">
+            <style>
+            @media (max-width: 767px) {
+                .purchases-header-container {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+                .purchases-header-row1 {
+                    display: flex !important;
+                    align-items: center !important;
+                    width: 100% !important;
+                    margin-bottom: 10px !important;
+                }
+                .purchases-header-row2 {
+                    display: flex !important;
+                    width: 100% !important;
+                    margin-left: 0 !important;
+                    gap: 0.5rem !important;
+                    justify-content: flex-end !important;
+                }
+                .hide-on-mobile {
+                    display: none !important;
+                }
+                #addPurchaseBtn {
+                    width: 42px !important;
+                    min-width: unset !important;
+                    padding: 0 !important;
+                    background: transparent !important;
+                    color: var(--primary) !important;
+                    border: 1px solid var(--border) !important;
+                }
+                #addPurchaseBtn .desktop-text {
+                    display: none !important;
+                }
+                #addPurchaseBtn .mobile-icon {
+                    display: inline-block !important;
+                }
+                .metrics-desktop-only {
+                    display: none !important;
+                }
+                .metrics-mobile-only {
+                    display: grid !important;
+                }
+            }
+            .metrics-mobile-only {
+                display: none;
+            }
+            </style>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -1rem; background: var(--background); z-index: 50; margin-top: -1rem; padding-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="purchases-header-container">
+                <div class="purchases-header-row1" style="display: flex; align-items: center; gap: 1rem; min-width: 0; overflow: hidden;">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">🧾 Cuentas por Pagar</h2>
+                </div>
+                <div class="purchases-header-row2" style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;">
+                    <div style="flex: 1; display: flex; min-width: 150px;">
+                        <input type="text" id="searchPurchaseInput" class="form-control" placeholder="Buscar proveedor..." value="${currentSearchQuery}" style="width: 100%; border-radius: var(--radius-md);">
+                    </div>
+                    <select id="filterType" class="form-control filter-dropdown hide-on-mobile">
                         <option value="TODOS" ${currentFilterType === 'TODOS' ? 'selected' : ''}>Todas las Compras</option>
                         <option value="PRODUCTO" ${currentFilterType === 'PRODUCTO' ? 'selected' : ''}>Insumos / Productos</option>
                         <option value="EQUIPO_UTENSILIO" ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'selected' : ''}>Equipos</option>
                         <option value="GASTO_SERVICIO" ${currentFilterType === 'GASTO_SERVICIO' ? 'selected' : ''}>Gastos y Servicios</option>
                     </select>
-                    <select id="filterSupplier" class="form-control filter-dropdown ts-filter">
+                    <select id="filterSupplier" class="form-control filter-dropdown ts-filter hide-on-mobile">
                         <option value="">Todos los Proveedores</option>
                         ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                     </select>
-                    <select id="filterStatus" class="form-control filter-dropdown">
+                    <select id="filterStatus" class="form-control filter-dropdown hide-on-mobile">
                         <option value="">Todos los Estados</option>
                         <option value="CREDITO" ${currentFilterStatus === 'CREDITO' ? 'selected' : ''}>A CRÉDITO</option>
                         <option value="ABONO" ${currentFilterStatus === 'ABONO' ? 'selected' : ''}>ABONO</option>
@@ -190,8 +243,11 @@ export function renderPurchases(container) {
                         <option value="CONTADO" ${currentFilterStatus === 'CONTADO' ? 'selected' : ''}>CONTADO</option>
                     </select>
                     ${role !== 'employee' ? `
-                    <button class="btn btn-primary" id="historyPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">📜 Historial</button>
-                    <button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Cargar Compra</button>
+                    <button class="btn btn-primary hide-on-mobile" id="historyPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">📜 Historial</button>
+                    <button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">
+                        <span class="desktop-text">+ Cargar Compra</span>
+                        <span style="font-size: 1.5rem; display: none;" class="mobile-icon">➕</span>
+                    </button>
                     ` : ''}
                 </div>
             </div>
@@ -279,47 +335,6 @@ export function renderPurchases(container) {
             }
         });
 
-        html += `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
-                        <div>
-                            <p class="text-sm text-muted">Insumos / Productos</p>
-                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${insumosTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
-                        </div>
-                        <div style="text-align: right;" class="text-left-mobile">
-                            <p class="text-sm text-muted">Facturas por Pagar</p>
-                            <p style="font-size: 1.25rem; font-weight: bold;">${insumosCount} doc(s)</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
-                        <div>
-                            <p class="text-sm text-muted">Gastos y Servicios</p>
-                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${gastosTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
-                        </div>
-                        <div style="text-align: right;" class="text-left-mobile">
-                            <p class="text-sm text-muted">Facturas por Pagar</p>
-                            <p style="font-size: 1.25rem; font-weight: bold;">${gastosCount} doc(s)</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
-                        <div>
-                            <p class="text-sm text-muted">Equipos</p>
-                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${equiposTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
-                        </div>
-                        <div style="text-align: right;" class="text-left-mobile">
-                            <p class="text-sm text-muted">Facturas por Pagar</p>
-                            <p style="font-size: 1.25rem; font-weight: bold;">${equiposCount} doc(s)</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
         // Group debt by entity (supplier or creditor) based on filtered results
         const entityDebt = {};
         suppliers.forEach(s => {
@@ -343,7 +358,65 @@ export function renderPurchases(container) {
         });
 
         // Filtrar entidades que realmente tienen deuda activa (> 0)
-        const activeEntities = Object.values(entityDebt).filter(s => s.debt > 0.01);
+        let activeEntities = Object.values(entityDebt).filter(s => s.debt > 0.01);
+        
+        if (currentSearchQuery) {
+            const q = currentSearchQuery.toLowerCase();
+            activeEntities = activeEntities.filter(s => s.name.toLowerCase().includes(q));
+        }
+
+        const totalOverallDebt = insumosTotal + gastosTotal + equiposTotal;
+
+        html += `
+            <div class="metrics-mobile-only" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <div class="card" style="padding: 0.85rem 0.5rem; background: var(--surface); text-align: center; border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <p class="text-sm" style="margin: 0; font-weight: 800; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.5px; color: #e2e8f0;">PROVEEDORES CON DEUDA</p>
+                    <h3 style="font-size: 1.4rem; color: #f8fafc; font-weight: 800; margin: 0.25rem 0 0 0;">${activeEntities.length}</h3>
+                </div>
+                <div class="card" style="padding: 0.85rem 0.5rem; background: var(--surface); text-align: center; border-radius: 12px; border: none; border-top: 3px solid var(--danger); box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <p class="text-sm" style="margin: 0; font-weight: 800; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.5px; color: #e2e8f0;">TOTAL DEUDA ($)</p>
+                    <h3 style="font-size: 1.4rem; color: #f8fafc; font-weight: 800; margin: 0.25rem 0 0 0;">$ ${totalOverallDebt.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                </div>
+            </div>
+            <div class="metrics-desktop-only" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p class="text-sm text-muted">Insumos / Productos</p>
+                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${insumosTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${insumosCount} doc(s)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p class="text-sm text-muted">Gastos y Servicios</p>
+                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${gastosTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${gastosCount} doc(s)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p class="text-sm text-muted">Equipos</p>
+                            <h3 style="font-size: 1.75rem; color: var(--danger);">$ ${equiposTotal.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${equiposCount} doc(s)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
 
         if (activeEntities.length === 0) {
             html += `<div style="padding: 3rem; text-align: center; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
@@ -374,6 +447,21 @@ export function renderPurchases(container) {
             if (filterSupEl) {
                 new TomSelect(filterSupEl, { create: false, placeholder: "Todos los Proveedores" });
             }
+        }
+
+        const searchInput = container.querySelector('#searchPurchaseInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                currentSearchQuery = e.target.value;
+                renderDeck();
+                setTimeout(() => {
+                    const newSearch = document.getElementById('searchPurchaseInput');
+                    if (newSearch) {
+                        newSearch.focus();
+                        newSearch.setSelectionRange(newSearch.value.length, newSearch.value.length);
+                    }
+                }, 0);
+            });
         }
 
         // Listeners Filtros
@@ -1327,9 +1415,9 @@ export function renderPurchases(container) {
 
     function renderTypeSelector() {
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDeckBtnType" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📦 Registrar Compra o Gasto</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; min-width: 0; overflow: hidden;" class="purchases-header-row1">
+                <button class="btn btn-outline" id="backToDeckBtnType" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">📦 Registrar Compra o Gasto</h2>
             </div>
             
             <div style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; text-align: center;">
@@ -1378,9 +1466,9 @@ export function renderPurchases(container) {
         const todayStr = localNow.getFullYear() + '-' + String(localNow.getMonth() + 1).padStart(2, '0') + '-' + String(localNow.getDate()).padStart(2, '0');
         
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button type="button" class="btn btn-outline" id="backToTypeSelectorBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; min-width: 0; overflow: hidden;" class="purchases-header-row1">
+                <button type="button" class="btn btn-outline" id="backToTypeSelectorBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
                     ${purchaseType === 'PRODUCTO' ? '📦 Cargar Factura de Compra' : (purchaseType === 'EQUIPO_UTENSILIO' ? '🔧 Cargar Equipo' : '📋 Cargar Gasto/Servicio')}
                 </h2>
             </div>

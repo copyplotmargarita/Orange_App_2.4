@@ -86,12 +86,54 @@ export function renderStores(container) {
 
     function renderList() {
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🏪 Tiendas y Sucursales</h2>
-                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+            <style>
+            @media (max-width: 767px) {
+                .stores-header-container {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+                .stores-header-row1 {
+                    display: flex !important;
+                    align-items: center !important;
+                    width: 100% !important;
+                    margin-bottom: 10px !important;
+                }
+                .stores-header-row2 {
+                    display: flex !important;
+                    width: 100% !important;
+                    margin-left: 0 !important;
+                    gap: 0.5rem !important;
+                }
+                .stores-header-row2 input {
+                    flex: 1 !important;
+                    width: 100% !important;
+                }
+                #addStoreBtn {
+                    width: 42px !important;
+                    padding: 0 !important;
+                    background: transparent !important;
+                    color: var(--success) !important;
+                    border: 1px solid var(--border) !important;
+                }
+                #addStoreBtn .desktop-text {
+                    display: none !important;
+                }
+                #addStoreBtn .mobile-icon {
+                    display: inline-block !important;
+                }
+            }
+            </style>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -1rem; background: var(--background); z-index: 50; margin-top: -1rem; padding-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="stores-header-container">
+                <div class="stores-header-row1" style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                    <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">🏪 Tiendas y Sucursales</h2>
+                </div>
+                <div class="stores-header-row2" style="margin-left: auto; display: flex; gap: 1rem; align-items: center;">
                     <input type="text" id="searchStoreInput" class="form-control" placeholder="🔍 Buscar tienda..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    <button class="btn btn-primary" id="addStoreBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">+ Nueva Tienda</button>
+                    <button class="btn btn-primary" id="addStoreBtn" style="width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">
+                        <span class="desktop-text">+ Nueva Tienda</span>
+                        <span style="font-size: 1.5rem; display: none;" class="mobile-icon">➕</span>
+                    </button>
                 </div>
             </div>
             <div id="storesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem;">
@@ -125,9 +167,9 @@ export function renderStores(container) {
 
     function renderForm() {
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ Nueva Sucursal</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="new-store-header">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                <h2 style="color: var(--success); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">✨ Nueva Sucursal</h2>
             </div>
             
             <div class="card" style="max-width: 500px; margin: 0 auto; padding: 2rem; border-top: 4px solid var(--success);">
