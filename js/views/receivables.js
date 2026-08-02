@@ -453,10 +453,13 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                                     <button class="print-invoice-btn" data-sale-id="${sale.id}" title="Ver Factura" style="background: none; border: none; cursor: pointer; padding: 0; color: #a4c9ff; display: flex; align-items: center;">
                                         <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
                                     </button>
+                                    <button class="pay-btn" data-sale-id="${sale.id}" title="Cargar Pago" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; font-size: 18px; margin-left: 4px; transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
+                                        💲
+                                    </button>
                                 </div>
                             </div>
                             
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 16px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 12px 0 0 0; border-top: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
                                 <div style="display: flex; flex-direction: column;">
                                     <span style="font-size: 10px; color: #8b919d; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Monto ($)</span>
                                     <span style="color: #ffb4ab; font-weight: 800; font-size: 18px;">$ ${fmt(sale.remainingUSD || 0)}</span>
@@ -466,10 +469,6 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                                     <span style="color: #ffb4ab; opacity: 0.8; font-weight: 800; font-size: 18px;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</span>
                                 </div>
                             </div>
-                            
-                            <button class="pay-btn" data-sale-id="${sale.id}" style="width: 100%; background: #4a90e2; color: #ffffff; font-weight: 700; padding: 12px 16px; border-radius: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer; box-shadow: 0 4px 14px 0 rgba(74, 144, 226, 0.2); transition: background 0.15s;">
-                                Cargar Pago
-                            </button>
                         </article>
                     `).join('')}
                 </div>

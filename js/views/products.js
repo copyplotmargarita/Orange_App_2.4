@@ -228,12 +228,54 @@ export function renderProducts(container) {
     function renderList() {
         const isSearchMode = window.openSearchProductForPurchase || (window.tempPurchaseState && window.tempPurchaseState.openSearchProductForPurchase);
         let html = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">🛍️ Productos</h2>
-                <div style="margin-left: auto; display: flex; gap: 1rem; align-items: center;" class="flex-stack-mobile">
+            <style>
+            @media (max-width: 767px) {
+                .products-header-container {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+                .products-header-row1 {
+                    display: flex !important;
+                    align-items: center !important;
+                    width: 100% !important;
+                    margin-bottom: 10px !important;
+                }
+                .products-header-row2 {
+                    display: flex !important;
+                    width: 100% !important;
+                    margin-left: 0 !important;
+                    gap: 0.5rem !important;
+                }
+                .products-header-row2 input {
+                    flex: 1 !important;
+                    width: 100% !important;
+                }
+                #addProductBtn {
+                    width: 42px !important;
+                    padding: 0 !important;
+                    background: transparent !important;
+                    color: var(--primary) !important;
+                    border: 1px solid var(--border) !important;
+                }
+                #addProductBtn .desktop-text {
+                    display: none !important;
+                }
+                #addProductBtn .mobile-icon {
+                    display: inline-block !important;
+                }
+            }
+            </style>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -1rem; background: var(--background); z-index: 50; margin-top: -1rem; padding-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="products-header-container">
+                <div class="products-header-row1" style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="btn btn-outline" id="backToDashboardBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                    <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">🛍️ Productos</h2>
+                </div>
+                <div class="products-header-row2" style="margin-left: auto; display: flex; gap: 1rem; align-items: center;">
                     <input type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" id="searchProductInput" class="form-control" placeholder="🔍 Buscar producto..." style="width: 250px; max-width: 100%; border-radius: 10px; height: 42px;" value="${currentSearchQuery}">
-                    <button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">+ Crear Producto</button>
+                    <button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">
+                        <span class="desktop-text">+ Crear Producto</span>
+                        <span style="font-size: 1.5rem; display: none;" class="mobile-icon">➕</span>
+                    </button>
                 </div>
             </div>
             ${isSearchMode ? `
@@ -308,9 +350,9 @@ export function renderProducts(container) {
         window.previousCostForAsymmetricLogic = editProduct ? (editProduct.cost || 0) : null;
 
         container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="new-product-header">
+                <button type="button" class="btn btn-outline" id="backHeaderBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; border-radius: var(--radius-full); white-space: nowrap; flex-shrink: 0;">← Volver</button>
+                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap;">✨ ${editProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
             </div>
             
             <form id="productForm">
