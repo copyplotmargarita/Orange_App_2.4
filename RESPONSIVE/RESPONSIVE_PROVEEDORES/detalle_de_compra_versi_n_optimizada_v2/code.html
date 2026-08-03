@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle de Compra - Inversiones Wladiador</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Hanken+Grotesk:wght@600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffede6",
+                        "on-tertiary-fixed": "#360f00",
+                        "surface-container-lowest": "#060e20",
+                        "inverse-surface": "#dae2fd",
+                        "background": "#0b1326",
+                        "tertiary": "#ffb596",
+                        "on-secondary-container": "#00311f",
+                        "outline-variant": "#434655",
+                        "error": "#ffb4ab",
+                        "surface-container": "#171f33",
+                        "on-surface": "#dae2fd",
+                        "surface": "#0b1326",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-secondary": "#003824",
+                        "inverse-on-surface": "#283044",
+                        "tertiary-fixed": "#ffdbcd",
+                        "on-background": "#dae2fd",
+                        "on-secondary-fixed": "#002113",
+                        "inverse-primary": "#0053db",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-container": "#eeefff",
+                        "primary-container": "#2563eb",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-variant": "#2d3449",
+                        "primary": "#b4c5ff",
+                        "on-surface-variant": "#c3c6d7",
+                        "outline": "#8d90a0",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-primary-fixed": "#00174b",
+                        "on-error": "#690005",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "secondary-container": "#00a572",
+                        "surface-dim": "#0b1326",
+                        "primary-fixed": "#dbe1ff",
+                        "surface-container-low": "#131b2e",
+                        "surface-bright": "#31394d",
+                        "on-primary": "#002a78",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#bc4800",
+                        "secondary": "#4edea3",
+                        "on-secondary-fixed-variant": "#005236",
+                        "surface-container-highest": "#2d3449",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-tertiary": "#581e00",
+                        "surface-container-high": "#222a3d",
+                        "surface-tint": "#b4c5ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "sm": "12px",
+                        "gutter": "16px",
+                        "xs": "8px",
+                        "container-margin": "40px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "data-mono": ["JetBrains Mono"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-sm": ["Inter"],
+                        "title-sm": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "data-mono": ["13px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "label-caps": ["11px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "title-sm": ["18px", {"lineHeight": "24px", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tonal-card {
+            background-color: #171f33;
+            border: 1px solid #2d3449;
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md antialiased min-h-screen flex flex-col">
+<!-- Header -->
+<header class="fixed top-0 w-full z-50 bg-background border-b border-outline-variant flex items-center justify-between px-md h-16">
+<div class="flex items-center gap-sm">
+<button class="hover:bg-surface-container-high transition-colors active:scale-95 duration-150 p-base rounded-full">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-[20px] text-on-background">Detalle de Compra</h1>
+</div>
+<button class="hover:bg-surface-container-high transition-colors active:scale-95 duration-150 p-base rounded-full">
+<span class="material-symbols-outlined text-primary">share</span>
+</button>
+</header>
+<main class="pt-20 pb-28 px-md space-y-md">
+<!-- Provider & Status Summary Card -->
+<section class="tonal-card p-md rounded-xl space-y-sm">
+<div class="flex justify-between items-start">
+<div class="space-y-base">
+<p class="font-label-caps text-label-caps text-primary tracking-wider uppercase">Proveedor</p>
+<h2 class="font-title-sm text-title-sm text-on-background leading-tight">Inversiones Wladiador, C.A.</h2>
+</div>
+<span class="bg-secondary-container text-on-secondary-container font-label-caps text-[10px] px-xs py-0.5 rounded-full">ABONO</span>
+</div>
+<div class="grid grid-cols-2 gap-md pt-sm border-t border-outline-variant">
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Presupuesto</p>
+<p class="font-data-mono text-data-mono text-on-background">N° 64206</p>
+</div>
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Tasa Factura</p>
+<p class="font-data-mono text-data-mono text-on-background">Bs. 558,64</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-md pt-sm border-t border-outline-variant">
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Emisión</p>
+<p class="font-body-sm text-body-sm text-on-background">03/06/2026</p>
+</div>
+<div>
+<p class="font-label-caps text-[10px] text-on-surface-variant uppercase">Recepción</p>
+<p class="font-body-sm text-body-sm text-on-background">04/06/2026</p>
+</div>
+</div>
+</section>
+<!-- Financial Section Card -->
+<section class="tonal-card p-md rounded-xl space-y-sm">
+<div class="flex justify-between items-baseline">
+<p class="font-body-md text-on-surface-variant">Total Facturado</p>
+<p class="font-headline-md text-on-background">$ 239,29</p>
+</div>
+<div class="flex justify-between items-center text-body-sm opacity-80">
+<p class="text-on-surface-variant">Referencia BCV</p>
+<p class="font-data-mono text-on-background">Bs. 133.676,97</p>
+</div>
+<div class="pt-sm border-t border-outline-variant mt-sm">
+<div class="flex justify-between items-center">
+<p class="font-title-sm text-primary">Saldo Pendiente</p>
+<p class="font-display-lg text-primary">$ 150,00</p>
+</div>
+</div>
+</section>
+<!-- Products List Section -->
+<section class="space-y-xs">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant px-base">PRODUCTOS (46.25 ITEMS)</h3>
+<!-- Compact Product Item 1 -->
+<div class="tonal-card p-sm rounded-xl space-y-xs">
+<h4 class="font-title-sm text-[16px] text-on-background">Quinoa</h4>
+<div class="grid grid-cols-3 gap-xs">
+<div>
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Cant.</p>
+<p class="font-data-mono text-body-sm text-on-background">0.25 Kilo</p>
+</div>
+<div class="text-center">
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Costo Ud.</p>
+<p class="font-data-mono text-body-sm text-on-background">$ 12,52</p>
+</div>
+<div class="text-right">
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Subtotal</p>
+<p class="font-data-mono text-body-sm text-secondary font-bold">$ 3,13</p>
+</div>
+</div>
+</div>
+<!-- Compact Product Item 2 -->
+<div class="tonal-card p-sm rounded-xl space-y-xs">
+<h4 class="font-title-sm text-[16px] text-on-background">Sesamo Negro</h4>
+<div class="grid grid-cols-3 gap-xs">
+<div>
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Cant.</p>
+<p class="font-data-mono text-body-sm text-on-background">0.25 Kilo</p>
+</div>
+<div class="text-center">
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Costo Ud.</p>
+<p class="font-data-mono text-body-sm text-on-background">$ 15,52</p>
+</div>
+<div class="text-right">
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Subtotal</p>
+<p class="font-data-mono text-body-sm text-secondary font-bold">$ 3,88</p>
+</div>
+</div>
+</div>
+<!-- Compact Product Item 3 -->
+<div class="tonal-card p-sm rounded-xl space-y-xs">
+<h4 class="font-title-sm text-[16px] text-on-background">Manteca La Normanda Premium 10kg</h4>
+<div class="grid grid-cols-3 gap-xs">
+<div>
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Cant.</p>
+<p class="font-data-mono text-body-sm text-on-background">20 Kilo</p>
+</div>
+<div class="text-center">
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Costo Ud.</p>
+<p class="font-data-mono text-body-sm text-on-background">$ 4,75</p>
+</div>
+<div class="text-right">
+<p class="font-label-caps text-[9px] text-on-surface-variant uppercase">Subtotal</p>
+<p class="font-data-mono text-body-sm text-secondary font-bold">$ 95,00</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Payments History Section -->
+<section class="space-y-xs pb-4">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant px-base">HISTORIAL DE PAGOS</h3>
+<div class="tonal-card p-md rounded-xl flex items-center justify-between">
+<div class="space-y-1">
+<p class="font-title-sm text-[16px] text-on-background">Transferencia</p>
+<p class="font-body-sm text-on-surface-variant leading-none">Ref: 1071680610</p>
+<p class="font-body-sm text-on-surface-variant">23/07/2026</p>
+</div>
+<div class="text-right space-y-1">
+<p class="font-headline-md text-secondary">$ 89,29</p>
+<p class="font-data-mono text-[11px] text-on-surface-variant">Bs. 65.885,31</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Action -->
+<footer class="fixed bottom-0 w-full p-md bg-background/80 backdrop-blur-md border-t border-outline-variant">
+<button class="w-full bg-primary-container hover:bg-blue-600 text-on-primary-container font-headline-md py-sm rounded-lg transition-transform active:scale-[0.98] duration-150">
+            Volver
+        </button>
+</footer>
+<script>
+        // Scroll behavior for header shadow
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-xl', 'bg-surface-container-low/95');
+            } else {
+                header.classList.remove('shadow-xl', 'bg-surface-container-low/95');
+            }
+        });
+    </script>
+</body></html>

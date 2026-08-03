@@ -167,7 +167,6 @@ export function renderPurchases(container) {
         }
         if (currentFilterSupplier) filteredPurchases = filteredPurchases.filter(p => (p.supplierId === currentFilterSupplier || p.creditorId === currentFilterSupplier));
         if (currentFilterStatus) filteredPurchases = filteredPurchases.filter(p => p.status === currentFilterStatus);
-
         let html = `
             <style>
             @media (max-width: 767px) {
@@ -198,6 +197,7 @@ export function renderPurchases(container) {
                     background: transparent !important;
                     color: var(--primary) !important;
                     border: 1px solid var(--border) !important;
+                    order: 2 !important;
                 }
                 #addPurchaseBtn .desktop-text {
                     display: none !important;
@@ -212,8 +212,13 @@ export function renderPurchases(container) {
                     display: grid !important;
                 }
             }
+            @media (min-width: 768px) {
+                .hide-on-desktop {
+                    display: none !important;
+                }
+            }
             .metrics-mobile-only {
-                display: none;
+                display: none !important;
             }
             </style>
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -1rem; background: var(--background); z-index: 50; margin-top: -1rem; padding-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="purchases-header-container">
@@ -222,33 +227,33 @@ export function renderPurchases(container) {
                     <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">🧾 Cuentas por Pagar</h2>
                 </div>
                 <div class="purchases-header-row2" style="display: flex; gap: 0.75rem; align-items: center; margin-left: auto;">
+                    ${role !== 'employee' ? `
+                    <button class="btn btn-primary hide-on-desktop hide-on-mobile" id="historyPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">📜 Historial</button>
+                    ` : ''}
+                    <button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">
+                        <span class="desktop-text">+ Cargar Compra</span>
+                        <span style="font-size: 1.5rem; display: none;" class="mobile-icon">➕</span>
+                    </button>
                     <div style="flex: 1; display: flex; min-width: 150px;">
-                        <input type="text" id="searchPurchaseInput" class="form-control" placeholder="Buscar proveedor..." value="${currentSearchQuery}" style="width: 100%; border-radius: var(--radius-md);">
+                        <input type="text" id="searchPurchaseInput" class="form-control" placeholder="Buscar proveedor..." value="${currentSearchQuery}" style="width: 100%; border-radius: var(--radius-md);" />
                     </div>
-                    <select id="filterType" class="form-control filter-dropdown hide-on-mobile">
+                    <select id="filterType" class="form-control filter-dropdown hide-on-desktop hide-on-mobile">
                         <option value="TODOS" ${currentFilterType === 'TODOS' ? 'selected' : ''}>Todas las Compras</option>
                         <option value="PRODUCTO" ${currentFilterType === 'PRODUCTO' ? 'selected' : ''}>Insumos / Productos</option>
                         <option value="EQUIPO_UTENSILIO" ${currentFilterType === 'EQUIPO_UTENSILIO' ? 'selected' : ''}>Equipos</option>
                         <option value="GASTO_SERVICIO" ${currentFilterType === 'GASTO_SERVICIO' ? 'selected' : ''}>Gastos y Servicios</option>
                     </select>
-                    <select id="filterSupplier" class="form-control filter-dropdown ts-filter hide-on-mobile">
-                        <option value="">Todos los Proveedores</option>
+                    <select id="filterSupplier" class="form-control filter-dropdown ts-filter hide-on-desktop hide-on-mobile">
+                        <option value="" >Todos los Proveedores</option>
                         ${[...suppliers].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}" ${currentFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                     </select>
-                    <select id="filterStatus" class="form-control filter-dropdown hide-on-mobile">
-                        <option value="">Todos los Estados</option>
+                    <select id="filterStatus" class="form-control filter-dropdown hide-on-desktop hide-on-mobile">
+                        <option value="" >Todos los Estados</option>
                         <option value="CREDITO" ${currentFilterStatus === 'CREDITO' ? 'selected' : ''}>A CRÉDITO</option>
                         <option value="ABONO" ${currentFilterStatus === 'ABONO' ? 'selected' : ''}>ABONO</option>
                         <option value="PAGADO" ${currentFilterStatus === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                         <option value="CONTADO" ${currentFilterStatus === 'CONTADO' ? 'selected' : ''}>CONTADO</option>
                     </select>
-                    ${role !== 'employee' ? `
-                    <button class="btn btn-primary hide-on-mobile" id="historyPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">📜 Historial</button>
-                    <button class="btn btn-primary" id="addPurchaseBtn" style="width: auto; padding: 0 1rem; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;">
-                        <span class="desktop-text">+ Cargar Compra</span>
-                        <span style="font-size: 1.5rem; display: none;" class="mobile-icon">➕</span>
-                    </button>
-                    ` : ''}
                 </div>
             </div>
             
@@ -1718,10 +1723,23 @@ export function renderPurchases(container) {
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" class="btn btn-outline" id="pausePurchaseBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 700; border-color: var(--info, #3b82f6); color: var(--info, #3b82f6); padding: 0 0.5rem;">PAUSAR COMPRA</button>
-                    <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 700; padding: 0 0.5rem;">CANCELAR</button>
-                    <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 800; padding: 0 0.5rem;">CREAR COMPRA</button>
+                <style>
+                @media (max-width: 767px) {
+                    .mobile-action-btn-group {
+                        gap: 0.35rem !important;
+                    }
+                    .mobile-action-btn-group button {
+                        font-size: 0.65rem !important;
+                        padding: 0 0.25rem !important;
+                        white-space: normal !important;
+                        line-height: 1.1 !important;
+                    }
+                }
+                </style>
+                <div class="mobile-action-btn-group" style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" id="pausePurchaseBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 700; border-color: var(--info, #3b82f6); color: var(--info, #3b82f6); padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; text-align: center;">PAUSAR COMPRA</button>
+                    <button type="button" class="btn btn-outline" id="cancelFormBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 700; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; text-align: center;">CANCELAR</button>
+                    <button type="submit" class="btn btn-primary" id="savePurchaseBtn" style="flex: 1; height: 50px; font-size: 0.85rem; white-space: nowrap; font-weight: 800; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; text-align: center;">CREAR COMPRA</button>
                 </div>
             </form>
 
@@ -2971,70 +2989,182 @@ export function renderPurchases(container) {
         
         // Render structure
         let html = `
-            <div style="height: auto; min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;" class="flex-stack-mobile">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <button type="button" class="btn btn-outline" id="pbBackBtn" style="height: 38px; width: auto; border-radius: 12px; font-weight: 700; font-size: 0.85rem; padding: 0.5rem 1rem; flex-shrink: 0;">← Volver</button>
-                    <h2 style="margin: 0; color: var(--primary); font-size: 1.5rem; font-weight: 800; white-space: nowrap;">📦 Seleccionar Productos</h2>
+            <style>
+                @media (max-width: 767px) {
+                    .pb-desktop-view { display: none !important; }
+                    .pb-mobile-view { display: flex !important; }
+                }
+                @media (min-width: 768px) {
+                    .pb-desktop-view { display: flex !important; }
+                    .pb-mobile-view { display: none !important; }
+                }
+            </style>
+            <!-- DESKTOP VIEW (>=768px): Intact Dual-Column Layout -->
+            <div class="pb-desktop-view" style="display: flex; flex-direction: column; width: 100%; height: 100%;">
+                <div style="height: auto; min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;" class="flex-stack-mobile">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button type="button" class="btn btn-outline" id="pbBackBtn" style="height: 38px; width: auto; border-radius: 12px; font-weight: 700; font-size: 0.85rem; padding: 0.5rem 1rem; flex-shrink: 0;">← Volver</button>
+                        <h2 style="margin: 0; color: var(--primary); font-size: 1.5rem; font-weight: 800; white-space: nowrap;">📦 Seleccionar Productos</h2>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" class="btn btn-outline" id="pbPauseBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px; color: var(--info, #3b82f6); border-color: var(--info, #3b82f6);">PAUSAR</button>
+                        <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px;">DESCARTAR</button>
+                        <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 42px; font-weight: 800; padding: 0 1.5rem; border-radius: 12px;">PROCESAR</button>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 0.75rem;">
-                    <button type="button" class="btn btn-outline" id="pbPauseBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px; color: var(--info, #3b82f6); border-color: var(--info, #3b82f6);">PAUSAR</button>
-                    <button type="button" class="btn btn-outline" id="pbCancelBtn" style="width: auto; height: 42px; font-weight: 700; padding: 0 1.5rem; border-radius: 12px;">DESCARTAR</button>
-                    <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 42px; font-weight: 800; padding: 0 1.5rem; border-radius: 12px;">PROCESAR</button>
-                </div>
-            </div>
-            <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
-                <!-- Lado Izquierdo: Catálogo -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: var(--background); border-right: 1px solid var(--border);">
-                    <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.75rem;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label style="margin-bottom: 4px; font-weight: 800; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Buscar en catálogo</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <input type="search" id="pbSearch" class="form-control" placeholder="Nombre del producto..." style="height: 40px; flex: 1;">
-                                <button class="btn btn-secondary" id="pbSearchExistingProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed; padding: 0; white-space: nowrap; flex: 1;">Buscar Producto Existente</button>
-                                <button class="btn btn-outline" id="pbCreateProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed; padding: 0; white-space: nowrap; flex: 1;">+ CREAR PRODUCTO</button>
+                <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
+                    <!-- Lado Izquierdo: Catálogo -->
+                    <div style="flex: 1; display: flex; flex-direction: column; background: var(--background); border-right: 1px solid var(--border);">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="margin-bottom: 4px; font-weight: 800; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Buscar en catálogo</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="search" id="pbSearch" class="form-control" placeholder="Nombre del producto..." style="height: 40px; flex: 1;">
+                                    <button class="btn btn-secondary" id="pbSearchExistingProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed; padding: 0; white-space: nowrap; flex: 1;">Buscar Producto Existente</button>
+                                    <button class="btn btn-outline" id="pbCreateProductBtn" style="height: 40px; border-color: var(--primary); color: var(--primary); font-weight: 700; font-size: 0.8rem; border-style: dashed; padding: 0; white-space: nowrap; flex: 1;">+ CREAR PRODUCTO</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="pbCatalogGrid" style="flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+                            <!-- List Items -->
+                        </div>
+                    </div>
+
+                    <!-- Lado Derecho: Lista de Recepción -->
+                    <div style="flex: 1; display: flex; flex-direction: column; background: var(--surface);">
+                        <div style="padding: 1rem; border-bottom: 1px solid var(--border);">
+                            <h3 style="margin: 0;">Lista de Recepción</h3>
+                        </div>
+                        <div style="flex: 1; overflow-y: auto; padding: 1rem;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--border);">
+                                        <th style="padding: 0.5rem;">Producto</th>
+                                        <th style="padding: 0.5rem;">Cant.</th>
+                                        <th style="padding: 0.5rem;">Costo Ud.</th>
+                                        <th style="padding: 0.5rem;">SubTotal</th>
+                                        <th style="padding: 0.5rem;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pbTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 1rem; border-top: 1px solid var(--border); background: var(--background);">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; text-align: center;">
+                                <div class="card" style="padding: 0.75rem;">
+                                    <p class="text-sm text-muted mb-1">Items Totales</p>
+                                    <p style="font-size: 1.1rem; font-weight: bold;" id="pbItemsDisplay">0</p>
+                                </div>
+                                <div class="card" style="padding: 0.75rem;">
+                                    <p class="text-sm text-muted mb-1">Esta Compra Bs</p>
+                                    <p style="font-size: 1.1rem; font-weight: bold;" id="pbTotalBsDisplay">Bs. 0.00</p>
+                                </div>
+                                <div class="card" style="padding: 0.75rem;">
+                                    <p class="text-sm text-muted mb-1">Esta Compra $</p>
+                                    <p style="font-size: 1.1rem; font-weight: bold; color: var(--primary);" id="pbTotalUsdDisplay">$ 0.00</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div id="pbCatalogGrid" style="flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
-                        <!-- List Items -->
+                </div>
+            </div>
+
+            <!-- MOBILE VIEW (<768px): Obsidian Metric Step-based Navigation -->
+            <div class="pb-mobile-view" style="display: flex; flex-direction: column; width: 100%; height: 100%; position: absolute; inset: 0; background: #10131c; color: #e0e2ee; font-family: 'Hanken Grotesk', sans-serif; overflow: hidden;">
+                <!-- VISTA 5: SELECCIONAR PRODUCTOS (CATÁLOGO MÓVIL) -->
+                <div id="mobileStepCatalog" style="display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden;">
+                    <!-- Top AppBar -->
+                    <header style="background: rgba(16, 19, 28, 0.85); backdrop-filter: blur(8px); border-bottom: 1px solid #414751; display: flex; align-items: center; justify-content: space-between; padding: 0 1rem; height: 64px; flex-shrink: 0;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button type="button" id="pbBackBtnMobile" style="padding: 0.5rem; border-radius: 9999px; background: transparent; border: none; color: #a4c9ff; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
+                            </button>
+                            <h1 style="font-size: 20px; font-weight: 600; color: #e0e2ee; margin: 0;">Cargar Compra</h1>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button type="button" id="pbPauseBtnMobile" style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 0.375rem 0.75rem; color: #c1c7d3; border: 1px solid #414751; border-radius: 0.5rem; background: transparent; cursor: pointer;">PAUSAR</button>
+                        </div>
+                    </header>
+
+                    <!-- Search & Quick Actions -->
+                    <div style="background: #10131c; border-bottom: 1px solid #414751; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; flex-shrink: 0;">
+                        <div style="position: relative; width: 100%;">
+                            <input id="pbSearchMobile" type="text" class="form-control" placeholder="Buscar en catálogo..." style="width: 100%; background: #181b24; border: 1px solid #414751; border-radius: 0.75rem; padding: 0.75rem 2.5rem 0.75rem 1rem; font-size: 14px; color: #e0e2ee; outline: none;" />
+                            <span class="material-symbols-outlined" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #c1c7d3; font-size: 20px; pointer-events: none;">search</span>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" id="pbSearchExistingBtnMobile" style="flex: 1; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 0.625rem 0.5rem; border: 1px dashed #414751; border-radius: 0.75rem; background: transparent; color: #e0e2ee; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">inventory_2</span>
+                                BUSCAR EXISTENTE
+                            </button>
+                            <button type="button" id="pbCreateProductBtnMobile" style="flex: 1; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 0.625rem 0.5rem; background: #272a33; border: 1px solid #414751; border-radius: 0.75rem; color: #e0e2ee; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+                                CREAR PRODUCTO
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Product List -->
+                    <main id="pbCatalogGridMobile" style="flex: 1; overflow-y: auto; padding: 1rem; padding-bottom: 6rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <!-- Catalog Cards Dynamic -->
+                    </main>
+
+                    <!-- Floating Bottom Action Button -->
+                    <div style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 1rem 1rem 1.5rem 1rem; background: linear-gradient(to top, #10131c 80%, transparent); z-index: 50;">
+                        <button type="button" id="pbNextStepMobile" style="width: 100%; padding: 1rem; border-radius: 0.75rem; font-weight: 700; font-size: 18px; background-color: #4A90E2; color: #ffffff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+                            <span>SIGUIENTE</span>
+                            <span id="pbNextBadgeMobile" style="font-size: 14px; background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 12px;">0</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Lado Derecho: Lista de Recepción -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: var(--surface);">
-                    <div style="padding: 1rem; border-bottom: 1px solid var(--border);">
-                        <h3 style="margin: 0;">Lista de Recepción</h3>
-                    </div>
-                    <div style="flex: 1; overflow-y: auto; padding: 1rem;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid var(--border);">
-                                    <th style="padding: 0.5rem;">Producto</th>
-                                    <th style="padding: 0.5rem;">Cant.</th>
-                                    <th style="padding: 0.5rem;">Costo Ud.</th>
-                                    <th style="padding: 0.5rem;">SubTotal</th>
-                                    <th style="padding: 0.5rem;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="pbTableBody"></tbody>
-                        </table>
-                    </div>
-                    <div style="padding: 1rem; border-top: 1px solid var(--border); background: var(--background);">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; text-align: center;">
-                            <div class="card" style="padding: 0.75rem;">
-                                <p class="text-sm text-muted mb-1">Items Totales</p>
-                                <p style="font-size: 1.1rem; font-weight: bold;" id="pbItemsDisplay">0</p>
-                            </div>
-                            <div class="card" style="padding: 0.75rem;">
-                                <p class="text-sm text-muted mb-1">Esta Compra Bs</p>
-                                <p style="font-size: 1.1rem; font-weight: bold;" id="pbTotalBsDisplay">Bs. 0.00</p>
-                            </div>
-                            <div class="card" style="padding: 0.75rem;">
-                                <p class="text-sm text-muted mb-1">Esta Compra $</p>
-                                <p style="font-size: 1.1rem; font-weight: bold; color: var(--primary);" id="pbTotalUsdDisplay">$ 0.00</p>
-                            </div>
+                <!-- VISTA 6: LISTA DE RECEPCIÓN (CARRITO MÓVIL) -->
+                <div id="mobileStepReception" style="display: none; flex-direction: column; width: 100%; height: 100%; overflow: hidden;">
+                    <!-- Header -->
+                    <header style="background: rgba(16, 19, 28, 0.85); backdrop-filter: blur(8px); border-bottom: 1px solid #414751; display: flex; align-items: center; padding: 0 1rem; height: 64px; flex-shrink: 0;">
+                        <button type="button" id="pbBackToCatalogMobile" style="padding: 0.5rem; border-radius: 9999px; background: transparent; border: none; color: #a4c9ff; cursor: pointer; margin-right: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                            <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
+                        </button>
+                        <h1 style="font-size: 20px; font-weight: 600; color: #e0e2ee; margin: 0;">Lista de Recepción</h1>
+                    </header>
+
+                    <!-- Column Labels -->
+                    <div style="padding: 0.75rem 1rem 0.25rem 1rem; flex-shrink: 0;">
+                        <div style="display: grid; grid-template-columns: 6fr 3fr 3fr; gap: 0.5rem; padding: 0 0.5rem;">
+                            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: #c1c7d3; text-transform: uppercase;">PRODUCTO</div>
+                            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: #c1c7d3; text-transform: uppercase; text-align: center;">CANT.</div>
+                            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: #c1c7d3; text-transform: uppercase; text-align: right;">TOTAL</div>
                         </div>
                     </div>
+
+                    <!-- Scrollable Content -->
+                    <main id="pbReceptionListMobile" style="flex: 1; overflow-y: auto; padding: 0.5rem 1rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <!-- Selected Product Cards Dynamic -->
+                    </main>
+
+                    <!-- Footer -->
+                    <footer style="background: #272a33; border-top: 1px solid #414751; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; flex-shrink: 0;">
+                        <!-- Summary Cards -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                            <div style="background: #0b0e16; border-radius: 0.75rem; padding: 0.5rem; border: 1px solid #414751; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 64px;">
+                                <p style="font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #c1c7d3; text-transform: uppercase; margin: 0 0 2px 0;">Items Totales</p>
+                                <p id="pbItemsDisplayMobile" style="font-size: 20px; font-weight: 600; color: #e0e2ee; margin: 0; line-height: 1;">0</p>
+                            </div>
+                            <div style="background: #0b0e16; border-radius: 0.75rem; padding: 0.5rem; border: 1px solid #414751; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 64px;">
+                                <p style="font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #c1c7d3; text-transform: uppercase; margin: 0 0 2px 0;">Esta compra BS</p>
+                                <p id="pbTotalBsDisplayMobile" style="font-size: 13px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #e0e2ee; margin: 0; line-height: 1.2;">0,00</p>
+                            </div>
+                            <div style="background: #0b0e16; border-radius: 0.75rem; padding: 0.5rem; border: 1px solid #414751; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 64px;">
+                                <p style="font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #c1c7d3; text-transform: uppercase; margin: 0 0 2px 0;">Esta compra $</p>
+                                <p id="pbTotalUsdDisplayMobile" style="font-size: 13px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #a4c9ff; margin: 0; line-height: 1.2;">$ 0,00</p>
+                            </div>
+                        </div>
+                        <!-- CTA -->
+                        <button type="button" id="pbProcessBtnMobile" style="width: 100%; padding: 1rem; border-radius: 0.75rem; font-weight: 700; font-size: 18px; background-color: #4A90E2; color: #ffffff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+                            <span class="material-symbols-outlined" style="font-size: 24px;">check_circle</span>
+                            <span>PROCESAR RECEPCIÓN</span>
+                        </button>
+                    </footer>
                 </div>
             </div>
         `;
@@ -3043,7 +3173,7 @@ export function renderPurchases(container) {
         // Bugfix: Evitar que si había scroll en el body el modal no se vea completo
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Elements
+        // Elements (Desktop)
         const pbSearch = modal.querySelector('#pbSearch');
         const pbCatalogGrid = modal.querySelector('#pbCatalogGrid');
         const pbTableBody = modal.querySelector('#pbTableBody');
@@ -3051,9 +3181,22 @@ export function renderPurchases(container) {
         const pbTotalBsDisplay = modal.querySelector('#pbTotalBsDisplay');
         const pbTotalUsdDisplay = modal.querySelector('#pbTotalUsdDisplay');
 
+        // Elements (Mobile)
+        const pbSearchMobile = modal.querySelector('#pbSearchMobile');
+        const pbCatalogGridMobile = modal.querySelector('#pbCatalogGridMobile');
+        const pbReceptionListMobile = modal.querySelector('#pbReceptionListMobile');
+        const pbItemsDisplayMobile = modal.querySelector('#pbItemsDisplayMobile');
+        const pbTotalBsDisplayMobile = modal.querySelector('#pbTotalBsDisplayMobile');
+        const pbTotalUsdDisplayMobile = modal.querySelector('#pbTotalUsdDisplayMobile');
+        const pbNextBadgeMobile = modal.querySelector('#pbNextBadgeMobile');
+
+        const mobileStepCatalog = modal.querySelector('#mobileStepCatalog');
+        const mobileStepReception = modal.querySelector('#mobileStepReception');
+
         // Logic functions
         function renderCatalog(filter = '') {
             let html = '';
+            let mobileHtml = '';
             
             const filtered = products
                 .filter(p => {
@@ -3066,18 +3209,50 @@ export function renderPurchases(container) {
             filtered.forEach(p => {
                 const sUnit = p.stockUnit || 'ud';
                 const pUnit = p.purchaseUnit || 'Unidad';
+                const stockVal = p.stock || 0;
+                const stockColor = stockVal > 0 ? '#4ae183' : '#efc209';
+
+                // Desktop row
                 html += `
                     <div class="card catalog-item" data-id="${p.id}" style="padding: 0.75rem 1rem; cursor: pointer; transition: background-color 0.2s; display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
                         <span style="font-weight: 500; color: var(--primary); font-size: 0.95rem;">${p.name}</span>
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">${p.stock || 0} ${sUnit} | Compra: ${pUnit}</span>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">${stockVal} ${sUnit} | Compra: ${pUnit}</span>
+                    </div>
+                `;
+
+                // Mobile Card (Vista 5)
+                mobileHtml += `
+                    <div class="mobile-catalog-card" data-id="${p.id}" style="background: #181b24; border: 1px solid #414751; padding: 1rem; border-radius: 0.75rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 0.25rem;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <h3 style="font-size: 16px; font-weight: 600; color: #e0e2ee; margin: 0;">${p.name}</h3>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 11px; font-weight: 700; color: ${stockColor};">${stockVal} ${sUnit}</span>
+                                <span style="width: 4px; height: 4px; background: #414751; border-radius: 9999px;"></span>
+                                <span style="font-size: 11px; font-weight: 700; color: #c1c7d3;">Compra: ${pUnit}</span>
+                            </div>
+                        </div>
+                        <button type="button" class="mobile-add-cart-btn" data-id="${p.id}" style="padding: 0.5rem; background: #32343e; border-radius: 0.5rem; border: none; color: #a4c9ff; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">add_shopping_cart</span>
+                        </button>
                     </div>
                 `;
             });
-            pbCatalogGrid.innerHTML = html;
 
-            pbCatalogGrid.querySelectorAll('.catalog-item').forEach(item => {
-                item.addEventListener('click', () => handleProductSelect(item.dataset.id));
-            });
+            if (pbCatalogGrid) {
+                pbCatalogGrid.innerHTML = html;
+                pbCatalogGrid.querySelectorAll('.catalog-item').forEach(item => {
+                    item.addEventListener('click', () => handleProductSelect(item.dataset.id));
+                });
+            }
+
+            if (pbCatalogGridMobile) {
+                pbCatalogGridMobile.innerHTML = mobileHtml;
+                pbCatalogGridMobile.querySelectorAll('.mobile-catalog-card').forEach(card => {
+                    card.addEventListener('click', (e) => {
+                        handleProductSelect(card.dataset.id);
+                    });
+                });
+            }
         }
 
         function handleProductSelect(productId) {
@@ -3215,74 +3390,132 @@ export function renderPurchases(container) {
             tempTotalUsd = tempProducts.reduce((acc, p) => acc + (p.subTotalUsd || 0), 0);
             tempTotalBs = tempProducts.reduce((acc, p) => acc + (p.subTotalBs || 0), 0);
 
-            pbTableBody.innerHTML = tempProducts.map((p, index) => {
-                const costDisplay = (p.qty && p.qty > 0) ? (p.subTotalUsd / p.qty) : 0;
-                return `
-                <tr style="border-bottom: 1px solid var(--border);" data-index="${index}">
-                    <td style="padding: 0.5rem; font-size: 0.9rem;">${p.name}</td>
-                    <td style="padding: 0.5rem; font-size: 0.9rem;">
-                        <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <input type="text" inputmode="numeric" class="form-control edit-qty" value="${(p.qty || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 80px; height: 30px; padding: 0.25rem; font-size: 0.85rem; text-align: center;">
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">${p.stockUnit || 'ud'}</span>
+            // Desktop render
+            if (pbTableBody) {
+                pbTableBody.innerHTML = tempProducts.map((p, index) => {
+                    const costDisplay = (p.qty && p.qty > 0) ? (p.subTotalUsd / p.qty) : 0;
+                    return `
+                    <tr style="border-bottom: 1px solid var(--border);" data-index="${index}">
+                        <td style="padding: 0.5rem; font-size: 0.9rem;">${p.name}</td>
+                        <td style="padding: 0.5rem; font-size: 0.9rem;">
+                            <div style="display: flex; align-items: center; gap: 0.25rem;">
+                                <input type="text" inputmode="numeric" class="form-control edit-qty" value="${(p.qty || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 80px; height: 30px; padding: 0.25rem; font-size: 0.85rem; text-align: center;">
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">${p.stockUnit || 'ud'}</span>
+                            </div>
+                        </td>
+                        <td style="padding: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
+                            $ ${costDisplay.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        </td>
+                        <td style="padding: 0.5rem; font-size: 0.9rem;">
+                            <div style="display: flex; align-items: center; gap: 0.25rem;">
+                                <span style="font-size: 0.85rem; font-weight: bold; color: var(--primary);">$</span>
+                                <input type="text" inputmode="numeric" class="form-control edit-subtotal" value="${(p.subTotalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 100px; height: 30px; padding: 0.25rem; font-size: 0.85rem; font-weight: bold; color: var(--primary);">
+                            </div>
+                        </td>
+                        <td style="padding: 0.5rem; text-align: right;">
+                            <button class="btn btn-outline" onclick="window.removeTempProduct(${index})" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--danger); color: var(--danger);" title="Eliminar">X</button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+
+                pbTableBody.querySelectorAll('tr').forEach(tr => {
+                    const index = parseInt(tr.dataset.index);
+                    const p = tempProducts[index];
+                    if (!p) return;
+
+                    const qtyInp = tr.querySelector('.edit-qty');
+                    const subInp = tr.querySelector('.edit-subtotal');
+
+                    const syncData = () => {
+                        const newQty = parseNum(qtyInp.value);
+                        const newSub = parseNum(subInp.value);
+                        
+                        p.qty = newQty;
+                        p.purchaseQty = (p.purchaseToStockQty || 1) > 0 ? newQty / (p.purchaseToStockQty || 1) : newQty;
+                        p.subTotalUsd = newSub;
+                        p.subTotalBs = newSub * rate;
+                        
+                        if (p.qty > 0) {
+                            p.costPerStockUnitUsd = p.subTotalUsd / p.qty;
+                            p.costPerStockUnitBs = p.subTotalBs / p.qty;
+                            p.costUsd = p.costPerStockUnitUsd;
+                            p.costBs = p.costPerStockUnitBs;
+                        }
+
+                        tempTotalUsd = tempProducts.reduce((acc, prod) => acc + (prod.subTotalUsd || 0), 0);
+                        tempTotalBs = tempProducts.reduce((acc, prod) => acc + (prod.subTotalBs || 0), 0);
+                        
+                        syncDisplayTotals();
+                        
+                        const currentCost = p.purchaseQty > 0 ? (p.subTotalUsd / p.purchaseQty) : 0;
+                        tr.children[2].textContent = `$ ${currentCost.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    };
+
+                    applyNumericMask(qtyInp, syncData);
+                    applyNumericMask(subInp, syncData);
+                });
+            }
+
+            // Mobile render (Vista 6)
+            if (pbReceptionListMobile) {
+                if (tempProducts.length === 0) {
+                    pbReceptionListMobile.innerHTML = `
+                        <div style="text-align: center; padding: 3rem 1rem; color: #c1c7d3;">
+                            <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.5;">inventory_2</span>
+                            <p style="margin-top: 0.5rem; font-size: 14px;">No hay productos en la lista de recepción.</p>
                         </div>
-                    </td>
-                    <td style="padding: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
-                        $ ${costDisplay.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                    </td>
-                    <td style="padding: 0.5rem; font-size: 0.9rem;">
-                        <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <span style="font-size: 0.85rem; font-weight: bold; color: var(--primary);">$</span>
-                            <input type="text" inputmode="numeric" class="form-control edit-subtotal" value="${(p.subTotalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" style="width: 100px; height: 30px; padding: 0.25rem; font-size: 0.85rem; font-weight: bold; color: var(--primary);">
+                    `;
+                } else {
+                    pbReceptionListMobile.innerHTML = tempProducts.map((p, index) => {
+                        const unitCost = (p.qty && p.qty > 0) ? (p.subTotalUsd / p.qty) : 0;
+                        return `
+                        <div style="background: #181b24; border: 1px solid #414751; padding: 1rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <h3 style="font-size: 16px; font-weight: 600; color: #e0e2ee; margin: 0; padding-right: 1rem;">${p.name}</h3>
+                                <button type="button" class="mobile-remove-item-btn" data-index="${index}" style="background: transparent; border: none; color: #c1c7d3; cursor: pointer; padding: 2px;">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">close</span>
+                                </button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; align-items: flex-end;">
+                                <div>
+                                    <p style="font-size: 10px; font-weight: 700; color: #c1c7d3; text-transform: uppercase; margin: 0 0 2px 0;">CANT. (${p.stockUnit || 'ud'})</p>
+                                    <p style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #e0e2ee; margin: 0;">${(p.qty || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                </div>
+                                <div style="text-align: center;">
+                                    <p style="font-size: 10px; font-weight: 700; color: #c1c7d3; text-transform: uppercase; margin: 0 0 2px 0;">COSTO UD.</p>
+                                    <p style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #e0e2ee; margin: 0;">$ ${unitCost.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <p style="font-size: 10px; font-weight: 700; color: #c1c7d3; text-transform: uppercase; margin: 0 0 2px 0;">SUBTOTAL</p>
+                                    <p style="font-size: 16px; font-weight: 700; color: #4ae183; margin: 0;">$ ${(p.subTotalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                </div>
+                            </div>
                         </div>
-                    </td>
-                    <td style="padding: 0.5rem; text-align: right;">
-                        <button class="btn btn-outline" onclick="window.removeTempProduct(${index})" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--danger); color: var(--danger);" title="Eliminar">X</button>
-                    </td>
-                </tr>
-                `;
-            }).join('');
+                        `;
+                    }).join('');
 
-            pbTableBody.querySelectorAll('tr').forEach(tr => {
-                const index = parseInt(tr.dataset.index);
-                const p = tempProducts[index];
-                if (!p) return;
+                    pbReceptionListMobile.querySelectorAll('.mobile-remove-item-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const idx = parseInt(btn.dataset.index);
+                            window.removeTempProduct(idx);
+                        });
+                    });
+                }
+            }
 
-                const qtyInp = tr.querySelector('.edit-qty');
-                const subInp = tr.querySelector('.edit-subtotal');
+            syncDisplayTotals();
+        }
 
-                const syncData = () => {
-                    const newQty = parseNum(qtyInp.value);
-                    const newSub = parseNum(subInp.value);
-                    
-                    p.qty = newQty;
-                    p.purchaseQty = (p.purchaseToStockQty || 1) > 0 ? newQty / (p.purchaseToStockQty || 1) : newQty;
-                    p.subTotalUsd = newSub;
-                    p.subTotalBs = newSub * rate;
-                    
-                    if (p.qty > 0) {
-                        p.costPerStockUnitUsd = p.subTotalUsd / p.qty;
-                        p.costPerStockUnitBs = p.subTotalBs / p.qty;
-                        p.costUsd = p.costPerStockUnitUsd;
-                        p.costBs = p.costPerStockUnitBs;
-                    }
+        function syncDisplayTotals() {
+            if (pbItemsDisplay) pbItemsDisplay.textContent = tempProducts.length;
+            if (pbTotalBsDisplay) pbTotalBsDisplay.textContent = `Bs. ${tempTotalBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            if (pbTotalUsdDisplay) pbTotalUsdDisplay.textContent = `$ ${tempTotalUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-                    tempTotalUsd = tempProducts.reduce((acc, prod) => acc + (prod.subTotalUsd || 0), 0);
-                    tempTotalBs = tempProducts.reduce((acc, prod) => acc + (prod.subTotalBs || 0), 0);
-                    pbItemsDisplay.textContent = tempProducts.length;
-                    pbTotalBsDisplay.textContent = `Bs. ${tempTotalBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    pbTotalUsdDisplay.textContent = `$ ${tempTotalUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    
-                    const currentCost = p.purchaseQty > 0 ? (p.subTotalUsd / p.purchaseQty) : 0;
-                    tr.children[2].textContent = `$ ${currentCost.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                };
-
-                applyNumericMask(qtyInp, syncData);
-                applyNumericMask(subInp, syncData);
-            });
-
-            pbItemsDisplay.textContent = tempProducts.length;
-            pbTotalBsDisplay.textContent = `Bs. ${tempTotalBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            pbTotalUsdDisplay.textContent = `$ ${tempTotalUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            if (pbItemsDisplayMobile) pbItemsDisplayMobile.textContent = tempProducts.length;
+            if (pbNextBadgeMobile) pbNextBadgeMobile.textContent = tempProducts.length;
+            if (pbTotalBsDisplayMobile) pbTotalBsDisplayMobile.textContent = tempTotalBs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (pbTotalUsdDisplayMobile) pbTotalUsdDisplayMobile.textContent = `$ ${tempTotalUsd.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
 
         window.editTempProduct = (index) => {
@@ -3295,11 +3528,59 @@ export function renderPurchases(container) {
             updateTempList();
         };
 
-        // Events
-        pbSearch.addEventListener('input', (e) => renderCatalog(e.target.value));
+        // Events (Desktop Search)
+        if (pbSearch) pbSearch.addEventListener('input', (e) => renderCatalog(e.target.value));
+
+        // Events (Mobile Search)
+        if (pbSearchMobile) pbSearchMobile.addEventListener('input', (e) => renderCatalog(e.target.value));
+
+        // Mobile Step Navigation Events
+        const pbNextStepMobile = modal.querySelector('#pbNextStepMobile');
+        if (pbNextStepMobile) {
+            pbNextStepMobile.addEventListener('click', () => {
+                if (mobileStepCatalog) mobileStepCatalog.style.display = 'none';
+                if (mobileStepReception) mobileStepReception.style.display = 'flex';
+            });
+        }
+
+        const pbBackToCatalogMobile = modal.querySelector('#pbBackToCatalogMobile');
+        if (pbBackToCatalogMobile) {
+            pbBackToCatalogMobile.addEventListener('click', () => {
+                if (mobileStepReception) mobileStepReception.style.display = 'none';
+                if (mobileStepCatalog) mobileStepCatalog.style.display = 'flex';
+            });
+        }
+
+        const pbBackBtnMobile = modal.querySelector('#pbBackBtnMobile');
+        if (pbBackBtnMobile) {
+            pbBackBtnMobile.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        const pbPauseBtnMobile = modal.querySelector('#pbPauseBtnMobile');
+        if (pbPauseBtnMobile) {
+            pbPauseBtnMobile.addEventListener('click', () => {
+                if (typeof window.savePurchaseStateAndExit === 'function') {
+                    window.savePurchaseStateAndExit(tempProducts);
+                }
+                modal.style.display = 'none';
+            });
+        }
+
+        const pbProcessBtnMobile = modal.querySelector('#pbProcessBtnMobile');
+        if (pbProcessBtnMobile) {
+            pbProcessBtnMobile.addEventListener('click', () => {
+                const customEvent = new CustomEvent('productsProcessed', {
+                    detail: { products: tempProducts, totalUsd: tempTotalUsd, totalBs: tempTotalBs }
+                });
+                container.dispatchEvent(customEvent);
+                modal.style.display = 'none';
+            });
+        }
         
-        modal.querySelector('#pbCreateProductBtn').addEventListener('click', () => {
-            // Save state to window
+        // Handlers for Create / Search Existing (Mobile)
+        const triggerCreateProduct = () => {
             window.tempPurchaseState = {
                 purchaseType: 'PRODUCTO',
                 supplierId: container.querySelector('#pSupplier')?.value || '',
@@ -3319,9 +3600,9 @@ export function renderPurchases(container) {
             };
             window.openCreateProductForPurchase = true;
             document.getElementById('navProductos').click();
-        });
+        };
 
-        modal.querySelector('#pbSearchExistingProductBtn').addEventListener('click', () => {
+        const triggerSearchExistingProduct = () => {
             const supplierId = container.querySelector('#pSupplier')?.value || '';
             if (!supplierId || supplierId === 'CREATE_NEW') {
                 showToast('Por favor, seleccione un proveedor antes de buscar un producto existente.', 'error');
@@ -3348,33 +3629,52 @@ export function renderPurchases(container) {
             window.openSearchProductForPurchase = true;
             modal.style.display = 'none';
             document.getElementById('navProductos').click();
-        });
+        };
 
-        modal.querySelector('#pbPauseBtn').addEventListener('click', () => {
-            if (typeof window.savePurchaseStateAndExit === 'function') {
-                window.savePurchaseStateAndExit(tempProducts);
-            }
-            modal.style.display = 'none';
-        });
+        const pbCreateProductBtn = modal.querySelector('#pbCreateProductBtn');
+        if (pbCreateProductBtn) pbCreateProductBtn.addEventListener('click', triggerCreateProduct);
+        const pbCreateProductBtnMobile = modal.querySelector('#pbCreateProductBtnMobile');
+        if (pbCreateProductBtnMobile) pbCreateProductBtnMobile.addEventListener('click', triggerCreateProduct);
 
-        modal.querySelector('#pbCancelBtn').addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
+        const pbSearchExistingProductBtn = modal.querySelector('#pbSearchExistingProductBtn');
+        if (pbSearchExistingProductBtn) pbSearchExistingProductBtn.addEventListener('click', triggerSearchExistingProduct);
+        const pbSearchExistingBtnMobile = modal.querySelector('#pbSearchExistingBtnMobile');
+        if (pbSearchExistingBtnMobile) pbSearchExistingBtnMobile.addEventListener('click', triggerSearchExistingProduct);
 
-        modal.querySelector('#pbBackBtn').addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-
-        modal.querySelector('#pbProcessBtn').addEventListener('click', () => {
-            // Pasamos los datos temporales a las variables de estado del formulario principal
-            // Inyectando las variables del scope padre no funcionará directamente porque estamos separando funciones,
-            // pero podemos retornar y disparar el callback.
-            const customEvent = new CustomEvent('productsProcessed', {
-                detail: { products: tempProducts, totalUsd: tempTotalUsd, totalBs: tempTotalBs }
+        const pbPauseBtn = modal.querySelector('#pbPauseBtn');
+        if (pbPauseBtn) {
+            pbPauseBtn.addEventListener('click', () => {
+                if (typeof window.savePurchaseStateAndExit === 'function') {
+                    window.savePurchaseStateAndExit(tempProducts);
+                }
+                modal.style.display = 'none';
             });
-            container.dispatchEvent(customEvent);
-            modal.style.display = 'none';
-        });
+        }
+
+        const pbCancelBtn = modal.querySelector('#pbCancelBtn');
+        if (pbCancelBtn) {
+            pbCancelBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        const pbBackBtn = modal.querySelector('#pbBackBtn');
+        if (pbBackBtn) {
+            pbBackBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        const pbProcessBtn = modal.querySelector('#pbProcessBtn');
+        if (pbProcessBtn) {
+            pbProcessBtn.addEventListener('click', () => {
+                const customEvent = new CustomEvent('productsProcessed', {
+                    detail: { products: tempProducts, totalUsd: tempTotalUsd, totalBs: tempTotalBs }
+                });
+                container.dispatchEvent(customEvent);
+                modal.style.display = 'none';
+            });
+        }
 
         renderCatalog();
         updateTempList();
