@@ -992,27 +992,44 @@ export function renderPurchases(container) {
 
         // Header + summary (same for both)
         html += `
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
-                <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
-                <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800;">Facturas Pendientes: ${supName}</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; min-width: 0;">
+                <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem; flex-shrink: 0;">← Volver</button>
+                <h2 class="desktop-only" style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin: 0;">Facturas Pendientes: ${supName}</h2>
+                <h2 class="mobile-only" style="color: var(--primary); font-size: 1.1rem; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${supName}</h2>
             </div>
 
-            <div class="card mb-4" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
-                <div style="display: flex; justify-content: space-between; align-items: center;" class="flex-stack-mobile">
-                    <div>
-                        <p class="text-sm text-muted">Monto Total Pendiente</p>
-                        <h3 style="font-size: 2rem; color: var(--danger);">$ ${totalDebt.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
-                    </div>
-                    <div style="text-align: right;" class="text-left-mobile">
-                        <p class="text-sm text-muted">Facturas por Pagar</p>
-                        <p style="font-size: 1.25rem; font-weight: bold;">${pending.length} documentos</p>
+            <div class="desktop-only">
+                <div class="card mb-4" style="padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p class="text-sm text-muted">Monto Total Pendiente</p>
+                            <h3 style="font-size: 2rem; color: var(--danger);">$ ${totalDebt.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                        </div>
+                        <div style="text-align: right;">
+                            <p class="text-sm text-muted">Facturas por Pagar</p>
+                            <p style="font-size: 1.25rem; font-weight: bold;">${pending.length} documentos</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;" class="mobile-only">
-                <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); letter-spacing:0.1em;">LISTADO DE DOCUMENTOS</span>
-                <button class="btn btn-outline" style="padding:0.5rem 0.75rem; font-size:0.85rem;">Filtro</button>
+            <div class="mobile-only" style="margin-bottom: 1.25rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div class="card" style="padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--text-muted); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; line-height: 1.2;">Facturas por Pagar</p>
+                        <h3 style="font-size: 1.2rem; font-weight: bold; margin: 0; color: var(--text-main);">${pending.length} docs</h3>
+                    </div>
+                    <div class="card" style="padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--danger); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; line-height: 1.2;">Total Pendiente</p>
+                        <h3 style="font-size: 1.2rem; font-weight: bold; margin: 0; color: var(--danger);">$ ${totalDebt.toLocaleString('de-DE', {minimumFractionDigits: 2})}</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mobile-only">
+                <div style="display:flex; justify-content:flex-start; align-items:center; margin-bottom:1rem;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); letter-spacing:0.1em; white-space: nowrap;">LISTADO DE DOCUMENTOS</span>
+                </div>
             </div>
         `;
 
@@ -1021,7 +1038,7 @@ export function renderPurchases(container) {
         }
 
         // Mobile cards layout always present but hidden on desktop
-        html += `<div class="mobile-only" style="display:grid; gap:0.75rem;">`;
+        html += `<div class="mobile-only"><div style="display:grid; gap:0.75rem;">`;
         pending.sort((a,b)=>new Date(a.receptionDate||a.createdAt)-new Date(b.receptionDate||b.createdAt)).forEach(p => {
             let badgeColor = 'var(--text-muted)';
             if (p.status === 'CREDITO') badgeColor = 'var(--success)';
@@ -1036,9 +1053,9 @@ export function renderPurchases(container) {
                                     <div style="font-size:1rem; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.docNumber}</div>
                                 </div>
                                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
-                                    <span style="display:inline-flex; align-items:center; justify-content:center; padding:0.35rem 0.75rem; border-radius:999px; background:${badgeColor}20; color:${badgeColor}; font-size:0.75rem; font-weight:700; text-transform:uppercase;">${p.status}</span>
-                                    <button class="btn btn-outline detail-btn" data-id="${p.id}" style="padding:0.35rem 0.6rem; font-size:0.85rem; min-width:40px;">👁</button>
-                                    <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding:0.35rem 0.6rem; font-size:0.85rem; min-width:40px;">💳</button>
+                                    <span style="display:inline-flex; align-items:center; justify-content:center; padding:0.35rem 0.75rem; border-radius:999px; background:${badgeColor}20; color:${badgeColor}; font-size:0.75rem; font-weight:700; text-transform:uppercase; margin-right: 0.25rem;">${p.status}</span>
+                                    <span class="detail-btn" data-id="${p.id}" style="font-size:1.25rem; cursor:pointer; padding: 0 0.25rem;" title="Ver">👁️</span>
+                                    <span class="pay-btn" data-id="${p.id}" style="font-size:1.25rem; font-weight:bold; color:var(--success); cursor:pointer; padding: 0 0.25rem;" title="Cargar Pago">$</span>
                                 </div>
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.9rem; gap:0.75rem; flex-wrap:wrap;">
@@ -1056,7 +1073,7 @@ export function renderPurchases(container) {
                 </div>
             `;
         });
-        html += `</div>`;
+        html += `</div></div>`;
 
         // Desktop table layout always present but hidden on mobile
         html += `
@@ -3768,6 +3785,7 @@ export function renderPurchases(container) {
         if (purchase.status === 'ABONO') badgeColor = 'var(--warning)';
 
         let html = `
+            <div class="desktop-only">
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
                 <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem;">← Atrás</button>
                 <h2>Detalle de Compra</h2>
@@ -3903,10 +3921,124 @@ export function renderPurchases(container) {
                     </div>
                 </div>
             </div>
+            </div> <!-- End desktop-only -->
+
+            <div class="mobile-only" style="padding-bottom: 6rem;">
+                <!-- Header -->
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <button id="mobileBackToDeckBtn" style="background: none; border: none; color: var(--text-main); font-size: 1.5rem; padding: 0; cursor: pointer;">←</button>
+                    <h2 style="margin: 0; font-size: 1.25rem;">Detalle de Compra</h2>
+                </div>
+
+                <!-- Provider Card -->
+                <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; border-radius: 12px; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--primary-fixed-dim); font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase;">Proveedor</span>
+                            <h3 style="font-size: 1.1rem; margin-top: 0.25rem; color: var(--text-main);">${supName}</h3>
+                        </div>
+                        <span style="padding: 0.35rem 0.75rem; border-radius: 999px; background: ${badgeColor}20; color: ${badgeColor}; font-size: 0.75rem; font-weight: 700;">${purchase.status}</span>
+                    </div>
+                    <div style="height: 1px; background: var(--border); margin: 1rem 0;"></div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Presupuesto</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">N° ${purchase.docNumber}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Tasa Factura</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">Bs. ${purchase.bcvRate}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Emisión</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">${formatDateToDDMMYYYY(purchase.emissionDate)}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Recepción</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">${formatDateToDDMMYYYY(purchase.receptionDate)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Totals Card -->
+                <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <span style="color: var(--text-muted); font-size: 0.9rem;">Total Facturado</span>
+                        <strong style="font-size: 1rem; color: var(--text-main);">$ ${(purchase.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <span style="color: var(--text-muted); font-size: 0.9rem;">Referencia BCV</span>
+                        <span style="font-size: 0.9rem; color: var(--text-muted);">Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                    <div style="height: 1px; background: var(--border); margin-bottom: 1rem;"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; color: var(--primary-fixed-dim);">
+                        <span style="font-size: 1rem; font-weight: bold;">Saldo Pendiente</span>
+                        <strong style="font-size: 1.1rem; color: var(--text-main);">$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                    </div>
+                </div>
+
+                <!-- Products -->
+                <h4 style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase;">PRODUCTOS (${purchase.products.length} ITEMS)</h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+                    ${purchase.products.map(p => `
+                    <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px;">
+                        <h4 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-main);">${p.name}</h4>
+                        <div style="display: flex; justify-content: space-between;">
+                            <div>
+                                <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Cant.</span>
+                                <div style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); margin-top: 0.25rem;">${p.qty} ${p.stockUnit || 'Ud'}</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Costo Ud.</span>
+                                <div style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); margin-top: 0.25rem;">$ ${p.costUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Subtotal</span>
+                                <div style="font-size: 0.85rem; font-family: monospace; color: var(--success); font-weight: bold; margin-top: 0.25rem;">$ ${p.subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            </div>
+                        </div>
+                    </div>
+                    `).join('')}
+                </div>
+
+                <!-- Payment History -->
+                <h4 style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase;">HISTORIAL DE PAGOS</h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">
+                    ${payments.length > 0 ? payments.map(p => {
+                        const amtBs = p.amountBs || (p.id === 'legacy' ? (purchase.receivedBs || 0) : 0);
+                        const amtUsd = p.amountUsd || (p.id === 'legacy' ? (purchase.receivedUsd || 0) : 0);
+                        return `
+                    <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <h4 style="font-size: 1rem; margin-bottom: 0.25rem; color: var(--text-main);">${p.method}</h4>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Ref: ${p.reference || '-'}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">${formatDateToDDMMYYYY(p.date)}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.95rem; font-weight: bold; color: var(--success); margin-bottom: 0.25rem;">$ ${(p.equivalentUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Bs. ${amtBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.75rem; text-align: right;">
+                            <button class="delete-pay-btn" data-id="${p.id}" data-amount="${p.equivalentUsd}" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.85rem; padding: 0;">Eliminar Pago</button>
+                        </div>
+                    </div>
+                    `}).join('') : '<p class="text-muted" style="font-size: 0.9rem;">No se registraron pagos.</p>'}
+                </div>
+
+                <!-- Fixed Bottom Button -->
+                <div style="position: fixed; bottom: 0; left: 0; right: 0; padding: 1rem; background: var(--surface); border-top: 1px solid var(--border); z-index: 10;">
+                    <button class="btn btn-primary" id="mobileBackBtn2" style="width: 100%; padding: 0.8rem; font-size: 1rem; font-weight: bold; border-radius: 8px;">Volver</button>
+                </div>
+            </div>
         `;
 
         container.innerHTML = html;
-        container.querySelector('#backToDeckBtn').addEventListener('click', () => renderSupplierDetail(purchase.supplierId));
+        ['#backToDeckBtn', '#mobileBackToDeckBtn', '#mobileBackBtn2'].forEach(id => {
+            const btn = container.querySelector(id);
+            if(btn) btn.addEventListener('click', () => renderSupplierDetail(purchase.supplierId));
+        });
 
         container.querySelectorAll('.delete-pay-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
