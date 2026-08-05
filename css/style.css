@@ -128,6 +128,55 @@ label {
   font-size: 0.875rem;
 }
 
+/* Responsive utilities used across views (mobile-first adjustments) */
+.flex-stack-mobile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.text-left-mobile {
+  /* default: keep text-right on desktop where used with inline right alignment */
+  text-align: right;
+}
+
+/* Detail grid used by purchase detail view; kept desktop-first via class, mobile override below */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (max-width: 767px) {
+  .flex-stack-mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .text-left-mobile {
+    text-align: left !important;
+  }
+  .detail-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+}
+
+.mobile-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
 input, select, button {
   font-family: inherit;
 }

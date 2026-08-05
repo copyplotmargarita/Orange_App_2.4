@@ -169,6 +169,12 @@ export function renderPurchases(container) {
         if (currentFilterStatus) filteredPurchases = filteredPurchases.filter(p => p.status === currentFilterStatus);
         let html = `
             <style>
+            .metrics-mobile-only {
+                display: none !important;
+            }
+            .metrics-desktop-only {
+                display: grid !important;
+            }
             @media (max-width: 767px) {
                 .purchases-header-container {
                     flex-direction: column !important;
@@ -205,20 +211,17 @@ export function renderPurchases(container) {
                 #addPurchaseBtn .mobile-icon {
                     display: inline-block !important;
                 }
-                .metrics-desktop-only {
-                    display: none !important;
-                }
                 .metrics-mobile-only {
                     display: grid !important;
+                }
+                .metrics-desktop-only {
+                    display: none !important;
                 }
             }
             @media (min-width: 768px) {
                 .hide-on-desktop {
                     display: none !important;
                 }
-            }
-            .metrics-mobile-only {
-                display: none !important;
             }
             </style>
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; position: sticky; top: -1rem; background: var(--background); z-index: 50; margin-top: -1rem; padding-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);" class="purchases-header-container">
@@ -984,7 +987,11 @@ export function renderPurchases(container) {
         const pending = purchases.filter(p => p.supplierId === supplierId && p.status !== 'PAGADO' && p.status !== 'CONTADO');
         const totalDebt = pending.reduce((acc, p) => acc + parseFloat(p.pendingBalanceUsd || 0), 0);
 
-        let html = `
+        // Detect mobile viewport and render mobile-only card layout when appropriate
+        let html = '';
+
+        // Header + summary (same for both)
+        html += `
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;" class="flex-stack-mobile">
                 <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem; height: 38px; font-size: 0.85rem;">← Volver</button>
                 <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800;">Facturas Pendientes: ${supName}</h2>
@@ -1003,63 +1010,106 @@ export function renderPurchases(container) {
                 </div>
             </div>
 
-            <div class="card" style="padding: 0; overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-                    <thead>
-                        <tr style="background-color: var(--background); border-bottom: 1px solid var(--border);">
-                            <th style="padding: 1rem;">Fecha</th>
-                            <th style="padding: 1rem;">Días</th>
-                            <th style="padding: 1rem;">Documento</th>
-                            <th style="padding: 1rem;">Numero</th>
-                            <th style="padding: 1rem;">Proveedor</th>
-                            <th style="padding: 1rem;">Estado</th>
-                            <th style="padding: 1rem;">Total $</th>
-                            <th style="padding: 1rem;">Deuda $</th>
-                            <th style="padding: 1rem; text-align: right;">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;" class="mobile-only">
+                <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); letter-spacing:0.1em;">LISTADO DE DOCUMENTOS</span>
+                <button class="btn btn-outline" style="padding:0.5rem 0.75rem; font-size:0.85rem;">Filtro</button>
+            </div>
         `;
 
         if (pending.length === 0) {
-            html += `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay deudas pendientes con este proveedor.</td></tr>`;
-        } else {
-            pending.sort((a, b) => new Date(a.receptionDate || a.createdAt) - new Date(b.receptionDate || b.createdAt)).forEach(p => {
-                let badgeColor = 'var(--text-muted)';
-                if (p.status === 'CREDITO') badgeColor = 'var(--danger)';
-                if (p.status === 'ABONO') badgeColor = 'var(--warning)';
+            html += `<div class="card"><p style="padding:1.25rem; text-align:center; color:var(--text-muted);">No hay deudas pendientes con este proveedor.</p></div>`;
+        }
 
-                const rDate = new Date(p.receptionDate || p.emissionDate || p.createdAt);
-                const diffTime = new Date() - rDate;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                const displayDays = diffDays >= 0 ? diffDays : 0;
+        // Mobile cards layout always present but hidden on desktop
+        html += `<div class="mobile-only" style="display:grid; gap:0.75rem;">`;
+        pending.sort((a,b)=>new Date(a.receptionDate||a.createdAt)-new Date(b.receptionDate||b.createdAt)).forEach(p => {
+            let badgeColor = 'var(--text-muted)';
+            if (p.status === 'CREDITO') badgeColor = 'var(--success)';
+            if (p.status === 'ABONO') badgeColor = 'var(--warning)';
+            html += `
+                <div class="card tonal-card" style="padding:1rem; border-radius:16px; border:1px solid var(--border); background: var(--surface);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem; flex-wrap:wrap;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="display:flex; justify-content:space-between; gap:0.75rem; align-items:flex-start;">
+                                <div style="min-width:0;">
+                                    <div style="font-size:0.85rem; color:var(--text-muted); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.35rem;">${formatDateToDDMMYYYY(p.receptionDate || p.emissionDate)}</div>
+                                    <div style="font-size:1rem; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.docNumber}</div>
+                                </div>
+                                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
+                                    <span style="display:inline-flex; align-items:center; justify-content:center; padding:0.35rem 0.75rem; border-radius:999px; background:${badgeColor}20; color:${badgeColor}; font-size:0.75rem; font-weight:700; text-transform:uppercase;">${p.status}</span>
+                                    <button class="btn btn-outline detail-btn" data-id="${p.id}" style="padding:0.35rem 0.6rem; font-size:0.85rem; min-width:40px;">👁</button>
+                                    <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding:0.35rem 0.6rem; font-size:0.85rem; min-width:40px;">💳</button>
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.9rem; gap:0.75rem; flex-wrap:wrap;">
+                                <div style="min-width:0;">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); letter-spacing:0.08em; text-transform:uppercase;">Documento</div>
+                                    <div style="font-size:0.95rem; font-weight:700; color:var(--text-main);">${p.docType}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); letter-spacing:0.08em; text-transform:uppercase;">Deuda $</div>
+                                    <div style="font-size:1rem; font-weight:700; color:var(--text-main);">$ ${(p.pendingBalanceUsd||0).toLocaleString('de-DE',{minimumFractionDigits:2})}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div>`;
 
-                html += `
-                    <tr style="border-bottom: 1px solid var(--border);">
-                        <td style="padding: 1rem;">${formatDateToDDMMYYYY(p.receptionDate || p.emissionDate)}</td>
-                        <td style="padding: 1rem;"><span style="color: var(--text-muted); font-size: 0.85rem;">${displayDays}</span></td>
-                        <td style="padding: 1rem;"><strong>${p.docType}</strong></td>
-                        <td style="padding: 1rem;"><span style="color: var(--text-muted); font-size: 0.85rem;">${p.docNumber}</span></td>
-                        <td style="padding: 1rem;">${supName}</td>
-                        <td style="padding: 1rem;">
-                            <span style="padding: 0.2rem 0.5rem; border-radius: 12px; background: ${badgeColor}20; color: ${badgeColor}; font-weight: bold; font-size: 0.75rem;">
+        // Desktop table layout always present but hidden on mobile
+        html += `
+            <div class="desktop-only card" style="padding:0; overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.9rem;">
+                    <thead>
+                        <tr style="background-color: var(--background); border-bottom:1px solid var(--border);">
+                            <th style="padding:1rem;">Fecha</th>
+                            <th style="padding:1rem;">Días</th>
+                            <th style="padding:1rem;">Documento</th>
+                            <th style="padding:1rem;">Numero</th>
+                            <th style="padding:1rem;">Proveedor</th>
+                            <th style="padding:1rem;">Estado</th>
+                            <th style="padding:1rem;">Total $</th>
+                            <th style="padding:1rem;">Deuda $</th>
+                            <th style="padding:1rem; text-align:right;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+        pending.sort((a,b)=>new Date(a.receptionDate||a.createdAt)-new Date(b.receptionDate||b.createdAt)).forEach(p => {
+            let badgeColor = 'var(--text-muted)';
+            if (p.status === 'CREDITO') badgeColor = 'var(--danger)';
+            if (p.status === 'ABONO') badgeColor = 'var(--warning)';
+
+            const rDate = new Date(p.receptionDate || p.emissionDate || p.createdAt);
+            const diffTime = new Date() - rDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const displayDays = diffDays >= 0 ? diffDays : 0;
+
+            html += `
+                    <tr style="border-bottom:1px solid var(--border);">
+                        <td style="padding:1rem;">${formatDateToDDMMYYYY(p.receptionDate || p.emissionDate)}</td>
+                        <td style="padding:1rem;"><span style="color:var(--text-muted); font-size:0.85rem;">${displayDays}</span></td>
+                        <td style="padding:1rem;"><strong>${p.docType}</strong></td>
+                        <td style="padding:1rem;"><span style="color:var(--text-muted); font-size:0.85rem;">${p.docNumber}</span></td>
+                        <td style="padding:1rem;">${supName}</td>
+                        <td style="padding:1rem;">
+                            <span style="padding:0.2rem 0.5rem; border-radius:12px; background:${badgeColor}20; color:${badgeColor}; font-weight:bold; font-size:0.75rem;">
                                 ${p.status}
                             </span>
                         </td>
-                        <td style="padding: 1rem; font-weight: bold;">$ ${(p.totalUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</td>
-                        <td style="padding: 1rem; color: var(--danger); font-weight: bold;">
-                            $ ${(p.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}
-                        </td>
-                        <td style="padding: 1rem; text-align: right;">
-                            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;">
-                                <button class="btn btn-outline detail-btn" data-id="${p.id}" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 800; width: auto;">VER DETALLE</button>
-                                <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 800; width: auto;">CARGAR PAGO</button>
+                        <td style="padding:1rem; font-weight:bold;">$ ${(p.totalUsd||0).toLocaleString('de-DE',{minimumFractionDigits:2})}</td>
+                        <td style="padding:1rem; color:var(--danger); font-weight:bold;">$ ${(p.pendingBalanceUsd||0).toLocaleString('de-DE',{minimumFractionDigits:2})}</td>
+                        <td style="padding:1rem; text-align:right;">
+                            <div style="display:flex; gap:0.5rem; justify-content:flex-end; flex-wrap:wrap;">
+                                <button class="btn btn-outline detail-btn" data-id="${p.id}" style="padding:0.4rem 0.8rem; font-size:0.75rem; font-weight:800; width:auto;">VER DETALLE</button>
+                                <button class="btn btn-primary pay-btn" data-id="${p.id}" style="padding:0.4rem 0.8rem; font-size:0.75rem; font-weight:800; width:auto;">CARGAR PAGO</button>
                             </div>
                         </td>
                     </tr>
-                `;
-            });
-        }
+            `;
+        });
 
         html += `
                     </tbody>
@@ -1068,7 +1118,6 @@ export function renderPurchases(container) {
         `;
 
         container.innerHTML = html;
-
         container.querySelector('#backToDeckBtn').addEventListener('click', goBackToDeck);
 
         container.querySelectorAll('.pay-btn').forEach(btn => {
@@ -3760,7 +3809,7 @@ export function renderPurchases(container) {
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.5rem; align-items: stretch; margin-bottom: 1.5rem;">
+            <div class="detail-grid" style="margin-bottom: 1.5rem;">
                 <!-- Productos Recibidos (Izquierda) -->
                 <div class="card" style="padding: 1rem 1.5rem; display: flex; flex-direction: column;">
                     <div style="overflow-x: auto; flex: 1;">
