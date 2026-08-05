@@ -147,6 +147,14 @@ label {
   align-items: stretch;
 }
 
+.mobile-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
 @media (max-width: 767px) {
   .flex-stack-mobile {
     flex-direction: column;
@@ -161,20 +169,12 @@ label {
   }
 
   .mobile-only {
-    display: block;
+    display: block !important;
   }
 
   .desktop-only {
-    display: none;
+    display: none !important;
   }
-}
-
-.mobile-only {
-  display: none;
-}
-
-.desktop-only {
-  display: block;
 }
 
 input, select, button {
