@@ -52,7 +52,10 @@ export async function renderReceivables(container) {
             
             /* Responsive display classes */
             @media (min-width: 768px) { .mobile-only { display: none !important; } }
-            @media (max-width: 767px) { .desktop-only { display: none !important; } }
+            @media (max-width: 767px) { 
+                .desktop-only { display: none !important; } 
+                .mobile-only { display: block !important; }
+            }
             
             /* Obsidian Metric Cards */
             .data-card { background-color: #1E2230; border: 1px solid #2A2F3E; padding: 16px; border-radius: 12px; cursor: pointer; transition: transform 0.15s ease, background 0.2s; }
@@ -487,7 +490,10 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
             
             /* Responsive display classes */
             @media (min-width: 768px) { .mobile-only { display: none !important; } }
-            @media (max-width: 767px) { .desktop-only { display: none !important; } }
+            @media (max-width: 767px) { 
+                .desktop-only { display: none !important; }
+                .mobile-only { display: block !important; }
+            }
             
             /* Responsive Grid */
             .clients-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 16px; margin-bottom: 20px; }
