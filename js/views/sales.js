@@ -1695,7 +1695,7 @@ export function renderSales(container, preSelectedClient = null) {
     }
     function showProductSaleModal(product, callback, initialQty = 1, initialUnit = null, initialExtras = []) {
         const modal = document.createElement('div');
-        modal.className = "fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-md animate-in fade-in";
+        modal.className = "fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-start sm:items-center justify-center p-4 sm:p-md pt-12 sm:pt-0 animate-in fade-in overflow-y-auto";
         
         const sellU = product.stockUnit || 'Unidad';
         const purchU = product.purchaseUnit || 'Caja';
@@ -1730,7 +1730,7 @@ export function renderSales(container, preSelectedClient = null) {
         }
 
         modal.innerHTML = `
-            <div class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-sm p-lg shadow-2xl flex flex-col gap-md">
+            <div class="bg-surface-container border border-outline-variant rounded-xl w-full max-w-sm p-4 sm:p-lg shadow-2xl flex flex-col gap-3 sm:gap-md">
                 <h3 class="text-headline-md font-bold text-primary">${product.name}</h3>
                 
                 <div class="form-group">
