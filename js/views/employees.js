@@ -268,7 +268,7 @@ export function renderEmployees(container) {
                                     <input type="checkbox" name="modules" value="clientes"> 👥 Clientes
                                 </label>
                                 <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
-                                    <input type="checkbox" name="modules" value="cobros"> 📋 Cobros
+                                    <input type="checkbox" name="modules" value="cobros"> 📋 Cuentas por Cobrar
                                 </label>
                                 <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; font-weight:500 !important; text-transform:none !important; letter-spacing:0 !important; color:var(--text-main) !important; cursor:pointer;">
                                     <input type="checkbox" name="modules" value="productos"> 🛍️ Productos
@@ -570,7 +570,7 @@ export function renderEmployees(container) {
                     <div id="editModulesGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; background: var(--background); padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border);">
                         ${['ventas', 'clientes', 'cobros', 'productos', 'compras', 'inventario', 'proveedores', 'reportes', 'tiendas', 'empleados'].map(mod => {
                             const modNames = {
-                                'ventas': '💰 Ventas', 'clientes': '👥 Clientes', 'cobros': '📋 Cobros',
+                                'ventas': '💰 Ventas', 'clientes': '👥 Clientes', 'cobros': '📋 Cuentas por Cobrar',
                                 'productos': '🛍️ Productos', 'compras': '🧾 Compras', 'inventario': '📦 Inventario',
                                 'proveedores': '🏭 Proveedores', 'reportes': '📊 Reportes', 'tiendas': '🏪 Tiendas',
                                 'empleados': '👤 Empleados'

@@ -124,10 +124,7 @@ export async function renderReceivables(container) {
 
     try {
         let q = query(collection(db, "businesses", businessId, "sales"), where("status", "in", ["credito", "abono"]));
-        
-        if (storeId) {
-            q = query(q, where("storeId", "==", storeId));
-        }
+
 
         const snap = await getDocs(q);
         const sales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
