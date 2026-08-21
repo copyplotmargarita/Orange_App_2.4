@@ -1,15 +1,13 @@
 import { auth, db } from '../services/firebase.js';
-import { showConfirmModal, showNotification, formatDateToDDMMYYYY } from '../utils.js';
+import { showNotification, formatDateToDDMMYYYY } from '../utils.js';
 import { showSaleDetail } from './receivables.js';
 import { 
     collection, 
     query, 
     where, 
     getDocs, 
-    doc, 
-    updateDoc,
-    orderBy,
-    limit
+    doc,
+    getDoc
 } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderReports(container) {
@@ -21,10 +19,47 @@ export function renderReports(container) {
         return;
     }
 
-    let currentSubView = 'stores'; // stores, employees, reconciliation
+    let stores = [];
+    let suppliersData = [];
+    let creditorsData = [];
+    let currentData = [];
+    let currentType = 'sales'; // 'sales' or 'purchases'
 
     async function init() {
+        // Load base data
+        try {
+            const [storesSnap, suppliersSnap, creditorsSnap] = await Promise.all([
+                getDocs(collection(db, "businesses", businessId, "stores")),
+                getDocs(collection(db, "businesses", businessId, "suppliers")),
+                getDocs(collection(db, "businesses", businessId, "creditors"))
+            ]);
+            stores = storesSnap.docs.map(doc => ({id: doc.id, ...doc.data()})).sort((a,b)=>a.name.localeCompare(b.name));
+            suppliersData = suppliersSnap.docs.map(doc => ({id: doc.id, ...doc.data()}));
+            creditorsData = creditorsSnap.docs.map(doc => ({id: doc.id, ...doc.data()}));
+        } catch (e) {
+            console.error("Error loading base data:", e);
+        }
         render();
+    }
+
+    function getSupplierName(p) {
+        if (p.supplierName) return p.supplierName;
+        if (p.supplier) return p.supplier;
+        
+        const id = p.supplierId || p.creditorId;
+        if (!id) return 'Desconocido';
+        
+        let found = suppliersData.find(s => s.id === id);
+        if (found) return found.name;
+        
+        found = creditorsData.find(c => c.id === id);
+        if (found) return found.name;
+        
+        return 'Desconocido';
+    }
+
+    function getPurchaseTotal(p) {
+        return parseFloat(p.totalUsd || p.totalAmount || p.total || p.totalUSD || 0);
     }
 
     function render() {
@@ -35,415 +70,677 @@ export function renderReports(container) {
                     <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin-bottom: 0;">📊 Consultas / Reportes</h2>
                     
                     <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;" class="flex-stack-mobile">
-                        <button id="btnStoreReports" class="btn ${currentSubView === 'stores' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🏪 Por Tienda</button>
-                        <button id="btnEmployeeReports" class="btn ${currentSubView === 'employees' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">👤 Por Empleado</button>
-                        <button id="btnReconciliation" class="btn ${currentSubView === 'reconciliation' ? 'btn-primary' : 'btn-outline'}" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap;">🔄 Conciliación</button>
+                        <button id="btnExportPDF" class="btn btn-outline" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap; display: none;">📄 Exportar a PDF</button>
+                        <button id="btnExportExcel" class="btn btn-primary" style="width: auto; font-size: 0.85rem; padding: 0.5rem 1rem; white-space: nowrap; display: none;">📊 Exportar a Excel</button>
                     </div>
                 </div>
 
-                <div id="reportsContent" style="flex: 1; overflow-y: auto; min-height: 0;">
-                    <!-- Subviews render here -->
+                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; align-items: flex-end;">
+                        <div class="form-group">
+                            <label>🔄 Tipo</label>
+                            <select id="typeSelect" class="form-control">
+                                <option value="sales">Ventas</option>
+                                <option value="purchases">Compras</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>🏪 Tienda</label>
+                            <select id="storeSelect" class="form-control">
+                                <option value="all">Todas las Tiendas</option>
+                                <option value="general">Almacén General</option>
+                                ${stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>📅 Desde</label>
+                            <input type="date" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
+                        </div>
+                        <div class="form-group">
+                            <label>📅 Hasta</label>
+                            <input type="date" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button id="btnFilter" class="btn btn-primary" style="height: 40px; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; width: 100%;">🔍 Consultar</button>
+                        </div>
+                    </div>
+                    <div id="resultsContent" style="margin-top: 1rem; overflow-y: auto; max-height: 50vh;">
+                        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">Defina los filtros y presione Consultar.</div>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Detail Modal Container -->
+            <div id="purchaseDetailModalContainer" style="display: none;"></div>
+            
+            <style>
+                .form-group { margin-bottom: 0 !important; }
+                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+                .form-control { 
+                    border-radius: 10px; 
+                    border: 1px solid var(--border); 
+                    padding: 0 1rem; 
+                    transition: var(--transition); 
+                    background: var(--surface); 
+                    color: var(--text-main); 
+                    font-size: 0.9rem; 
+                    font-family: 'Inter', sans-serif;
+                    width: 100%;
+                    height: 40px;
+                    box-sizing: border-box;
+                }
+                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+            </style>
         `;
-
-        container.querySelector('#btnStoreReports').onclick = () => { currentSubView = 'stores'; render(); };
-        container.querySelector('#btnEmployeeReports').onclick = () => { currentSubView = 'employees'; render(); };
-        container.querySelector('#btnReconciliation').onclick = () => { currentSubView = 'reconciliation'; render(); };
 
         const backBtn = container.querySelector('#backToDashboardBtn');
         if (backBtn) {
             backBtn.addEventListener('click', () => {
                 const navHome = document.getElementById('navHome');
-                if (navHome) {
-                    navHome.click();
-
-                } else {
-                    window.location.hash = '#dashboard';
-                }
+                if (navHome) navHome.click();
+                else window.location.hash = '#dashboard';
             });
         }
 
-        if (currentSubView === 'stores') renderStoreReports();
-        else if (currentSubView === 'employees') renderEmployeeReports();
-        else if (currentSubView === 'reconciliation') renderReconciliation();
+        container.querySelector('#btnFilter').onclick = executeQuery;
+        container.querySelector('#btnExportExcel').onclick = exportToExcel;
+        container.querySelector('#btnExportPDF').onclick = exportToPDF;
     }
 
-    async function renderStoreReports() {
-        const content = container.querySelector('#reportsContent');
-        content.innerHTML = `
-            <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
-                    <div class="form-group">
-                        <label>🏪 Seleccionar Tienda</label>
-                        <select id="storeSelect" class="form-control"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>📅 Desde</label>
-                        <input type="date" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
-                    </div>
-                    <div class="form-group">
-                        <label>📅 Hasta</label>
-                        <input type="date" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
-                    </div>
-                    <div class="form-group">
-                        <label>&nbsp;</label>
-                        <button id="btnFilterStore" class="btn btn-primary" style="height: 40px; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; width: 100%;">🔍 Consultar</button>
-                    </div>
-                </div>
-                <div id="storeResults" style="margin-top: 1rem;">
-                    <div style="text-align: center; padding: 3rem; color: var(--text-muted);">Seleccione una tienda y rango de fechas para consultar.</div>
-                </div>
-            </div>
-            <style>
-                .form-group { margin-bottom: 0 !important; }
-                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
-                .form-control { 
-                    border-radius: 10px; 
-                    border: 1px solid var(--border); 
-                    padding: 0 1rem; 
-                    transition: var(--transition); 
-                    background: var(--surface); 
-                    color: var(--text-main); 
-                    font-size: 0.9rem; 
-                    font-family: 'Inter', sans-serif;
-                    width: 100%;
-                    height: 40px;
-                    box-sizing: border-box;
-                }
-                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
-            </style>
-        `;
+    async function executeQuery() {
+        const type = document.getElementById('typeSelect').value;
+        const storeId = document.getElementById('storeSelect').value;
+        const from = document.getElementById('dateFrom').value;
+        const to = document.getElementById('dateTo').value;
+        const results = document.getElementById('resultsContent');
 
-        // Load stores
-        const storesSnap = await getDocs(collection(db, "businesses", businessId, "stores"));
-        const storeSelect = content.querySelector('#storeSelect');
-        storeSelect.innerHTML = '<option value="general">Almacén General</option>' + 
-            storesSnap.docs.map(doc => ({id: doc.id, ...doc.data()})).sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        currentType = type;
+        document.getElementById('btnExportExcel').style.display = 'none';
+        document.getElementById('btnExportPDF').style.display = 'none';
 
-        content.querySelector('#btnFilterStore').onclick = async () => {
-            const storeId = storeSelect.value;
-            const from = content.querySelector('#dateFrom').value;
-            const to = content.querySelector('#dateTo').value;
-            const results = content.querySelector('#storeResults');
+        results.innerHTML = '<div class="text-center p-4">⌛ Consultando...</div>';
 
-            results.innerHTML = '<div class="text-center p-4">⌛ Cargando datos...</div>';
-
-            try {
-                // Fetch by date range and filter storeId in memory to avoid index requirement
-                const q = query(
-                    collection(db, "businesses", businessId, "sales"),
+        try {
+            const collectionName = type === 'sales' ? 'sales' : 'purchases';
+            let q;
+            
+            if (type === 'sales') {
+                q = query(
+                    collection(db, "businesses", businessId, collectionName),
                     where("date", ">=", from),
                     where("date", "<=", to)
                 );
-                const snap = await getDocs(q);
-                let sales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // In-memory store filter
-                sales = sales.filter(s => s.storeId === storeId);
-                
-                sales.sort((a, b) => b.date.localeCompare(a.date));
-
-                if (sales.length === 0) {
-                    results.innerHTML = '<div class="alert alert-info text-center">No se encontraron ventas en este rango.</div>';
-                    return;
-                }
-
-                results.innerHTML = `
-                    <div class="table-responsive" style="margin-top: 1rem;">
-                        <table class="table" style="font-size: 0.9rem; width: 100%; min-width: 800px; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: var(--background);">
-                                    <th style="width: 15%; padding: 1rem; text-align: center;">Fecha</th>
-                                    <th style="width: 30%; padding: 1rem; text-align: center;">Cliente</th>
-                                    <th style="width: 15%; padding: 1rem; text-align: center;">Total USD</th>
-                                    <th style="width: 15%; padding: 1rem; text-align: center;">Estado</th>
-                                    <th style="width: 25%; padding: 1rem; text-align: center;">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${sales.map(s => `
-                                    <tr style="border-bottom: 1px solid var(--border);">
-                                        <td style="padding: 1rem; text-align: center;">${formatDateToDDMMYYYY(s.date)}</td>
-                                        <td style="padding: 1rem; text-align: center;">${s.clientName}</td>
-                                        <td style="padding: 1rem; text-align: center; font-weight: bold; color: var(--primary);">$ ${s.totalUSD.toFixed(2)}</td>
-                                        <td style="padding: 1rem; text-align: center;">
-                                            <span class="badge ${s.status === 'contado' ? 'badge-success' : 'badge-warning'}" style="padding: 0.4rem 0.6rem;">${s.status.toUpperCase()}</span>
-                                        </td>
-                                        <td style="padding: 1rem; text-align: center;">
-                                            <button class="btn btn-ghost btn-sm btn-detail" data-id="${s.id}" style="width: 100%; max-width: 150px; font-weight: 600;">👁️ Ver Detalle</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-
-                results.querySelectorAll('.btn-detail').forEach(btn => {
-                    btn.onclick = () => {
-                        const id = btn.dataset.id;
-                        const sale = sales.find(s => s.id === id);
-                        if (sale) showSaleDetail(sale);
-                    };
-                });
-
-            } catch (err) {
-                results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
+            } else {
+                // Compras no usa un campo unificado 'date', traemos todas y filtramos en memoria
+                q = collection(db, "businesses", businessId, collectionName);
             }
-        };
-    }
-
-    async function renderEmployeeReports() {
-        const content = container.querySelector('#reportsContent');
-        content.innerHTML = `
-            <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
-                    <div class="form-group">
-                        <label>👤 Seleccionar Empleado</label>
-                        <select id="employeeSelect" class="form-control"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>📅 Desde</label>
-                        <input type="date" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
-                    </div>
-                    <div class="form-group">
-                        <label>📅 Hasta</label>
-                        <input type="date" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
-                    </div>
-                    <div class="form-group">
-                        <label>&nbsp;</label>
-                        <button id="btnFilterEmployee" class="btn btn-primary" style="height: 40px; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; width: 100%;">🔍 Consultar</button>
-                    </div>
-                </div>
-                <div id="employeeResults" style="margin-top: 1rem;"></div>
-            </div>
-            <style>
-                .form-group { margin-bottom: 0 !important; }
-                .form-group label { margin-bottom: 2px !important; color: var(--text-muted) !important; font-weight: 800 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
-                .form-control { 
-                    border-radius: 10px; 
-                    border: 1px solid var(--border); 
-                    padding: 0 1rem; 
-                    transition: var(--transition); 
-                    background: var(--surface); 
-                    color: var(--text-main); 
-                    font-size: 0.9rem; 
-                    font-family: 'Inter', sans-serif;
-                    width: 100%;
-                    height: 40px;
-                    box-sizing: border-box;
-                }
-                .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
-            </style>
-        `;
-
-        // Load employees
-        const empSnap = await getDocs(collection(db, "businesses", businessId, "employees"));
-        const employeeSelect = content.querySelector('#employeeSelect');
-        employeeSelect.innerHTML = '<option value="">Seleccione...</option>' + 
-            empSnap.docs.map(doc => doc.data()).sort((a,b)=>a.name.localeCompare(b.name)).map(e => `<option value="${e.email}">${e.name}</option>`).join('');
-
-        content.querySelector('#btnFilterEmployee').onclick = async () => {
-            const email = employeeSelect.value;
-            if (!email) return;
-            const from = content.querySelector('#dateFrom').value;
-            const to = content.querySelector('#dateTo').value;
-            const results = content.querySelector('#employeeResults');
-
-            results.innerHTML = '<div class="text-center p-4">⌛ Calculando métricas...</div>';
-
-            try {
-                // Fetch by date range and filter employeeEmail in memory to avoid index requirement
-                const qSales = query(
-                    collection(db, "businesses", businessId, "sales"),
-                    where("date", ">=", from),
-                    where("date", "<=", to)
-                );
-                const sSnap = await getDocs(qSales);
-                const sales = sSnap.docs.map(doc => doc.data()).filter(s => s.employeeEmail === email);
-
-                // Fetch payments by date range and filter in memory
-                const qPay = query(
-                    collection(db, "businesses", businessId, "payments"),
-                    where("date", ">=", from),
-                    where("date", "<=", to)
-                );
-                const pSnap = await getDocs(qPay);
-                
-                const totals = {};
-                pSnap.forEach(doc => {
-                    const p = doc.data();
-                    if (p.employeeEmail !== email) return;
-                    
-                    const key = `${p.currency}_${p.method}`;
-                    if (!totals[key]) totals[key] = 0;
-                    totals[key] += (p.amount || 0);
+            
+            const snap = await getDocs(q);
+            let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (type === 'purchases') {
+                items = items.filter(p => {
+                    const pDate = p.receptionDate || p.emissionDate || (p.createdAt ? p.createdAt.split('T')[0] : '');
+                    p.date = pDate; // Normalizamos para la tabla
+                    return pDate >= from && pDate <= to;
                 });
-
-                results.innerHTML = `
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" class="grid-1-mobile">
-                        <div>
-                            <h4 style="margin-bottom: 1rem; color: var(--primary);">💰 Totales Recaudados</h4>
-                            <div class="card" style="padding: 1rem; background: var(--background);">
-                                <table style="width: 100%; border-collapse: collapse;">
-                                    ${Object.entries(totals).length > 0 ? Object.entries(totals).map(([key, val]) => {
-                                        const [cur, meth] = key.split('_');
-                                        return `<tr style="border-bottom: 1px solid var(--border);">
-                                            <td style="padding: 0.5rem 0;">${meth.replace('_', ' ')}</td>
-                                            <td style="padding: 0.5rem 0; text-align: right; font-weight: bold; color: ${cur === 'USD' ? 'var(--success)' : 'inherit'}">${cur} ${val.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                        </tr>`;
-                                    }).join('') : '<tr><td colspan="2" class="text-center py-4">Sin pagos registrados</td></tr>'}
-                                </table>
-                            </div>
-                        </div>
-                        <div>
-                            <h4 style="margin-bottom: 1rem; color: var(--primary);">📈 Resumen de Actividad</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div class="card" style="padding: 1rem; text-align: center;">
-                                    <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Ventas</p>
-                                    <p style="font-size: 1.5rem; font-weight: bold;">${sales.length}</p>
-                                </div>
-                                <div class="card" style="padding: 1rem; text-align: center;">
-                                    <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Monto Total</p>
-                                    <p style="font-size: 1.25rem; font-weight: bold; color: var(--primary);">$ ${sales.reduce((acc, s) => acc + (s.totalUSD || 0), 0).toFixed(2)}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-            } catch (err) {
-                results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
             }
-        };
+            
+            // Filter by store
+            if (storeId !== 'all') {
+                items = items.filter(i => i.storeId === storeId);
+            }
+            
+            // Sort from newest to oldest
+            items.sort((a, b) => b.date.localeCompare(a.date));
+            currentData = items;
+
+            if (items.length === 0) {
+                results.innerHTML = `<div class="alert alert-info text-center">No se encontraron ${type === 'sales' ? 'ventas' : 'compras'} en este rango.</div>`;
+                return;
+            }
+
+            document.getElementById('btnExportExcel').style.display = 'inline-flex';
+            document.getElementById('btnExportPDF').style.display = 'inline-flex';
+
+            renderTable(items, type, results);
+
+        } catch (err) {
+            results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
+        }
     }
 
-    async function renderReconciliation() {
-        const content = container.querySelector('#reportsContent');
-        content.innerHTML = `
-            <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--background); padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid var(--border); width: fit-content;">
-                    <label style="margin: 0; white-space: nowrap; font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Tienda:</label>
-                    <select id="reconStoreSelect" class="form-control" style="width: auto; min-width: 180px; height: 32px; font-size: 0.85rem; padding: 0 0.5rem; margin: 0;"></select>
-                    <button id="btnLoadRecon" class="btn btn-primary" style="height: 32px; padding: 0 1rem; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; white-space: nowrap;">🔄 Cargar Pagos</button>
-                </div>
-                <div id="reconResults" style="margin-top: 0.5rem;">
-                    <div style="text-align: center; padding: 4rem; color: var(--text-muted);">
-                        <span style="font-size: 3rem; display: block; margin-bottom: 1rem;">🔎</span>
-                        Seleccione una tienda y haga clic en <b>Cargar Pagos</b>.
-                    </div>
-                </div>
+    function renderTable(items, type, resultsContainer) {
+        const isSales = type === 'sales';
+        const entityLabel = isSales ? 'Cliente' : 'Proveedor';
+
+        resultsContainer.innerHTML = `
+            <div class="table-responsive">
+                <table class="table" style="font-size: 0.9rem; width: 100%; min-width: 800px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: var(--background);">
+                            <th style="width: 15%; padding: 1rem; text-align: center;">Fecha</th>
+                            <th style="width: 30%; padding: 1rem; text-align: center;">${entityLabel}</th>
+                            <th style="width: 15%; padding: 1rem; text-align: center;">Total USD</th>
+                            <th style="width: 15%; padding: 1rem; text-align: center;">Estado</th>
+                            <th style="width: 25%; padding: 1rem; text-align: center;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(item => `
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 1rem; text-align: center;">${formatDateToDDMMYYYY(item.date)}</td>
+                                <td style="padding: 1rem; text-align: center;">${isSales ? item.clientName : getSupplierName(item)}</td>
+                                <td style="padding: 1rem; text-align: center; font-weight: bold; color: var(--primary);">$ ${isSales ? (item.totalUSD || 0).toFixed(2) : getPurchaseTotal(item).toFixed(2)}</td>
+                                <td style="padding: 1rem; text-align: center;">
+                                    <span class="badge ${(item.status === 'contado' || item.status === 'pagada') ? 'badge-success' : 'badge-warning'}" style="padding: 0.4rem 0.6rem;">${(item.status || 'N/A').toUpperCase()}</span>
+                                </td>
+                                <td style="padding: 1rem; text-align: center;">
+                                    <button class="btn btn-ghost btn-sm btn-detail" data-id="${item.id}" style="width: 100%; max-width: 150px; font-weight: 600;">👁️ Ver Detalle</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
             </div>
         `;
 
-        const storesSnap = await getDocs(collection(db, "businesses", businessId, "stores"));
-        const reconStoreSelect = content.querySelector('#reconStoreSelect');
-        reconStoreSelect.innerHTML = '<option value="all">Todas las Tiendas</option><option value="general">Almacén General</option>' + 
-            storesSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().name}</option>`).join('');
-
-        content.querySelector('#btnLoadRecon').onclick = async () => {
-            const storeId = reconStoreSelect.value;
-            const results = content.querySelector('#reconResults');
-            results.innerHTML = '<div class="text-center p-4">⌛ Buscando pagos...</div>';
-
-            try {
-                const electronicMethods = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'];
-                let q = query(
-                    collection(db, "businesses", businessId, "payments"),
-                    where("method", "in", electronicMethods)
-                );
-
-                const snap = await getDocs(q);
-                let payments = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Filter out verified manually
-                payments = payments.filter(p => p.verified !== true);
-
-                if (storeId !== 'all') {
-                    payments = payments.filter(p => p.storeId === storeId);
-                }
+        resultsContainer.querySelectorAll('.btn-detail').forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.dataset.id;
+                const item = items.find(i => i.id === id);
+                if (!item) return;
                 
-                payments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-
-                if (payments.length === 0) {
-                    results.innerHTML = '<div class="alert alert-success text-center" style="padding: 2rem;">🎉 Sin pagos pendientes por verificar.</div>';
-                    return;
+                if (isSales) {
+                    showSaleDetail(item);
+                } else {
+                    showPurchaseDetailView(item);
                 }
+            };
+        });
+    }
 
-                results.innerHTML = `
-                    <div class="table-responsive" style="margin-top: 1rem;">
-                        <table class="table" style="font-size: 0.85rem; width: 100%; min-width: 900px; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: var(--background);">
-                                    <th style="width: 10%; padding: 0.5rem; text-align: center;">Fecha</th>
-                                    <th style="width: 18%; padding: 0.5rem; text-align: center;">Tienda</th>
-                                    <th style="width: 18%; padding: 0.5rem; text-align: center;">Empleado</th>
-                                    <th style="width: 12%; padding: 0.5rem; text-align: center;">Método</th>
-                                    <th style="width: 15%; padding: 0.5rem; text-align: center;">Monto</th>
-                                    <th style="width: 15%; padding: 0.5rem; text-align: center;">Referencia</th>
-                                    <th style="width: 12%; padding: 0.5rem; text-align: center;">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${payments.map(p => `
-                                    <tr id="pay-row-${p.id}" style="border-bottom: 1px solid var(--border);">
-                                        <td style="padding: 0.5rem; text-align: center;">${p.date || '---'}</td>
-                                        <td style="padding: 0.5rem; text-align: center; font-weight: 600; color: var(--text-main);">${p.storeName || 'Tienda'}</td>
-                                        <td style="padding: 0.5rem; text-align: center; font-weight: 600; color: var(--text-main);">${p.recordedBy || p.employeeName || 'Empleado'}</td>
-                                        <td style="padding: 0.5rem; text-align: center;"><span class="badge badge-primary" style="padding: 0.3rem 0.5rem;">${p.method.replace('_', ' ')}</span></td>
-                                        <td style="padding: 0.5rem; text-align: center; font-weight: 800; color: ${p.currency === 'USD' ? 'var(--success)' : 'inherit'}; font-size: 0.9rem;">
-                                            ${p.currency} ${p.amount.toFixed(2)}
-                                        </td>
-                                        <td style="padding: 0.5rem; text-align: center; color: #ef4444; font-weight: bold;">${p.reference || p.ref || 'N/A'}</td>
-                                        <td style="padding: 0.5rem; text-align: center;">
-                                            <button class="btn btn-primary btn-sm btn-verify" data-id="${p.id}" data-ref="${p.reference || p.ref || 'N/A'}" style="background: var(--success); border-color: var(--success); width: 100%; font-weight: bold; font-size: 0.75rem; padding: 0.4rem;">VERIFICADO</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+    async function showPurchaseDetailView(purchase) {
+        const reportsContainer = container.querySelector('.reports-container');
+        const modalContainer = container.querySelector('#purchaseDetailModalContainer');
+        
+        showNotification("Cargando detalle de compra...", "info");
 
-                results.querySelectorAll('.btn-verify').forEach(btn => {
-                    btn.onclick = async () => {
-                        const id = btn.dataset.id;
-                        const ref = btn.dataset.ref;
+        let payments = [];
+        try {
+            const paySnap = await getDocs(collection(db, "businesses", businessId, "purchases", purchase.id, "payments"));
+            payments = paySnap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => new Date(a.date) - new Date(b.date));
+        } catch (e) {
+            console.error("Error fetching payments for " + purchase.id + ":", e);
+        }
+
+        const legacyAmount = purchase.equivalentUsd || (purchase.totalUsd - purchase.pendingBalanceUsd);
+        if (payments.length === 0 && legacyAmount > 0.01) {
+            payments.push({
+                id: 'legacy',
+                date: purchase.paymentDate || purchase.receptionDate || purchase.emissionDate,
+                method: purchase.paymentMethod || 'Abono Registrado',
+                reference: purchase.reference || '-',
+                equivalentUsd: legacyAmount,
+                type: 'LEGACY'
+            });
+        }
+
+        const supName = getSupplierName(purchase);
+        
+        let badgeColor = 'var(--text-muted)';
+        if (purchase.status === 'CREDITO') badgeColor = 'var(--danger)';
+        if (purchase.status === 'PAGADO' || purchase.status === 'CONTADO') badgeColor = 'var(--success)';
+        if (purchase.status === 'ABONO') badgeColor = 'var(--warning)';
+
+        const productsList = purchase.products || purchase.items || [];
+
+        let html = `
+            <div class="desktop-only" style="padding-bottom: 2rem;">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <button class="btn btn-outline" id="backToDeckBtn" style="width: auto; padding: 0.5rem 1rem;">← Atrás</button>
+                    <h2>Detalle de Compra</h2>
+                </div>
+                
+                <div class="card mb-4" style="padding: 1rem 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="color: var(--primary); margin-bottom: 0.25rem;">${supName}</h3>
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Tasa Factura: Bs. ${purchase.bcvRate || 'N/A'} | Creado por: ${purchase.createdBy || 'Sistema'}</p>
+                        </div>
                         
-                        showConfirmModal(
-                            "Verificar Pago", 
-                            `¿Está seguro de marcar el pago REF: ${ref} como VERIFICADO?\nEsta acción lo ocultará de esta lista.`, 
-                            async () => {
-                                btn.disabled = true;
-                                btn.textContent = '...';
-                                try {
-                                    await updateDoc(doc(db, "businesses", businessId, "payments", id), {
-                                        verified: true,
-                                        verifiedAt: new Date().toISOString(),
-                                        verifiedBy: auth.currentUser.email
-                                    });
-                                    const row = document.getElementById(`pay-row-${id}`);
-                                    if (row) {
-                                        row.style.opacity = '0.3';
-                                        row.style.pointerEvents = 'none';
-                                    }
-                                    showNotification("Pago marcado como verificado", "success");
-                                } catch (err) {
-                                    showNotification("Error: " + err.message);
-                                    btn.disabled = false;
-                                    btn.textContent = '✅ VERIFICADO';
-                                }
-                            },
-                            "Sí, Verificar",
-                            "Cancelar"
-                        );
-                    };
-                });
-            } catch (err) {
-                results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
-            }
+                        <div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Fecha Emisión</p>
+                            <p style="font-weight: 500;">${formatDateToDDMMYYYY(purchase.emissionDate || purchase.date)}</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Fecha Recepción</p>
+                            <p style="font-weight: 500;">${formatDateToDDMMYYYY(purchase.receptionDate || purchase.date)}</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Moneda Original</p>
+                            <p style="font-weight: 500;">${purchase.currency === 'BS' ? 'BOLÍVARES' : 'DÓLARES'}</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Total Items</p>
+                            <p style="font-weight: 500;">${purchase.itemsCount || productsList.length}</p>
+                        </div>
+
+                        <div style="text-align: right;">
+                            <span style="display: inline-block; padding: 0.3rem 0.6rem; border-radius: 12px; background: ${badgeColor}20; color: ${badgeColor}; font-weight: bold; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                                ESTADO: ${purchase.status || 'N/A'}
+                            </span>
+                            <p style="font-weight: bold; font-size: 1.1rem;">${purchase.docType || 'Documento'} N° ${purchase.docNumber || 'N/A'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-grid" style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+                    <div class="card" style="padding: 1rem 1.5rem; display: flex; flex-direction: column;">
+                        <div style="overflow-x: auto; flex: 1;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border);">
+                                        <th style="padding: 0.5rem;">Producto</th>
+                                        <th style="padding: 0.5rem;">Cant.</th>
+                                        <th style="padding: 0.5rem;">Costo $</th>
+                                        <th style="padding: 0.5rem;">Costo Bs</th>
+                                        <th style="padding: 0.5rem;">SubTotal $</th>
+                                        <th style="padding: 0.5rem;">SubTotal Bs</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${productsList.map(p => {
+                                        const subTotalBs = p.subTotalBs || ((p.costBs || 0) * p.qty) || 0;
+                                        const subTotalUsd = p.subTotalUsd || ((p.costUsd || p.costUSD || 0) * p.qty) || 0;
+                                        return `
+                                        <tr>
+                                            <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.name || 'Producto'}</td>
+                                            <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${p.qty || p.quantity || 1} ${p.stockUnit || 'ud'}</td>
+                                            <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">$ ${(p.costUsd || p.costUSD || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                            <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Bs. ${(p.costBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                            <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--primary);">$ ${subTotalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                            <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--text-main);">Bs. ${subTotalBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                        </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: center;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 1rem;">
+                                <span style="color: var(--text-muted);">Total Facturado:</span>
+                                <strong>$ ${getPurchaseTotal(purchase).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                                <span style="color: var(--text-muted);">Referencia BCV:</span>
+                                <span style="font-size: 0.9rem;">Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding-top: 1rem; border-top: 2px solid var(--border); font-size: 1.25rem; color: ${purchase.pendingBalanceUsd > 0 ? 'var(--danger)' : 'var(--success)'};">
+                                <span>Saldo Pendiente:</span>
+                                <strong>$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: 1.5rem; background: var(--background); flex: 1; display: flex; flex-direction: column;">
+                            <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Historial de Pagos</h4>
+                            ${payments.length > 0 ? `
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                        <thead>
+                                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                                                <th style="padding: 0.5rem;">Fecha</th>
+                                                <th style="padding: 0.5rem;">Método</th>
+                                                <th style="padding: 0.5rem;">Ref.</th>
+                                                <th style="padding: 0.5rem; text-align: right;">Abono Bs.</th>
+                                                <th style="padding: 0.5rem; text-align: right;">Equiv. $</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${payments.map(p => {
+                                                const amtBs = p.amountBs || (p.id === 'legacy' ? (purchase.receivedBs || 0) : 0);
+                                                return `
+                                                <tr style="border-bottom: 1px solid var(--border);">
+                                                    <td style="padding: 0.5rem;">${formatDateToDDMMYYYY(p.date)}</td>
+                                                    <td style="padding: 0.5rem;">${p.method}</td>
+                                                    <td style="padding: 0.5rem;"><small>${p.reference || '-'}</small></td>
+                                                    <td style="padding: 0.5rem; text-align: right;">${amtBs > 0 ? `Bs. ${amtBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}</td>
+                                                    <td style="padding: 0.5rem; text-align: right; font-weight: bold; color: var(--success);">$ ${(p.equivalentUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                                </tr>
+                                                `;
+                                            }).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ` : '<p class="text-muted">No se registraron pagos para esta factura.</p>'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mobile-only" style="padding-bottom: 6rem;">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <button id="mobileBackToDeckBtn" style="background: none; border: none; color: var(--text-main); font-size: 1.5rem; padding: 0; cursor: pointer;">←</button>
+                    <h2 style="margin: 0; font-size: 1.25rem;">Detalle de Compra</h2>
+                </div>
+
+                <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; border-radius: 12px; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--primary-fixed-dim); font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase;">Proveedor</span>
+                            <h3 style="font-size: 1.1rem; margin-top: 0.25rem; color: var(--text-main);">${supName}</h3>
+                        </div>
+                        <span style="padding: 0.35rem 0.75rem; border-radius: 999px; background: ${badgeColor}20; color: ${badgeColor}; font-size: 0.75rem; font-weight: 700;">${purchase.status || 'N/A'}</span>
+                    </div>
+                    <div style="height: 1px; background: var(--border); margin: 1rem 0;"></div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Doc.</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">N° ${purchase.docNumber || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Tasa Factura</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">Bs. ${purchase.bcvRate || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Emisión</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">${formatDateToDDMMYYYY(purchase.emissionDate || purchase.date)}</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Recepción</span>
+                            <div style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-main);">${formatDateToDDMMYYYY(purchase.receptionDate || purchase.date)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <span style="color: var(--text-muted); font-size: 0.9rem;">Total Facturado</span>
+                        <strong style="font-size: 1rem; color: var(--text-main);">$ ${getPurchaseTotal(purchase).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <span style="color: var(--text-muted); font-size: 0.9rem;">Referencia BCV</span>
+                        <span style="font-size: 0.9rem; color: var(--text-muted);">Bs. ${(purchase.totalBs || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                    <div style="height: 1px; background: var(--border); margin-bottom: 1rem;"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; color: var(--primary-fixed-dim);">
+                        <span style="font-size: 1rem; font-weight: bold;">Saldo Pendiente</span>
+                        <strong style="font-size: 1.1rem; color: var(--text-main);">$ ${(purchase.pendingBalanceUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                    </div>
+                </div>
+
+                <h4 style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase;">PRODUCTOS (${productsList.length} ITEMS)</h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+                    ${productsList.map(p => {
+                        const subUsd = p.subTotalUsd || ((p.costUsd || p.costUSD || 0) * p.qty) || 0;
+                        return `
+                        <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px;">
+                            <h4 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-main);">${p.name || 'Producto'}</h4>
+                            <div style="display: flex; justify-content: space-between;">
+                                <div>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Cant.</span>
+                                    <div style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); margin-top: 0.25rem;">${p.qty || p.quantity || 1} ${p.stockUnit || 'Ud'}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Costo Ud.</span>
+                                    <div style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); margin-top: 0.25rem;">$ ${(p.costUsd || p.costUSD || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Subtotal</span>
+                                    <div style="font-size: 0.85rem; font-family: monospace; color: var(--success); font-weight: bold; margin-top: 0.25rem;">$ ${subUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                </div>
+                            </div>
+                        </div>
+                        `
+                    }).join('')}
+                </div>
+
+                <h4 style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase;">HISTORIAL DE PAGOS</h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">
+                    ${payments.length > 0 ? payments.map(p => {
+                        const amtBs = p.amountBs || (p.id === 'legacy' ? (purchase.receivedBs || 0) : 0);
+                        return `
+                        <div class="card" style="background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    <h4 style="font-size: 1rem; margin-bottom: 0.25rem; color: var(--text-main);">${p.method}</h4>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">Ref: ${p.reference || '-'}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">${formatDateToDDMMYYYY(p.date)}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.95rem; font-weight: bold; color: var(--success); margin-bottom: 0.25rem;">$ ${(p.equivalentUsd || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Bs. ${amtBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                </div>
+                            </div>
+                        </div>
+                        `
+                    }).join('') : '<p class="text-muted" style="font-size: 0.9rem;">No se registraron pagos.</p>'}
+                </div>
+
+                <div style="position: fixed; bottom: 0; left: 0; right: 0; padding: 1rem; background: var(--surface); border-top: 1px solid var(--border); z-index: 10;">
+                    <button class="btn btn-primary" id="mobileBackBtn2" style="width: 100%; padding: 0.8rem; font-size: 1rem; font-weight: bold; border-radius: 8px;">Volver</button>
+                </div>
+            </div>
+        `;
+
+        reportsContainer.style.display = 'none';
+        modalContainer.innerHTML = html;
+        modalContainer.style.display = 'block';
+
+        const closeView = () => {
+            modalContainer.innerHTML = '';
+            modalContainer.style.display = 'none';
+            reportsContainer.style.display = 'flex';
         };
+
+        ['#backToDeckBtn', '#mobileBackToDeckBtn', '#mobileBackBtn2'].forEach(id => {
+            const btn = modalContainer.querySelector(id);
+            if(btn) btn.addEventListener('click', closeView);
+        });
+    }
+
+    async function fetchPaymentsForExport() {
+        const dataWithPayments = [];
+        showNotification("Recopilando pagos, por favor espere...", "info");
+        
+        const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+        
+        for (const item of currentData) {
+            let payments = [];
+            if (currentType === 'sales') {
+                const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", item.id));
+                const snap = await getDocs(q);
+                payments = snap.docs.map(d => d.data());
+            } else {
+                const snap = await getDocs(collection(db, "businesses", businessId, "purchases", item.id, "payments"));
+                payments = snap.docs.map(d => d.data());
+            }
+            
+            // Asignar tasa BCV histórica si falta
+            for (let p of payments) {
+                if (!p.bcvRate) {
+                    try {
+                        const dateStr = p.date || item.date;
+                        if (dateStr) {
+                            const safeDateStr = dateStr.replace(/\//g, '-');
+                            const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
+                            if (docSnap.exists()) {
+                                p.bcvRate = docSnap.data().rate;
+                            } else {
+                                p.bcvRate = currentBcvRate;
+                            }
+                        } else {
+                            p.bcvRate = currentBcvRate;
+                        }
+                    } catch (e) {
+                        console.error("Error fetching historical rate:", e);
+                        p.bcvRate = currentBcvRate;
+                    }
+                }
+            }
+            
+            dataWithPayments.push({ ...item, _payments: payments });
+        }
+        return dataWithPayments;
+    }
+
+    async function exportToExcel() {
+        if (!currentData || currentData.length === 0) return;
+        
+        try {
+            const dataWithPayments = await fetchPaymentsForExport();
+            const exportRows = [];
+            
+            dataWithPayments.forEach(item => {
+                const isSales = currentType === 'sales';
+                const entity = isSales ? item.clientName : getSupplierName(item);
+                const total = isSales ? (item.totalUSD || 0) : getPurchaseTotal(item);
+                const numFactura = isSales ? (item.correlative || item.id.slice(-6).toUpperCase()) : (item.docNumber || item.id.slice(-6).toUpperCase());
+                
+                // Formatear productos
+                const productsList = item.items || item.products || [];
+                const productosFormateados = productsList.map(p => `${p.qty || p.quantity || 1} - ${p.name || 'Producto'}`).join(', ');
+
+                // Formatear pagos
+                let pagosFormateados = "Sin pagos";
+                let fechaUltimoPago = "---";
+
+                if (item._payments && item._payments.length > 0) {
+                    // Ordenar pagos del más antiguo al más reciente
+                    const sortedPayments = [...item._payments].sort((a,b) => new Date(a.date) - new Date(b.date));
+                    const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+                    
+                    pagosFormateados = sortedPayments.map(p => {
+                        const method = p.method ? p.method.replace('_', ' ') : 'PAGO';
+                        const isBs = p.currency === 'BS' || p.currency === 'Bs';
+                        const amount = p.amount || 0;
+                        const rate = p.bcvRate || currentBcvRate;
+                        
+                        let eqvUsd = 0;
+                        let montoBs = 0;
+
+                        if (isBs) {
+                            montoBs = p.amountBs || amount;
+                            eqvUsd = p.equivalentUsd || (montoBs / rate);
+                        } else {
+                            eqvUsd = p.equivalentUsd || amount;
+                            montoBs = p.amountBs || (eqvUsd * rate);
+                        }
+
+                        const dateStr = formatDateToDDMMYYYY(p.date || item.date);
+                        return `${dateStr} - ${method} - $ ${eqvUsd.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})} - Bs. ${montoBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+                    }).join(', ');
+
+                    fechaUltimoPago = formatDateToDDMMYYYY(sortedPayments[sortedPayments.length - 1].date || item.date);
+                }
+
+                exportRows.push({
+                    "Fecha": formatDateToDDMMYYYY(item.date),
+                    "Nro Factura": numFactura,
+                    "Cliente / Proveedor": entity,
+                    "Estado": (item.status || '').toUpperCase(),
+                    "Total Factura ($)": total,
+                    "Productos": productosFormateados,
+                    "Pagos Recibidos": pagosFormateados,
+                    "Fecha Último Pago": fechaUltimoPago
+                });
+            });
+            
+            const worksheet = XLSX.utils.json_to_sheet(exportRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte");
+            XLSX.writeFile(workbook, `Reporte_${currentType}_${new Date().getTime()}.xlsx`);
+            showNotification("Excel exportado con éxito", "success");
+        } catch (e) {
+            console.error(e);
+            showNotification("Error exportando a Excel. Verifique las librerías.", "error");
+        }
+    }
+
+    async function exportToPDF() {
+        if (!currentData || currentData.length === 0) return;
+        
+        try {
+            const dataWithPayments = await fetchPaymentsForExport();
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape'); // Horizontal para que quepa todo el texto
+            
+            doc.setFontSize(16);
+            doc.text(`Reporte de ${currentType === 'sales' ? 'Ventas' : 'Compras'}`, 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 22);
+            
+            const tableColumn = ["Fecha", "Nro Fact.", "Entidad", "Estado", "Total $", "Productos", "Pagos Recibidos"];
+            const tableRows = [];
+            
+            dataWithPayments.forEach(item => {
+                const isSales = currentType === 'sales';
+                const entity = isSales ? item.clientName : getSupplierName(item);
+                const total = isSales ? (item.totalUSD || 0) : getPurchaseTotal(item);
+                const numFactura = isSales ? (item.correlative || item.id.slice(-6).toUpperCase()) : (item.docNumber || item.id.slice(-6).toUpperCase());
+                
+                const productsList = item.items || item.products || [];
+                const productosFormateados = productsList.map(p => `${p.qty || p.quantity || 1} - ${p.name || 'Producto'}`).join(', ');
+
+                let pagosFormateados = "Sin pagos";
+                if (item._payments && item._payments.length > 0) {
+                    const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+                    
+                    pagosFormateados = sortedPayments.map(p => {
+                        const method = p.method ? p.method.replace('_', ' ') : 'PAGO';
+                        const isBs = p.currency === 'BS' || p.currency === 'Bs';
+                        const amount = p.amount || 0;
+                        const rate = p.bcvRate || currentBcvRate;
+                        
+                        let eqvUsd = 0;
+                        let montoBs = 0;
+
+                        if (isBs) {
+                            montoBs = p.amountBs || amount;
+                            eqvUsd = p.equivalentUsd || (montoBs / rate);
+                        } else {
+                            eqvUsd = p.equivalentUsd || amount;
+                            montoBs = p.amountBs || (eqvUsd * rate);
+                        }
+
+                        const dateStr = formatDateToDDMMYYYY(p.date || item.date);
+                        return `${dateStr} - ${method} - $ ${eqvUsd.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})} - Bs. ${montoBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+                    }).join('\n');
+                }
+                
+                tableRows.push([
+                    formatDateToDDMMYYYY(item.date),
+                    numFactura,
+                    entity,
+                    (item.status || '').toUpperCase(),
+                    `$ ${total.toFixed(2)}`,
+                    productosFormateados,
+                    pagosFormateados
+                ]);
+            });
+            
+            doc.autoTable({
+                head: [tableColumn],
+                body: tableRows,
+                startY: 30,
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: { 
+                    5: { cellWidth: 70 }, // Productos
+                    6: { cellWidth: 80 }  // Pagos
+                }
+            });
+            
+            doc.save(`Reporte_${currentType}_${new Date().getTime()}.pdf`);
+            showNotification("PDF exportado con éxito", "success");
+        } catch (e) {
+            console.error(e);
+            showNotification("Error exportando a PDF. Verifique las librerías.", "error");
+        }
     }
 
     init();
