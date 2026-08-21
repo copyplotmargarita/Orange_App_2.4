@@ -1349,39 +1349,39 @@ export async function showSaleDetail(sale) {
 
             <!-- ====== DESKTOP VIEWS (Tables) ====== -->
             <div class="desktop-only-modal">
-                <table class="premium-table" style="margin-bottom: 1.5rem;">
+                <table class="premium-table" style="margin-bottom: 1.5rem; width: 100%; border-collapse: collapse;">
                     <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th style="text-align: center;">Cant.</th>
-                            <th style="text-align: right;">Precio</th>
-                            <th style="text-align: right;">Total</th>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <th style="text-align: left; padding: 0.5rem;">Producto</th>
+                            <th style="text-align: center; padding: 0.5rem; width: 15%;">Cant.</th>
+                            <th style="text-align: right; padding: 0.5rem; width: 20%;">Precio</th>
+                            <th style="text-align: right; padding: 0.5rem; width: 20%;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${sale.items ? sale.items.map(item => `
-                            <tr>
-                                <td style="color: #e2e8f0;">${item.name}</td>
-                                <td style="text-align: center; color: #e2e8f0;">${item.qty}</td>
-                                <td style="text-align: right; color: #e2e8f0;">$ ${fmt(item.price)}</td>
-                                <td style="text-align: right; font-weight: bold; color: #ffffff;">$ ${fmt(item.price * item.qty)}</td>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="color: #e2e8f0; padding: 0.5rem;">${item.name}</td>
+                                <td style="text-align: center; color: #e2e8f0; padding: 0.5rem;">${item.qty}</td>
+                                <td style="text-align: right; color: #e2e8f0; padding: 0.5rem;">$ ${fmt(item.price)}</td>
+                                <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 0.5rem;">$ ${fmt(item.price * item.qty)}</td>
                             </tr>
-                        `).join('') : '<tr><td colspan="4" style="text-align: center; color: #a0aec0;">No hay items</td></tr>'}
+                        `).join('') : '<tr><td colspan="4" style="text-align: center; color: #a0aec0; padding: 1rem;">No hay items</td></tr>'}
                     </tbody>
                 </table>
 
                 <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 1rem; text-align: left;">
                     <h4 style="font-size: 0.8rem; text-transform: uppercase; color: #a0aec0; margin-bottom: 0.5rem;">Pagos Recibidos</h4>
                     ${salePayments.length > 0 ? `
-                        <table class="premium-table" style="margin-bottom: 1rem; font-size: 11px;">
+                        <table class="premium-table" style="margin-bottom: 1rem; font-size: 11px; width: 100%; border-collapse: collapse;">
                             <thead>
-                                <tr>
-                                    <th style="padding: 4px 6px;">Fecha</th>
-                                    <th style="padding: 4px 6px;">Método</th>
-                                    <th style="text-align: right; padding: 4px 6px;">Monto Bs.</th>
-                                    <th style="text-align: right; padding: 4px 6px;">Monto $</th>
-                                    <th style="text-align: right; padding: 4px 6px;">Eqv. $</th>
-                                    <th style="text-align: center; padding: 4px 6px; width: 50px;">Acc.</th>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <th style="text-align: left; padding: 6px 8px;">Fecha</th>
+                                    <th style="text-align: left; padding: 6px 8px;">Método</th>
+                                    <th style="text-align: right; padding: 6px 8px; width: 15%;">Monto Bs.</th>
+                                    <th style="text-align: right; padding: 6px 8px; width: 15%;">Monto $</th>
+                                    <th style="text-align: right; padding: 6px 8px; width: 15%;">Eqv. $</th>
+                                    <th style="text-align: center; padding: 6px 8px; width: 60px;">Acc.</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1402,13 +1402,13 @@ export async function showSaleDetail(sale) {
                                     }
 
                                     return `
-                                        <tr>
-                                            <td style="color: #e2e8f0; padding: 4px 6px; white-space: nowrap;">${p.date ? formatDateToDDMMYYYY(p.date) : 'N/A'}</td>
-                                            <td style="color: #e2e8f0; padding: 4px 6px; white-space: nowrap; text-transform: uppercase;">${p.method}</td>
-                                            <td style="text-align: right; color: #e2e8f0; padding: 4px 6px; white-space: nowrap;">${montoBs}</td>
-                                            <td style="text-align: right; color: #e2e8f0; padding: 4px 6px; white-space: nowrap;">${montoUSD}</td>
-                                            <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 4px 6px; white-space: nowrap;">${equivalenteUSD}</td>
-                                            <td style="text-align: center; padding: 4px 6px; white-space: nowrap;">
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${p.date ? formatDateToDDMMYYYY(p.date) : 'N/A'}</td>
+                                            <td style="color: #e2e8f0; padding: 6px 8px; white-space: nowrap; text-transform: uppercase;">${p.method}</td>
+                                            <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoBs}</td>
+                                            <td style="text-align: right; color: #e2e8f0; padding: 6px 8px; white-space: nowrap;">${montoUSD}</td>
+                                            <td style="text-align: right; font-weight: bold; color: #ffffff; padding: 6px 8px; white-space: nowrap;">${equivalenteUSD}</td>
+                                            <td style="text-align: center; padding: 6px 8px; white-space: nowrap;">
                                                 <span class="material-symbols-outlined edit-pay-btn" data-id="${p.id}" style="color: #63b3ed; cursor: pointer; font-size: 1rem; margin-right: 4px;" title="Editar Pago">edit</span>
                                                 <span class="material-symbols-outlined delete-pay-btn" data-id="${p.id}" style="color: #f87171; cursor: pointer; font-size: 1rem; font-weight: bold;" title="Eliminar Pago">delete</span>
                                             </td>
