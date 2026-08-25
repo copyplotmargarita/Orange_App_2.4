@@ -3078,10 +3078,10 @@ export function renderPurchases(container) {
                         <button type="button" class="btn btn-primary" id="pbProcessBtn" style="width: auto; height: 42px; font-weight: 800; padding: 0 1.5rem; border-radius: 12px;">PROCESAR</button>
                     </div>
                 </div>
-                <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
+                <div style="flex: 1; display: flex; overflow: hidden;">
                     <!-- Lado Izquierdo: Catálogo -->
                     <div style="flex: 1; display: flex; flex-direction: column; background: var(--background); border-right: 1px solid var(--border);">
-                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="padding: 0.5rem 1.5rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.75rem;">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label style="margin-bottom: 4px; font-weight: 800; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Buscar en catálogo</label>
                                 <div style="display: flex; gap: 0.5rem;">
