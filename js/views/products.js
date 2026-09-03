@@ -656,23 +656,23 @@ export function renderProducts(container) {
                     <h2 style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--primary);">👩‍🍳 Constructor de Receta</h2>
                     <button type="button" class="btn btn-primary" id="finishRecipeBtn" style="margin-left: auto; width: auto; min-width: 180px; height: 42px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">FINALIZAR RECETA</button>
                 </div>
-                <div style="flex: 1; display: flex; overflow: hidden;" class="flex-stack-mobile">
+                <div style="flex: 1; display: flex; overflow: hidden; align-items: stretch !important;" class="flex-stack-mobile">
                     <!-- Lado Izquierdo: Catálogo de Productos -->
                     <div style="flex: 1; display: flex; flex-direction: column; background: var(--background); border-right: 1px solid var(--border); overflow: hidden;">
-                        <div style="padding: 1rem; border-bottom: 1px solid var(--border); background: var(--surface);">
+                        <div style="padding: 1rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;">
                             <input type="search" id="catalogSearch" class="form-control" placeholder="🔍 Buscar insumos para agregar...">
                         </div>
-                        <div id="catalogGrid" style="flex: 1; padding: 1rem; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; align-content: start;">
+                        <div id="catalogGrid" style="flex: 1; min-height: 0; padding: 1rem; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; align-content: start;">
                             <!-- Catalog cards -->
                         </div>
                     </div>
 
                     <!-- Lado Derecho: DECK (Ingredientes) -->
                     <div style="flex: 1; display: flex; flex-direction: column; background: var(--surface);">
-                        <div style="padding: 1rem; border-bottom: 1px solid var(--border);">
+                        <div style="padding: 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0;">
                             <h3 style="margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-muted);">📋 INGREDIENTES SELECCIONADOS</h3>
                         </div>
-                        <div style="flex: 1; overflow-y: auto; padding: 1rem;">
+                        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 1rem;">
                             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                                 <thead>
                                     <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); text-transform: uppercase; font-size: 0.65rem; letter-spacing: 1px;">
@@ -688,7 +688,7 @@ export function renderProducts(container) {
                                 </tbody>
                             </table>
                         </div>
-                        <div style="padding: 1.5rem; border-top: 1px solid var(--border); background: var(--background);">
+                        <div style="padding: 1.5rem; border-top: 1px solid var(--border); background: var(--background); flex-shrink: 0;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; text-align: center;">
                                 <div class="card" style="padding: 1rem;">
                                     <p style="font-size: 0.6rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Rendimiento</p>
