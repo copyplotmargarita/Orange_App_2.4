@@ -210,9 +210,9 @@ export function renderDashboard() {
                         <span class="bcv-label hide-mobile">Tasa BCV</span>
                         <div class="bcv-value-container">
                             <span id="bcvDisplay" class="bcv-value ${bcvRateLoaded ? 'success' : 'danger'}">
-                                ${bcvRateLoaded ? `Bs. ${parseFloat(localStorage.getItem('bcvRate')).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : (isAdmin ? 'Actualizar' : 'Cargar tasa')}
+                                ${bcvRateLoaded ? `Bs. ${parseFloat(localStorage.getItem('bcvRate')).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'Cargar tasa'}
                             </span>
-                            ${!isEmployee ? `<button id="editBcvBtn" class="edit-bcv-btn" title="Editar Tasa BCV">✏️</button>` : ''}
+                            <button id="editBcvBtn" class="edit-bcv-btn" title="Editar Tasa BCV">✏️</button>
                         </div>
                     </div>
                 </div>
@@ -246,7 +246,7 @@ export function renderDashboard() {
                 <!-- Aquí se cargarán las subvistas dinámicamente -->
             </div>
 
-            <div id="bcvOverlay" style="display: ${!bcvRateLoaded && isAdmin ? 'flex' : 'none'}; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 50; align-items: center; justify-content: center;">
+            <div id="bcvOverlay" style="display: ${!bcvRateLoaded ? 'flex' : 'none'}; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 50; align-items: center; justify-content: center;">
                 <div class="card text-center" style="max-width: 400px; padding: 2rem;">
                     <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
                     <h3 class="mb-2 text-danger">CARGAR TASA BCV DEL DÍA</h3>
