@@ -193,6 +193,9 @@ export async function renderReceivables(container) {
         });
 
         const clientsArray = Object.values(clientsMap);
+        
+        // Ordenar alfabéticamente por nombre del cliente (A a la Z)
+        clientsArray.sort((a, b) => a.clientName.localeCompare(b.clientName));
 
         // Función para renderizar métricas globales
         function renderGlobalMetrics() {
@@ -203,11 +206,11 @@ export async function renderReceivables(container) {
                     <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr);">
                         <div class="metric-box">
                             <div class="title">Total Deuda ($)</div>
-                            <div class="value" style="color: #ef4444;">$ ${fmt(totalDebtUSD)}</div>
+                            <div class="value" style="color: #ffffff;">$ ${fmt(totalDebtUSD)}</div>
                         </div>
                         <div class="metric-box">
                             <div class="title">Total Deuda (Bs)</div>
-                            <div class="value" style="color: #ef4444;">Bs. ${fmt(totalDebtBs)}</div>
+                            <div class="value" style="color: #ffffff;">Bs. ${fmt(totalDebtBs)}</div>
                         </div>
                         <div class="metric-box">
                             <div class="title">Deuda Nueva (Hoy)</div>
@@ -227,7 +230,7 @@ export async function renderReceivables(container) {
                         </div>
                         <div class="metric-box danger-top">
                             <div class="title">Total Deuda ($)</div>
-                            <div class="value" style="color: #ffb4ab;">$ ${fmt(totalDebtUSD)}</div>
+                            <div class="value" style="color: #ffffff;">$ ${fmt(totalDebtUSD)}</div>
                         </div>
                     </div>
                 </div>
@@ -264,8 +267,8 @@ export async function renderReceivables(container) {
                             <tr class="clickable-row desktop-row" data-client-id="${client.clientId}">
                                 <td style="font-weight: 500; color: #ffffff;">${client.clientName}</td>
                                 <td style="text-align: center; color: #ffffff;">${client.invoiceCount}</td>
-                                <td style="text-align: right; font-weight: bold; color: #e53e3e;">$ ${fmt(client.totalDebt)}</td>
-                                <td style="text-align: right; font-weight: bold; color: #e53e3e;">Bs. ${fmt(client.totalDebtBs)}</td>
+                                <td style="text-align: right; font-weight: bold; color: #ffffff;">$ ${fmt(client.totalDebt)}</td>
+                                <td style="text-align: right; font-weight: bold; color: #ffffff;">Bs. ${fmt(client.totalDebtBs)}</td>
                                 <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.oldestDate)}</td>
                                 <td style="text-align: center; color: #ffffff;">${formatDateToDDMMYYYY(client.newestDate)}</td>
                             </tr>
@@ -290,8 +293,8 @@ export async function renderReceivables(container) {
                                     </div>
                                 </div>
                                 <div style="text-align: right;">
-                                    <div class="data-card-amount large">$ ${fmt(client.totalDebt)}</div>
-                                    <div class="data-card-amount large" style="opacity: 0.8; margin-top: 4px;">Bs. ${fmt(client.totalDebtBs)}</div>
+                                    <div class="data-card-amount large" style="color: #ffffff;">$ ${fmt(client.totalDebt)}</div>
+                                    <div class="data-card-amount large" style="color: #ffffff; opacity: 0.8; margin-top: 4px;">Bs. ${fmt(client.totalDebtBs)}</div>
                                 </div>
                             </div>
                             <div class="data-card-divider" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -362,6 +365,9 @@ export async function renderReceivables(container) {
 function renderClientReceivables(clientData, container, backToMainCallback) {
     const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
 
+    // Ordenar de la fecha más antigua a la más reciente
+    clientData.sales.sort((a, b) => new Date(a.date) - new Date(b.date));
+
     container.innerHTML = `
         <div id="receivablesTopSticky" style="position: sticky; top: -0.75rem; background: var(--background); z-index: 50; margin-top: -0.75rem; padding-top: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
             <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;">
@@ -383,11 +389,11 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                     </div>
                     <div class="metric-box" style="flex: 1;">
                         <div class="title">Total Pendiente ($)</div>
-                        <div class="value" style="color: #ef4444;">$ ${fmt(clientData.totalDebt)}</div>
+                        <div class="value" style="color: #ffffff;">$ ${fmt(clientData.totalDebt)}</div>
                     </div>
                     <div class="metric-box" style="flex: 1;">
                         <div class="title">Total Pendiente (Bs)</div>
-                        <div class="value" style="color: #ef4444;">Bs. ${fmt(clientData.totalDebt * currentBcvRate)}</div>
+                        <div class="value" style="color: #ffffff;">Bs. ${fmt(clientData.totalDebt * currentBcvRate)}</div>
                     </div>
                 </div>
             </div>
@@ -462,11 +468,11 @@ function renderClientReceivables(clientData, container, backToMainCallback) {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 12px 0 0 0; border-top: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
                                 <div style="display: flex; flex-direction: column;">
                                     <span style="font-size: 10px; color: #8b919d; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Monto ($)</span>
-                                    <span style="color: #ffb4ab; font-weight: 800; font-size: 18px;">$ ${fmt(sale.remainingUSD || 0)}</span>
+                                    <span style="color: #ffffff; font-weight: 800; font-size: 18px;">$ ${fmt(sale.remainingUSD || 0)}</span>
                                 </div>
                                 <div style="display: flex; flex-direction: column; align-items: flex-end;">
                                     <span style="font-size: 10px; color: #8b919d; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Monto (BS)</span>
-                                    <span style="color: #ffb4ab; opacity: 0.8; font-weight: 800; font-size: 18px;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</span>
+                                    <span style="color: #ffffff; opacity: 0.8; font-weight: 800; font-size: 18px;">Bs. ${fmt(sale.remainingUSD * currentBcvRate)}</span>
                                 </div>
                             </div>
                         </article>
@@ -729,16 +735,12 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
                         const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
                         if (docSnap.exists()) {
                             activeModalBcvRate = docSnap.data().rate;
+                            payAmountUSDInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            payAmountBSInput.value = (remainingUSD * activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         } else {
                             activeModalBcvRate = currentBcvRate;
-                        }
-                        const isBsMethod = payMethodSelect.value.startsWith('BS_');
-                        if (isBsMethod) {
-                            const valBs = parseFloat(payAmountBSInput.value.replace(/\D/g, '')) / 100 || 0;
-                            if (valBs > 0) payAmountUSDInput.value = (valBs / activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        } else {
-                            const valUSD = parseFloat(payAmountUSDInput.value.replace(/\D/g, '')) / 100 || 0;
-                            if (valUSD > 0) payAmountBSInput.value = (valUSD * activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            payAmountUSDInput.value = remainingUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            payAmountBSInput.value = "Tasa BCV no encontrada";
                         }
                     } catch(e) { console.error("Error al buscar tasa BCV:", e); }
                 }
@@ -1085,16 +1087,12 @@ function showMassPaymentModal(clientData, onComplete) {
                         const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
                         if (docSnap.exists()) {
                             activeModalBcvRate = docSnap.data().rate;
+                            payAmountUSDInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            payAmountBSInput.value = (totalDebtUSD * activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         } else {
                             activeModalBcvRate = currentBcvRate;
-                        }
-                        const isBsMethod = payMethodSelect.value.startsWith('BS_');
-                        if (isBsMethod) {
-                            const valBs = parseFloat(payAmountBSInput.value.replace(/\D/g, '')) / 100 || 0;
-                            if (valBs > 0) payAmountUSDInput.value = (valBs / activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        } else {
-                            const valUSD = parseFloat(payAmountUSDInput.value.replace(/\D/g, '')) / 100 || 0;
-                            if (valUSD > 0) payAmountBSInput.value = (valUSD * activeModalBcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            payAmountUSDInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            payAmountBSInput.value = "Tasa BCV no encontrada";
                         }
                     } catch(e) { console.error("Error al buscar tasa BCV:", e); }
                 }

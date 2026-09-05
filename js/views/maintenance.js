@@ -6,7 +6,9 @@ import {
     orderBy,
     writeBatch,
     doc,
-    Timestamp 
+    Timestamp,
+    setDoc,
+    serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js";
 import { showNotification, formatDateToDDMMYYYY } from '../utils.js';
@@ -189,7 +191,7 @@ export function renderMaintenance(container) {
                     tableHTML += `
                         <tr style="border-bottom: 1px dashed var(--border); background: rgba(0,0,0,0.015);">
                             <td style="padding: 0.75rem; font-weight: bold; color: var(--text-muted);">${displayDate}</td>
-                            <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
+                            <td style="padding: 0.75rem;"><button class="btn btn-outline load-missing-bcv-btn" data-date="${currentStr}" style="padding: 4px 12px; font-size: 11px; height: auto;">Cargar Tasa</button></td>
                             <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
                             <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
                             <td style="padding: 0.75rem; color: var(--text-muted);">-</td>
@@ -207,6 +209,86 @@ export function renderMaintenance(container) {
             `;
 
             contentArea.innerHTML = tableHTML;
+
+            contentArea.querySelectorAll('.load-missing-bcv-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const dateStr = e.target.dataset.date;
+                    
+                    const modal = document.createElement('div');
+                    modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
+                    
+                    modal.innerHTML = `
+                        <div style="background: #1a202c; border-radius: 12px; width: 100%; max-width: 320px; padding: 1.5rem; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                            <button id="closeMissingBcvModal" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #a0aec0;">×</button>
+                            
+                            <h3 style="color: #ffffff; margin-top: 0; margin-bottom: 1rem; font-size: 1.2rem;">Cargar Tasa BCV</h3>
+                            <div style="margin-bottom: 1rem; color: #63b3ed; font-family: monospace; font-weight: bold; font-size: 1rem;">📅 ${dateStr}</div>
+                            
+                            <div class="form-group" style="margin-bottom: 1.2rem;">
+                                <label style="color: #a0aec0; font-size: 0.85rem; display: block; margin-bottom: 0.3rem;">Monto (Bs.)</label>
+                                <input type="text" id="missingBcvInput" class="form-control" placeholder="Ej: 42.50" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #ffffff; font-size: 14px;">
+                            </div>
+                            
+                            <button id="saveMissingBcvBtn" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: bold;">Guardar Tasa</button>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                    
+                    const closeBtn = modal.querySelector('#closeMissingBcvModal');
+                    const inputEl = modal.querySelector('#missingBcvInput');
+                    const saveBtn = modal.querySelector('#saveMissingBcvBtn');
+                    
+                    closeBtn.onclick = () => modal.remove();
+                    
+                    inputEl.addEventListener('input', (ev) => {
+                        let value = ev.target.value.replace(/\D/g, '');
+                        if (value === '') { 
+                            ev.target.value = ''; 
+                            return; 
+                        }
+                        let floatValue = parseFloat(value) / 100;
+                        ev.target.value = floatValue.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    });
+                    
+                    saveBtn.onclick = async () => {
+                        const newRateStr = inputEl.value;
+                        if (!newRateStr) {
+                            showNotification("Ingrese un monto", "error");
+                            return;
+                        }
+                        
+                        let cleanStr = newRateStr.replace(/\\./g, '').replace(',', '.');
+                        const rateFloat = parseFloat(cleanStr);
+                        if (isNaN(rateFloat) || rateFloat <= 0) {
+                            showNotification("Monto inválido", "error");
+                            return;
+                        }
+                        
+                        saveBtn.textContent = "Guardando...";
+                        saveBtn.disabled = true;
+                        
+                        try {
+                            const ref = doc(db, "global_bcv_history", dateStr);
+                            await setDoc(ref, {
+                                rate: parseFloat(rateFloat.toFixed(2)),
+                                date: dateStr,
+                                createdAt: serverTimestamp(),
+                                createdBy: localStorage.getItem('employeeName') || localStorage.getItem('userEmail') || 'admin',
+                                isManual: true,
+                                editCount: 1
+                            }, { merge: true });
+                            showNotification("Tasa cargada exitosamente.", "success");
+                            modal.remove();
+                            btnHistoricoTasa.click(); // Recargar vista
+                        } catch (err) {
+                            console.error("Error guardando tasa manual", err);
+                            showNotification("Error: " + err.message, "error");
+                            saveBtn.textContent = "Guardar Tasa";
+                            saveBtn.disabled = false;
+                        }
+                    };
+                });
+            });
 
         } catch (error) {
             console.error("Error consultando histórico:", error);
