@@ -83,6 +83,7 @@ export function renderReports(container) {
                             <select id="typeSelect" class="form-control">
                                 <option value="sales">Ventas</option>
                                 <option value="purchases">Compras</option>
+                                <option value="payments_received">Pagos Recibidos</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -95,11 +96,11 @@ export function renderReports(container) {
                         </div>
                         <div class="form-group">
                             <label>📅 Desde</label>
-                            <input type="date" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
+                            <input type="text" id="dateFrom" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
                         </div>
                         <div class="form-group">
                             <label>📅 Hasta</label>
-                            <input type="date" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
+                            <input type="text" id="dateTo" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}">
                         </div>
                         <div class="form-group">
                             <label>&nbsp;</label>
@@ -148,6 +149,16 @@ export function renderReports(container) {
         container.querySelector('#btnFilter').onclick = executeQuery;
         container.querySelector('#btnExportExcel').onclick = exportToExcel;
         container.querySelector('#btnExportPDF').onclick = exportToPDF;
+
+        if (typeof flatpickr !== 'undefined') {
+            const fpConfig = {
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "d/m/Y"
+            };
+            flatpickr(container.querySelector('#dateFrom'), fpConfig);
+            flatpickr(container.querySelector('#dateTo'), fpConfig);
+        }
     }
 
     async function executeQuery() {
@@ -164,24 +175,40 @@ export function renderReports(container) {
         results.innerHTML = '<div class="text-center p-4">⌛ Consultando...</div>';
 
         try {
-            const collectionName = type === 'sales' ? 'sales' : 'purchases';
-            let q;
+            let items = [];
             
             if (type === 'sales') {
-                q = query(
-                    collection(db, "businesses", businessId, collectionName),
+                const q = query(
+                    collection(db, "businesses", businessId, 'sales'),
                     where("date", ">=", from),
                     where("date", "<=", to)
                 );
+                const snap = await getDocs(q);
+                items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } else if (type === 'payments_received') {
+                const payQ = query(
+                    collection(db, "businesses", businessId, "payments"),
+                    where("date", ">=", from),
+                    where("date", "<=", to)
+                );
+                const paySnap = await getDocs(payQ);
+                const saleIds = [...new Set(paySnap.docs.map(d => d.data().saleId).filter(id => id))];
+                
+                if (saleIds.length > 0) {
+                    const salePromises = saleIds.map(id => getDoc(doc(db, "businesses", businessId, "sales", id)));
+                    const saleSnaps = await Promise.all(salePromises);
+                    saleSnaps.forEach(snap => {
+                        if (snap.exists()) {
+                            items.push({ id: snap.id, ...snap.data() });
+                        }
+                    });
+                }
             } else {
-                // Compras no usa un campo unificado 'date', traemos todas y filtramos en memoria
-                q = collection(db, "businesses", businessId, collectionName);
-            }
-            
-            const snap = await getDocs(q);
-            let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            if (type === 'purchases') {
+                // purchases
+                const q = collection(db, "businesses", businessId, 'purchases');
+                const snap = await getDocs(q);
+                items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
                 items = items.filter(p => {
                     const pDate = p.receptionDate || p.emissionDate || (p.createdAt ? p.createdAt.split('T')[0] : '');
                     p.date = pDate; // Normalizamos para la tabla
@@ -196,8 +223,9 @@ export function renderReports(container) {
             
             // Sort by Client (Sales) or Supplier (Purchases) A-Z, then newest to oldest
             items.sort((a, b) => {
-                let nameA = (type === 'sales' ? (a.clientName || 'Desconocido') : (a.supplierName || 'Desconocido')).toUpperCase();
-                let nameB = (type === 'sales' ? (b.clientName || 'Desconocido') : (b.supplierName || 'Desconocido')).toUpperCase();
+                const isSalesType = type === 'sales' || type === 'payments_received';
+                let nameA = (isSalesType ? (a.clientName || 'Desconocido') : (a.supplierName || 'Desconocido')).toUpperCase();
+                let nameB = (isSalesType ? (b.clientName || 'Desconocido') : (b.supplierName || 'Desconocido')).toUpperCase();
                 
                 if (nameA < nameB) return -1;
                 if (nameA > nameB) return 1;
@@ -206,7 +234,8 @@ export function renderReports(container) {
             currentData = items;
 
             if (items.length === 0) {
-                results.innerHTML = `<div class="alert alert-info text-center">No se encontraron ${type === 'sales' ? 'ventas' : 'compras'} en este rango.</div>`;
+                const typeName = type === 'sales' ? 'ventas' : (type === 'payments_received' ? 'pagos recibidos' : 'compras');
+                results.innerHTML = `<div class="alert alert-info text-center">No se encontraron ${typeName} en este rango.</div>`;
                 return;
             }
 
@@ -221,7 +250,7 @@ export function renderReports(container) {
     }
 
     function renderTable(items, type, resultsContainer) {
-        const isSales = type === 'sales';
+        const isSales = type === 'sales' || type === 'payments_received';
         const entityLabel = isSales ? 'Cliente' : 'Proveedor';
 
         resultsContainer.innerHTML = `
@@ -899,7 +928,7 @@ export function renderReports(container) {
         
         for (const item of currentData) {
             let payments = [];
-            if (currentType === 'sales') {
+            if (currentType === 'sales' || currentType === 'payments_received') {
                 const q = query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", item.id));
                 const snap = await getDocs(q);
                 payments = snap.docs.map(d => d.data());
@@ -944,7 +973,7 @@ export function renderReports(container) {
             const exportRows = [];
             
             dataWithPayments.forEach(item => {
-                const isSales = currentType === 'sales';
+                const isSales = currentType === 'sales' || currentType === 'payments_received';
                 const entity = isSales ? item.clientName : getSupplierName(item);
                 const total = isSales ? (item.totalUSD || 0) : getPurchaseTotal(item);
                 const numFactura = isSales ? (item.correlative || item.id.slice(-6).toUpperCase()) : (item.docNumber || item.id.slice(-6).toUpperCase());
@@ -1019,7 +1048,7 @@ export function renderReports(container) {
             const doc = new jsPDF('landscape'); // Horizontal para que quepa todo el texto
             
             doc.setFontSize(16);
-            doc.text(`Reporte de ${currentType === 'sales' ? 'Ventas' : 'Compras'}`, 14, 15);
+            doc.text(`Reporte de ${currentType === 'sales' ? 'Ventas' : (currentType === 'payments_received' ? 'Pagos Recibidos' : 'Compras')}`, 14, 15);
             doc.setFontSize(10);
             doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 22);
             
@@ -1027,7 +1056,7 @@ export function renderReports(container) {
             const tableRows = [];
             
             dataWithPayments.forEach(item => {
-                const isSales = currentType === 'sales';
+                const isSales = currentType === 'sales' || currentType === 'payments_received';
                 const entity = isSales ? item.clientName : getSupplierName(item);
                 const total = isSales ? (item.totalUSD || 0) : getPurchaseTotal(item);
                 const numFactura = isSales ? (item.correlative || item.id.slice(-6).toUpperCase()) : (item.docNumber || item.id.slice(-6).toUpperCase());
