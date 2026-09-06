@@ -1225,6 +1225,7 @@ function showMassPaymentModal(clientData, onComplete) {
 
             const payRef = collection(db, "businesses", businessId, "payments");
             const today = new Date();
+            const batchId = 'batch_' + Date.now();
 
             for (const sale of sortedSales) {
                 if (remainingPayUSD <= 0) break;
@@ -1250,6 +1251,7 @@ function showMassPaymentModal(clientData, onComplete) {
                     storeId: storeId,
                     correlative: sale.correlative || sale.id.slice(-6).toUpperCase(),
                     isMassPayment: true,
+                    batchId: batchId,
                     totalMassPaymentAmount: amountValue // Monto total del pago masivo
                 });
 

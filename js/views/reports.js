@@ -7,7 +7,8 @@ import {
     where, 
     getDocs, 
     doc,
-    getDoc
+    getDoc,
+    updateDoc
 } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderReports(container) {
@@ -75,8 +76,8 @@ export function renderReports(container) {
                     </div>
                 </div>
 
-                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; align-items: flex-end;">
+                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; flex: 1; min-height: 0;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; align-items: flex-end; flex-shrink: 0;">
                         <div class="form-group">
                             <label>🔄 Tipo</label>
                             <select id="typeSelect" class="form-control">
@@ -105,7 +106,7 @@ export function renderReports(container) {
                             <button id="btnFilter" class="btn btn-primary" style="height: 40px; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; width: 100%;">🔍 Consultar</button>
                         </div>
                     </div>
-                    <div id="resultsContent" style="margin-top: 1rem; overflow-y: auto; max-height: 50vh;">
+                    <div id="resultsContent" style="margin-top: 1rem; overflow-y: auto; flex: 1; min-height: 0;">
                         <div style="text-align: center; padding: 3rem; color: var(--text-muted);">Defina los filtros y presione Consultar.</div>
                     </div>
                 </div>
@@ -131,6 +132,7 @@ export function renderReports(container) {
                     box-sizing: border-box;
                 }
                 .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); outline: none; }
+                #resultsContent table th { position: sticky; top: 0; z-index: 10; background: var(--background); }
             </style>
         `;
 
@@ -192,8 +194,15 @@ export function renderReports(container) {
                 items = items.filter(i => i.storeId === storeId);
             }
             
-            // Sort from newest to oldest
-            items.sort((a, b) => b.date.localeCompare(a.date));
+            // Sort by Client (Sales) or Supplier (Purchases) A-Z, then newest to oldest
+            items.sort((a, b) => {
+                let nameA = (type === 'sales' ? (a.clientName || 'Desconocido') : (a.supplierName || 'Desconocido')).toUpperCase();
+                let nameB = (type === 'sales' ? (b.clientName || 'Desconocido') : (b.supplierName || 'Desconocido')).toUpperCase();
+                
+                if (nameA < nameB) return -1;
+                if (nameA > nameB) return 1;
+                return b.date.localeCompare(a.date);
+            });
             currentData = items;
 
             if (items.length === 0) {
@@ -238,6 +247,8 @@ export function renderReports(container) {
                                 </td>
                                 <td style="padding: 1rem; text-align: center;">
                                     <button class="btn btn-ghost btn-sm btn-detail" data-id="${item.id}" style="width: 100%; max-width: 150px; font-weight: 600;">👁️ Ver Detalle</button>
+                                    ${isSales && (item.status === 'pagado' || item.status === 'PAGADO' || item.status === 'facturado' || item.status === 'FACTURADO' || item.status === 'pagada' || item.status === 'PAGADA' || item.status === 'contado' || item.status === 'CONTADO') ? 
+                                    `<button class="btn btn-sm btn-manual-invoice" data-id="${item.id}" style="width: 100%; max-width: 150px; font-weight: 600; margin-top: 0.5rem; background-color: ${item.manualInvoiceGenerated ? 'var(--success)' : 'var(--primary)'}; color: white; border: none; padding: 0.4rem; display: block; margin-left: auto; margin-right: auto; cursor: pointer; border-radius: 8px;">📄 Generar Fac</button>` : ''}
                                 </td>
                             </tr>
                         `).join('')}
@@ -259,6 +270,343 @@ export function renderReports(container) {
                 }
             };
         });
+
+        resultsContainer.querySelectorAll('.btn-manual-invoice').forEach(btn => {
+            btn.onclick = async () => {
+                const id = btn.dataset.id;
+                const item = items.find(i => i.id === id);
+                if (!item) return;
+                await generateManualInvoice(item, btn);
+            };
+        });
+    }
+
+    async function generateManualInvoice(sale, btnEl) {
+        showNotification("Generando factura, por favor espere...", "info");
+        btnEl.disabled = true;
+        
+        try {
+            // Get payments
+            const paySnap = await getDocs(query(collection(db, "businesses", businessId, "payments"), where("saleId", "==", sale.id)));
+            let payments = paySnap.docs.map(d => d.data());
+            
+            let isGlobal = false;
+            let batchId = null;
+            let allBatchPayments = [];
+            let globalSaleIds = [sale.id];
+            
+            if (payments.length > 0) {
+                // Find any payment flagged as a mass payment
+                const globalPay = payments.find(p => p.isMassPayment);
+                if (globalPay) {
+                    if (globalPay.batchId) {
+                        batchId = globalPay.batchId;
+                        const batchSnap = await getDocs(query(collection(db, "businesses", businessId, "payments"), where("batchId", "==", batchId)));
+                        allBatchPayments = batchSnap.docs.map(d => d.data());
+                    } else {
+                        // Legacy support: mass payments created before batchId was added
+                        const batchSnap = await getDocs(query(
+                            collection(db, "businesses", businessId, "payments"), 
+                            where("clientId", "==", globalPay.clientId),
+                            where("isMassPayment", "==", true),
+                            where("date", "==", globalPay.date)
+                        ));
+                        // In memory filter to ensure exact match of the mass payment total amount
+                        allBatchPayments = batchSnap.docs.map(d => d.data()).filter(d => d.totalMassPaymentAmount === globalPay.totalMassPaymentAmount);
+                    }
+                    
+                    if (allBatchPayments.length > 0) {
+                        isGlobal = true;
+                    }
+                }
+            }
+
+            // Calculate effective rate
+            let totalBsPaid = 0;
+            let effectiveRate = 1;
+            let totalUSD = parseFloat(sale.totalUSD || sale.total || 0);
+            let itemsList = sale.items || sale.products || [];
+            
+            if (isGlobal) {
+                const saleIds = [...new Set(allBatchPayments.map(p => p.saleId))];
+                globalSaleIds = saleIds;
+                
+                totalUSD = 0;
+                itemsList = [];
+                totalBsPaid = 0;
+                
+                const salesPromises = saleIds.map(id => getDoc(doc(db, "businesses", businessId, "sales", id)));
+                const salesSnaps = await Promise.all(salesPromises);
+                
+                salesSnaps.forEach(snap => {
+                    if (snap.exists()) {
+                        const sData = snap.data();
+                        totalUSD += parseFloat(sData.totalUSD || sData.total || 0);
+                        itemsList = itemsList.concat(sData.items || sData.products || []);
+                    }
+                });
+                
+                allBatchPayments.forEach(p => {
+                    let amountBs = parseFloat(p.amountBs || 0);
+                    if (amountBs === 0 && (p.currency === 'BS' || p.currency === 'Bs')) {
+                        amountBs = parseFloat(p.amount || 0);
+                    } else if (amountBs === 0) {
+                        amountBs = parseFloat(p.amount || 0) * parseFloat(p.bcvRate || 1);
+                    }
+                    totalBsPaid += amountBs;
+                });
+                
+                if (totalUSD > 0) {
+                    effectiveRate = totalBsPaid / totalUSD;
+                }
+            } else {
+                if (payments.length > 0) {
+                    payments.forEach(p => {
+                        let amountBs = parseFloat(p.amountBs || 0);
+                        if (amountBs === 0 && (p.currency === 'BS' || p.currency === 'Bs')) {
+                            amountBs = parseFloat(p.amount || 0);
+                        }
+                        totalBsPaid += amountBs;
+                    });
+                    if (totalUSD > 0) {
+                        effectiveRate = totalBsPaid / totalUSD;
+                    }
+                } else {
+                    // If no payments, use global rate of the sale date or fallback
+                    let dateStr = sale.date;
+                    if (dateStr) {
+                        const safeDateStr = dateStr.replace(/\//g, '-');
+                        const docSnap = await getDoc(doc(db, "global_bcv_history", safeDateStr));
+                        if (docSnap.exists()) {
+                            effectiveRate = parseFloat(docSnap.data().rate);
+                        } else {
+                            effectiveRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+                        }
+                    } else {
+                        effectiveRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+                    }
+                    totalBsPaid = totalUSD * effectiveRate;
+                }
+            }
+            
+            if (isNaN(effectiveRate) || effectiveRate <= 0) effectiveRate = 1;
+            
+            // Build products table
+            let productsHTML = '';
+            let sumSubTotalBs = 0;
+            
+            // Group items by name and price to avoid repetition
+            let groupedItems = [];
+            itemsList.forEach(item => {
+                let itemName = item.name || item.productName || 'Producto';
+                let itemPrice = parseFloat(item.price || item.priceUSD || 0);
+                let itemQty = parseFloat(item.qty || item.quantity || 1);
+                
+                let existing = groupedItems.find(g => g.name === itemName && g.priceUSD === itemPrice);
+                if (existing) {
+                    existing.qty += itemQty;
+                } else {
+                    groupedItems.push({
+                        name: itemName,
+                        priceUSD: itemPrice,
+                        qty: itemQty
+                    });
+                }
+            });
+            
+            groupedItems.forEach((p, index) => {
+                let qty = p.qty;
+                let priceUSD = p.priceUSD;
+                
+                // Calculate Bs values
+                let unitBs = priceUSD * effectiveRate;
+                let subTotalBs = unitBs * qty;
+                
+                // Adjust last item rounding difference if any
+                if (index === groupedItems.length - 1) {
+                    let currentSum = sumSubTotalBs + subTotalBs;
+                    let diff = totalBsPaid - currentSum;
+                    subTotalBs += diff;
+                }
+                
+                sumSubTotalBs += subTotalBs;
+                
+                productsHTML += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">${qty.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: left; vertical-align: middle;">${p.name || 'Producto'}</td>
+                        <td style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">Bs ${unitBs.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">Bs ${subTotalBs.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    </tr>
+                `;
+            });
+            
+            // Render hidden HTML
+            const hiddenContainer = document.createElement('div');
+            hiddenContainer.style.position = 'absolute';
+            hiddenContainer.style.left = '-9999px';
+            hiddenContainer.style.top = '-9999px';
+            hiddenContainer.style.background = '#fff';
+            hiddenContainer.style.color = '#000';
+            hiddenContainer.style.width = '600px';
+            hiddenContainer.style.padding = '20px';
+            hiddenContainer.style.fontFamily = 'Arial, sans-serif';
+            
+            // Get last payment date or sale date
+            let lastPaymentDate = sale.date;
+            let paymentsToUse = isGlobal ? allBatchPayments : payments;
+            if (paymentsToUse.length > 0) {
+                let sorted = paymentsToUse.sort((a,b) => new Date(a.date) - new Date(b.date));
+                lastPaymentDate = sorted[sorted.length-1].date;
+            }
+            
+            let clientName = sale.clientName || 'Desconocido';
+            let clientAddress = sale.clientAddress || sale.clientDirection || '';
+            let clientDoc = sale.clientDocument || sale.clientRif || '';
+            
+            if ((!clientAddress || !clientDoc) && sale.clientId) {
+                try {
+                    const clientSnap = await getDoc(doc(db, "businesses", businessId, "clients", sale.clientId));
+                    if (clientSnap.exists()) {
+                        const cData = clientSnap.data();
+                        clientAddress = clientAddress || cData.address || cData.direction || '-';
+                        clientDoc = clientDoc || cData.document || cData.rif || cData.idNumber || clientSnap.id || '-';
+                        clientName = clientName === 'Desconocido' ? (cData.name || 'Desconocido') : clientName;
+                    }
+                } catch (e) {
+                    console.error("Error fetching client details:", e);
+                }
+            }
+            
+            clientDoc = clientDoc || sale.clientId || '-';
+            clientAddress = clientAddress || '-';
+            
+            hiddenContainer.innerHTML = `
+                <h2 style="text-align: center; font-size: 24px; font-weight: bold; margin: 0 0 10px 0;">FACTURA</h2>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <div>
+                        <div style="font-size: 14px; font-weight: bold;">${clientName.toUpperCase()}</div>
+                        <div style="font-size: 14px;">${clientAddress}</div>
+                        <div style="font-size: 14px;">${clientDoc}</div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: bold; align-self: flex-end;">
+                        ${formatDateToDDMMYYYY(lastPaymentDate)}
+                    </div>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">CANTIDAD</th>
+                            <th style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">PRODUCTO</th>
+                            <th style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">PRECIO UNIT</th>
+                            <th style="border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; text-align: center; vertical-align: middle;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${productsHTML}
+                    </tbody>
+                </table>
+                
+                <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+                    <div style="background-color: #8fbc8f; border: 1px solid #000; padding: 0px 10px 15px 10px; line-height: 1; font-weight: bold; font-size: 16px;">
+                        Bs ${totalBsPaid.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(hiddenContainer);
+            
+            const canvas = await html2canvas(hiddenContainer, {scale: 2});
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            document.body.removeChild(hiddenContainer);
+            
+            // Update db
+            if (isGlobal) {
+                for (const sid of globalSaleIds) {
+                    await updateDoc(doc(db, "businesses", businessId, "sales", sid), {
+                        manualInvoiceGenerated: true
+                    });
+                    
+                    const relatedBtn = document.querySelector(`.btn-manual-invoice[data-id="${sid}"]`);
+                    if (relatedBtn) {
+                        relatedBtn.style.backgroundColor = 'var(--success)';
+                    }
+                    
+                    if (typeof currentData !== 'undefined' && currentData) {
+                        const memorySale = currentData.find(i => i.id === sid);
+                        if (memorySale) memorySale.manualInvoiceGenerated = true;
+                    }
+                }
+            } else {
+                if (!sale.manualInvoiceGenerated) {
+                    await updateDoc(doc(db, "businesses", businessId, "sales", sale.id), {
+                        manualInvoiceGenerated: true
+                    });
+                    btnEl.style.backgroundColor = 'var(--success)';
+                    sale.manualInvoiceGenerated = true;
+                }
+            }
+            
+            // Show Modal
+            const [year, month, day] = (lastPaymentDate || '').split('-');
+            const mmdd = (month && day) ? `${month}/${day}` : '';
+            const copyText = `${mmdd} - ${clientName}`;
+            
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            modal.style.zIndex = '9999';
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.flexDirection = 'column';
+            modal.style.padding = '20px';
+            
+            modal.innerHTML = `
+                <div class="card" style="background: var(--surface); padding: 1.5rem; max-width: 700px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; align-items: center; border-radius: 12px; position: relative; color: var(--text-main);">
+                    <button id="closeModalBtn" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: var(--text-main); cursor: pointer;">&times;</button>
+                    <h3 style="margin-bottom: 1rem; color: var(--text-main);">Factura Generada</h3>
+                    
+                    <div style="flex: 1; overflow: auto; width: 100%; display: flex; justify-content: center; margin-bottom: 1.5rem; background: #e0e0e0; padding: 10px; border-radius: 8px;">
+                        <img src="${dataUrl}" style="max-width: 100%; height: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+                    </div>
+                    
+                    <div style="width: 100%; display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="color: var(--text-muted); font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">Nombre Sugerido para Archivo</label>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                <input type="text" class="form-control" id="copyInput" value="${copyText}" readonly style="flex: 1; font-family: monospace; font-size: 1rem; padding: 0.5rem;">
+                                <button class="btn btn-outline" id="copyBtn" style="width: auto; padding: 0.5rem 1rem;">Copiar</button>
+                            </div>
+                        </div>
+                        
+                        <a href="${dataUrl}" download="${copyText.replace(/[\/\\?%*:|"<>]/g, '-')}.jpg" class="btn btn-primary" style="text-align: center; text-decoration: none; padding: 0.8rem; font-weight: bold;">⬇️ Descargar Imagen</a>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            modal.querySelector('#closeModalBtn').onclick = () => document.body.removeChild(modal);
+            modal.querySelector('#copyBtn').onclick = () => {
+                const input = modal.querySelector('#copyInput');
+                input.select();
+                document.execCommand('copy');
+                showNotification("Copiado al portapapeles", "success");
+            };
+            
+        } catch (e) {
+            console.error(e);
+            showNotification("Error al generar la factura", "error");
+        } finally {
+            btnEl.disabled = false;
+        }
     }
 
     async function showPurchaseDetailView(purchase) {
