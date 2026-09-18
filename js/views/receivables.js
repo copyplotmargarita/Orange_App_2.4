@@ -2,6 +2,7 @@ import { db } from '../services/firebase.js';
 import { formatDateToDDMMYYYY, showConfirmModal } from '../utils.js';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { generateDocumentView } from './sales.js';
+import { updateWalletBalance } from '../services/wallet.js';
 
 export async function renderReceivables(container) {
     if (!container) return;
@@ -687,6 +688,7 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
                     <option value="USD_BINANCE">Binance</option>
                     <option value="USD_PAYPAL">Paypal</option>
                     <option value="USD_ZELLE">Zelle</option>
+                    <option value="USD_BILLETERA">Billetera</option>
                 </select>
             </div>
 
@@ -699,6 +701,12 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
                 <div id="payAmountContainerBS" class="form-group">
                     <label for="payAmountBS" id="labelAmountBS">Monto a Pagar (Bs)</label>
                     <input type="text" id="payAmountBS" class="form-control" style="background: rgba(255,255,255,0.05);">
+                </div>
+
+                <div id="overpaymentContainer" class="form-group" style="display: none; margin-top: 10px;">
+                    <label for="payVuelto" style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Vuelto (No Editable)</label>
+                    <input type="text" id="payVuelto" class="form-control" disabled style="background: rgba(239, 68, 68, 0.1); color: #fff; font-weight: bold; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <button id="saveWalletBtn" class="btn btn-primary" style="width: 100%; padding: 8px; font-weight: bold; font-size: 13px; margin-top: 8px; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);">💰 Guardar en Billetera</button>
                 </div>
             </div>
 
@@ -787,6 +795,18 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
         return floatValue;
     }
 
+    function checkOverpayment(amountUSD) {
+        const container = modal.querySelector('#overpaymentContainer');
+        const vueltoInput = modal.querySelector('#payVuelto');
+        if (amountUSD > remainingUSD + 0.01) {
+            const diff = amountUSD - remainingUSD;
+            container.style.display = 'block';
+            vueltoInput.value = `$${fmt(diff)} (Bs. ${fmt(diff * activeModalBcvRate)})`;
+        } else {
+            container.style.display = 'none';
+        }
+    }
+
     payAmountUSDInput.addEventListener('input', (e) => {
         const valUSD = formatCurrencyInput(e.target);
         if (valUSD !== 0 || e.target.value !== '') {
@@ -795,6 +815,7 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
         } else {
             payAmountBSInput.value = '';
         }
+        checkOverpayment(valUSD);
     });
 
     payAmountBSInput.addEventListener('input', (e) => {
@@ -802,8 +823,10 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
         if (valBS !== 0 || e.target.value !== '') {
             const valUSD = valBS / activeModalBcvRate;
             payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            checkOverpayment(valUSD);
         } else {
             payAmountUSDInput.value = '';
+            checkOverpayment(0);
         }
     });
 
@@ -856,11 +879,10 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
-    modal.querySelector('#confirmPayBtn').addEventListener('click', () => {
-        showConfirmModal("Confirmar Pago", "¿Está seguro de registrar este pago?", async () => {
-            const methodVal = payMethodSelect.value;
-            const isBs = methodVal.startsWith('BS_');
-            const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+    async function executePayment(saveWalletExcess = false) {
+        const methodVal = payMethodSelect.value;
+        const isBs = methodVal.startsWith('BS_');
+        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
         
         let amountValue;
         if (isBs) {
@@ -894,34 +916,56 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
             amountUSD = amountValue / activeModalBcvRate;
         }
 
-        // Validar que no pague más de lo que debe (con un pequeño margen por decimales)
-        if (amountUSD > trueRemainingUSD + 0.01) {
+        // Validar que no pague más de lo que debe
+        if (!saveWalletExcess && amountUSD > trueRemainingUSD + 0.01) {
             showCustomAlert("Validación", "El monto no puede ser mayor a la deuda pendiente.");
             return;
+        }
+
+        if (methodID === 'BILLETERA') {
+            const clientRef = doc(db, "businesses", businessId, "clients", sale.clientId);
+            const clientSnap = await getDoc(clientRef);
+            if (!clientSnap.exists()) {
+                showCustomAlert("Error", "Cliente no encontrado.");
+                return;
+            }
+            const clientData = clientSnap.data();
+            const walletBalance = clientData.walletBalance || 0;
+            if (walletBalance < amountUSD) {
+                showCustomAlert("Billetera Insuficiente", `El cliente solo tiene $${fmt(walletBalance)} en su Billetera.`);
+                return;
+            }
         }
 
         try {
             const payRef = collection(db, "businesses", businessId, "payments");
             const today = new Date();
             
+            let amountApplied = amountValue;
+            let excessUSD = 0;
+            if (saveWalletExcess && amountUSD > trueRemainingUSD + 0.01) {
+                excessUSD = amountUSD - trueRemainingUSD;
+                amountApplied = isBs ? (trueRemainingUSD * activeModalBcvRate) : trueRemainingUSD;
+                amountUSD = trueRemainingUSD; // Reducimos amountUSD al tope de la deuda
+            }
+            
             if (paymentData) {
                 // 1. EDITAR pago existente
                 const docRef = doc(db, "businesses", businessId, "payments", paymentData.id);
                 await updateDoc(docRef, {
-                    amount: amountValue,
+                    amount: amountApplied,
                     currency: isBs ? 'BS' : 'USD',
                     method: methodID,
                     reference: reference,
                     date: payDate,
                     bcvRate: activeModalBcvRate,
-                    // No sobreescribir createdAt, recordedBy, etc.
                 });
             } else {
                 // 1. CREAR nuevo pago
                 await addDoc(payRef, {
                     saleId: sale.id,
                     clientId: sale.clientId,
-                    amount: amountValue, 
+                    amount: amountApplied, 
                     currency: isBs ? 'BS' : 'USD',
                     method: methodID,
                     reference: reference,
@@ -948,7 +992,16 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
                 status: newStatus
             });
 
-            showCustomAlert("Éxito", paymentData ? "🎉 Pago actualizado con éxito." : "🎉 Pago registrado con éxito.");
+            if (methodID === 'BILLETERA') {
+                await updateWalletBalance(businessId, sale.clientId, amountUSD, 'consumo', `Pago de deuda (Venta #${sale.correlative || sale.id.slice(-6).toUpperCase()})`);
+            }
+
+            if (excessUSD > 0.01) {
+                // Se generó un vuelto
+                await updateWalletBalance(businessId, sale.clientId, excessUSD, 'abono', `Vuelto por sobrepago en deuda (Venta #${sale.correlative || sale.id.slice(-6).toUpperCase()})`);
+            }
+
+            showCustomAlert("Éxito", paymentData ? "✅ Pago actualizado con éxito." : "✅ Pago registrado con éxito.");
             modal.remove();
             
             // Refrescar los datos en memoria del cliente
@@ -960,7 +1013,18 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
             console.error("Error al registrar el pago:", error);
             showCustomAlert("Error", `Error al registrar el pago: ${error.message}`);
         }
-        }, "Sí, Confirmar", "Cancelar");
+    }
+
+    modal.querySelector('#confirmPayBtn').addEventListener('click', () => {
+        showConfirmModal("Confirmar Pago", "¿Está seguro de registrar este pago?", async () => {
+            await executePayment(false);
+        });
+    });
+
+    modal.querySelector('#saveWalletBtn').addEventListener('click', () => {
+        showConfirmModal("Guardar en Billetera", "¿Registrar el pago y guardar el vuelto en la Billetera?", async () => {
+            await executePayment(true);
+        });
     });
 }
 
@@ -1040,6 +1104,7 @@ function showMassPaymentModal(clientData, onComplete) {
                     <option value="USD_BINANCE">Binance</option>
                     <option value="USD_PAYPAL">Paypal</option>
                     <option value="USD_ZELLE">Zelle</option>
+                    <option value="USD_BILLETERA">Billetera</option>
                 </select>
             </div>
 
@@ -1058,6 +1123,14 @@ function showMassPaymentModal(clientData, onComplete) {
             <div class="form-group" style="margin-bottom: 1.2rem !important;">
                 <label for="payReference" id="payReferenceLabel">Referencia / Notas</label>
                 <input type="text" id="payReference" class="form-control" placeholder="Opcional">
+            </div>
+
+            <div id="overpaymentContainer_mass" style="display: none; flex-direction: column; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 1.2rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="color: #10b981; font-weight: bold;">Vuelto (No Editable)</label>
+                    <input type="text" id="overpaymentAmount_mass" class="form-control" style="background: rgba(0,0,0,0.2); color: #10b981; font-weight: bold;" readonly>
+                </div>
+                <button id="saveWalletBtn_mass" class="btn btn-success" style="margin-top: 10px; width: 100%; padding: 10px; font-weight: bold; font-size: 14px;">💰 Guardar en Billetera</button>
             </div>
 
             <button id="confirmPayBtn" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: bold; font-size: 14px;">Confirmar Pago</button>
@@ -1103,6 +1176,20 @@ function showMassPaymentModal(clientData, onComplete) {
     payAmountUSDInput.value = totalDebtUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     payAmountBSInput.value = totalDebtBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+    const overpaymentContainer_mass = modal.querySelector('#overpaymentContainer_mass');
+    const overpaymentAmount_mass = modal.querySelector('#overpaymentAmount_mass');
+    const saveWalletBtn_mass = modal.querySelector('#saveWalletBtn_mass');
+    
+    function checkOverpayment_mass(amountUSD) {
+        const diff = amountUSD - totalDebtUSD;
+        if (diff > 0.01) {
+            overpaymentContainer_mass.style.display = 'flex';
+            overpaymentAmount_mass.value = `$${fmt(diff)} / Bs. ${fmt(diff * activeModalBcvRate)}`;
+        } else {
+            overpaymentContainer_mass.style.display = 'none';
+        }
+    }
+
     function formatCurrencyInput(input) {
         let value = input.value.replace(/\D/g, '');
         if (value === '') { input.value = ''; return 0; }
@@ -1119,6 +1206,7 @@ function showMassPaymentModal(clientData, onComplete) {
         } else {
             payAmountBSInput.value = '';
         }
+        checkOverpayment_mass(valUSD);
     });
 
     payAmountBSInput.addEventListener('input', (e) => {
@@ -1126,8 +1214,10 @@ function showMassPaymentModal(clientData, onComplete) {
         if (valBS !== 0 || e.target.value !== '') {
             const valUSD = valBS / activeModalBcvRate;
             payAmountUSDInput.value = valUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            checkOverpayment_mass(valUSD);
         } else {
             payAmountUSDInput.value = '';
+            checkOverpayment_mass(0);
         }
     });
 
@@ -1177,11 +1267,10 @@ function showMassPaymentModal(clientData, onComplete) {
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
-    modal.querySelector('#confirmPayBtn').addEventListener('click', () => {
-        showConfirmModal("Confirmar Pago Global", "¿Está seguro de registrar este pago global? Esta acción afectará a múltiples facturas.", async () => {
-            const methodVal = payMethodSelect.value;
-            const isBs = methodVal.startsWith('BS_');
-            const methodID = methodVal.replace('BS_', '').replace('USD_', '');
+    async function executeGlobalPayment(saveWalletExcess = false) {
+        const methodVal = payMethodSelect.value;
+        const isBs = methodVal.startsWith('BS_');
+        const methodID = methodVal.replace('BS_', '').replace('USD_', '');
         
         let amountValue;
         if (isBs) {
@@ -1211,12 +1300,35 @@ function showMassPaymentModal(clientData, onComplete) {
         let amountUSD = amountValue;
         if (isBs) { amountUSD = amountValue / activeModalBcvRate; }
 
-        if (amountUSD > totalDebtUSD + 0.01) {
+        if (!saveWalletExcess && amountUSD > totalDebtUSD + 0.01) {
             showCustomAlert("Validación", "El monto no puede ser mayor a la deuda total.");
             return;
         }
 
+        if (methodID === 'BILLETERA') {
+            const clientRef = doc(db, "businesses", businessId, "clients", clientData.clientId);
+            const clientSnap = await getDoc(clientRef);
+            if (!clientSnap.exists()) {
+                showCustomAlert("Error", "Cliente no encontrado.");
+                return;
+            }
+            const currentClientData = clientSnap.data();
+            const walletBalance = currentClientData.walletBalance || 0;
+            if (walletBalance < amountUSD) {
+                showCustomAlert("Billetera Insuficiente", `El cliente solo tiene $${fmt(walletBalance)} en su Billetera.`);
+                return;
+            }
+        }
+
         try {
+            let amountApplied = amountValue;
+            let excessUSD = 0;
+            if (saveWalletExcess && amountUSD > totalDebtUSD + 0.01) {
+                excessUSD = amountUSD - totalDebtUSD;
+                amountApplied = isBs ? (totalDebtUSD * activeModalBcvRate) : totalDebtUSD;
+                amountUSD = totalDebtUSD; // Only apply up to the debt
+            }
+
             // Lógica en Cascada
             let remainingPayUSD = amountUSD;
             const sortedSales = [...clientData.sales]
@@ -1252,7 +1364,7 @@ function showMassPaymentModal(clientData, onComplete) {
                     correlative: sale.correlative || sale.id.slice(-6).toUpperCase(),
                     isMassPayment: true,
                     batchId: batchId,
-                    totalMassPaymentAmount: amountValue // Monto total del pago masivo
+                    totalMassPaymentAmount: amountApplied // Monto total del pago masivo
                 });
 
                 // 2. Actualizar la factura
@@ -1272,14 +1384,34 @@ function showMassPaymentModal(clientData, onComplete) {
                 remainingPayUSD -= amountToApplyUSD;
             }
 
-            showCustomAlert("Éxito", "🎉 Pago global registrado con éxito.");
+            if (methodID === 'BILLETERA') {
+                await updateWalletBalance(businessId, clientData.clientId, amountUSD, 'consumo', `Pago de deuda global (Lote #${batchId})`);
+            }
+            
+            if (excessUSD > 0.01) {
+                // Generó vuelto en el pago global
+                await updateWalletBalance(businessId, clientData.clientId, excessUSD, 'abono', `Vuelto por sobrepago en deuda global (Lote #${batchId})`);
+            }
+
+            showCustomAlert("Éxito", "✅ Pago global registrado con éxito.");
             modal.remove();
             onComplete();
         } catch (error) {
             console.error("Error al registrar el pago global:", error);
             showCustomAlert("Error", `Error al registrar el pago global: ${error.message}`);
         }
-        }, "Sí, Confirmar", "Cancelar");
+    }
+
+    modal.querySelector('#confirmPayBtn').addEventListener('click', () => {
+        showConfirmModal("Confirmar Pago Global", "¿Está seguro de registrar este pago global? Esta acción afectará a múltiples facturas.", async () => {
+            await executeGlobalPayment(false);
+        });
+    });
+
+    modal.querySelector('#saveWalletBtn_mass').addEventListener('click', () => {
+        showConfirmModal("Guardar en Billetera", "¿Registrar el pago global y guardar el vuelto en la Billetera?", async () => {
+            await executeGlobalPayment(true);
+        });
     });
 }
 
