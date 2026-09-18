@@ -1296,6 +1296,39 @@ export async function showSaleDetail(sale) {
         salePayments = paySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
     
+    // Extraer y formatear referencias de los pagos
+    let referencesHtml = '';
+    let referencesMobileHtml = '';
+    if (salePayments.length > 0) {
+        const sortedPayments = [...salePayments].sort((a, b) => {
+            const dateA = a.timestamp ? (typeof a.timestamp.toMillis === 'function' ? a.timestamp.toMillis() : new Date(a.timestamp).getTime()) : new Date(a.date).getTime();
+            const dateB = b.timestamp ? (typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : new Date(b.timestamp).getTime()) : new Date(b.date).getTime();
+            return dateA - dateB;
+        });
+
+        const validReferences = sortedPayments
+            .filter(p => p.reference && p.reference.trim() !== '')
+            .map(p => p.reference.trim());
+
+        if (validReferences.length > 0) {
+            const refsList = validReferences.map(ref => `<div style="color: #c1c7d3; font-weight: 600; margin-top: 2px;">• ${ref}</div>`).join('');
+            referencesHtml = `
+                <div style="font-size: 0.9rem; color: #a0aec0; margin-top: 1rem;">
+                    Referencia / Notas:
+                    ${refsList}
+                </div>
+            `;
+            
+            const refsMobileList = validReferences.map(ref => `<span style="color: #c1c7d3; font-weight: 600; display: block; margin-top: 2px;">• ${ref}</span>`).join('');
+            referencesMobileHtml = `
+                <p style="font-size: 12px; color: #8b919d; margin: 0; padding-top: 0.5rem; margin-top: 0.5rem; border-top: 1px solid rgba(54, 57, 67, 0.5);">
+                    Referencia / Notas:
+                    ${refsMobileList}
+                </p>
+            `;
+        }
+    }
+
     // Crear modal dinámicamente
     const modal = document.createElement('div');
     modal.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 1rem;";
@@ -1425,6 +1458,7 @@ export async function showSaleDetail(sale) {
                     <div style="font-size: 1.2rem; font-weight: bold; color: #ffffff; margin-top: 0.5rem;">Total Factura: $ ${fmt(sale.totalUSD)}</div>
                     <div style="font-size: 1rem; font-weight: bold; color: #ef4444; margin-top: 0.25rem;">Resta por Pagar: $ ${fmt(sale.remainingUSD || 0)}</div>
                     <div style="font-size: 0.9rem; color: #a0aec0;">Total Bs (Al cambio de hoy): Bs. ${fmt((sale.remainingUSD || 0) * currentBcvRate)}</div>
+                    ${referencesHtml}
                 </div>
             </div>
 
@@ -1524,6 +1558,7 @@ export async function showSaleDetail(sale) {
                             Total Bs (Al cambio de hoy): 
                             <span style="color: #c1c7d3; font-weight: 600; display: block; margin-top: 2px;">Bs. ${fmt((sale.remainingUSD || 0) * currentBcvRate)}</span>
                         </p>
+                        ${referencesMobileHtml}
                     </div>
                 </div>
             </div>
