@@ -815,6 +815,20 @@ export function renderClients(container, onFinish = null, initialName = '') {
                     </form>
                 </div>
 
+                <!-- Billetera del Cliente -->
+                <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--success); width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 0.2rem;">💰 Mi Billetera</h3>
+                            <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Saldo a favor disponible</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="font-size: 1.5rem; font-weight: 800; color: var(--success); margin-bottom: 0;">$${(client.walletBalance || 0).toFixed(2)}</p>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Bs. ${((client.walletBalance || 0) * (parseFloat(localStorage.getItem('bcvRate')) || 1)).toFixed(2)}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Métricas de Compra -->
                 <div class="card" style="padding: 1.5rem; border-top: 4px solid var(--primary); width: 100%;">
                     <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">📊 Métricas de Compra</h3>

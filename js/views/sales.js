@@ -3,6 +3,7 @@ import { toTitleCase, showNotification, formatDateToDDMMYYYY } from '../utils.js
 import { doc, setDoc, getDocs, getDoc, updateDoc, collection, query, orderBy, where, addDoc, serverTimestamp, runTransaction, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { renderClients } from './clients.js';
 import { showPaymentModal, showCustomAlert } from './receivables.js';
+import { updateWalletBalance } from '../services/wallet.js';
 
 export function renderSales(container, preSelectedClient = null) {
     // State
@@ -880,6 +881,9 @@ export function renderSales(container, preSelectedClient = null) {
                                     {val: 'BINANCE', label: 'BINANCE', icon: 'currency_bitcoin'},
                                     {val: 'PAYPAL', label: 'PAYPAL', icon: 'credit_card'}
                                 ];
+                                if (selectedClient && selectedClient.id !== '0' && selectedClient.walletBalance > 0) {
+                                    methods.unshift({val: 'BILLETERA', label: 'BILLETERA', icon: 'account_balance_wallet'});
+                                }
                             } else {
                                 methods = [
                                     {val: 'PUNTO', label: 'PUNTO', icon: 'point_of_sale'},
@@ -983,6 +987,11 @@ export function renderSales(container, preSelectedClient = null) {
                                     <button id="step4AddChangeBtn" class="w-full bg-transparent border border-[#facc15] text-[#facc15] py-3 rounded-xl font-bold flex items-center justify-center uppercase tracking-wider hover:bg-[#facc15]/10 transition-colors">
                                         REGISTRAR VUELTO
                                     </button>
+                                    ${(selectedClient && selectedClient.id !== '0') ? `
+                                        <button id="step4SaveWalletBtn" class="w-full mt-2 bg-transparent border border-green-500 text-green-500 py-3 rounded-xl font-bold flex items-center justify-center uppercase tracking-wider hover:bg-green-500/10 transition-colors">
+                                            💰 GUARDAR EN BILLETERA
+                                        </button>
+                                    ` : ''}
                                 </div>
                                 ` : ''}
                             `;
@@ -1045,6 +1054,12 @@ export function renderSales(container, preSelectedClient = null) {
                     <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm border-l-4 border-l-primary flex flex-col justify-center">
                         <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">TOTAL EN $</p>
                         <p class="text-headline-md font-display-metrics text-white whitespace-nowrap">$ ${fmt(effectiveTotalUSD)}</p>
+                    </div>
+
+                    <!-- BILLETERA -->
+                    <div class="flex-1 h-full bg-surface-container-lowest border border-outline-variant rounded-xl px-md py-sm shadow-sm flex flex-col justify-center border-l-4 ${(selectedClient && selectedClient.walletBalance > 0) ? 'border-l-primary' : 'border-l-outline'}">
+                        <p class="text-label-bold text-on-surface-variant uppercase tracking-wider text-[10px] mb-xs">BILLETERA</p>
+                        <p class="text-headline-md font-display-metrics ${(selectedClient && selectedClient.walletBalance > 0) ? 'text-primary' : 'text-outline'} whitespace-nowrap">$ ${fmt(selectedClient ? (selectedClient.walletBalance || 0) : 0)}</p>
                     </div>
                 
                     <!-- 8. CARGAR PAGO -->
@@ -1664,6 +1679,25 @@ export function renderSales(container, preSelectedClient = null) {
                 }
             });
 
+            container.querySelector('#step4SaveWalletBtn')?.addEventListener('click', () => {
+                let totalP = 0;
+                payments.forEach(px => totalP += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                const rem = effectiveTotalUSD - totalP;
+                const amount = -rem;
+                if (amount > 0) {
+                    payments.push({
+                        currency: 'USD',
+                        method: 'BILLETERA',
+                        amount: -amount,
+                        ref: '',
+                        rate: 1,
+                        isChange: true,
+                        isWallet: true
+                    });
+                    render();
+                }
+            });
+
             const step4CurrSelect = container.querySelector('#step4ChangeCurrency');
             const step4ChangeInput = container.querySelector('#step4ChangeAmount');
             if (step4CurrSelect && step4ChangeInput) {
@@ -1832,7 +1866,7 @@ export function renderSales(container, preSelectedClient = null) {
                     </div>
                     <div class="col-span-2 form-group">
                         <label class="text-label-bold font-label-bold text-outline uppercase">Método</label>
-                        <div class="flex flex-nowrap overflow-x-auto gap-sm mt-xs pb-1 custom-scrollbar" id="methodGroup">
+                        <div class="flex flex-wrap gap-sm mt-xs pb-1" id="methodGroup">
                         </div>
                         <input type="hidden" id="payMethod" value="">
                     </div>
@@ -1872,6 +1906,9 @@ export function renderSales(container, preSelectedClient = null) {
                         </div>
                     </div>
                     <button id="addChangeBtn" class="w-full mt-sm bg-surface-variant text-green-400 border border-green-500/30 rounded-lg font-bold py-2 hover:bg-green-500/10 transition-colors uppercase text-sm">Registrar Vuelto</button>
+                    ${(selectedClient && selectedClient.id !== '0') ? `
+                        <button id="saveWalletBtn" class="w-full mt-2 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg font-bold py-2 hover:bg-green-500/20 transition-colors uppercase text-sm">💰 Guardar en Billetera</button>
+                    ` : ''}
                 </div>
 
                 <div class="flex gap-md mt-sm pt-md border-t border-outline-variant">
@@ -1964,6 +2001,15 @@ export function renderSales(container, preSelectedClient = null) {
         const updatePayMethods = (currRem, resetAmount = true) => {
             const currency = payCurrency.value;
             let methods = [];
+
+            let walletUsedUSD = 0;
+            payments.forEach(px => {
+                if (px.method === 'BILLETERA' && px.amount > 0) {
+                    walletUsedUSD += (px.currency === 'USD' ? px.amount : px.amount / px.rate);
+                }
+            });
+            const availWalletUSD = selectedClient && selectedClient.id !== '0' && selectedClient.walletBalance ? (selectedClient.walletBalance - walletUsedUSD) : 0;
+
             if (currency === 'USD') {
                 methods = [
                     {val: 'EFECTIVO', label: 'Efectivo'},
@@ -1971,6 +2017,9 @@ export function renderSales(container, preSelectedClient = null) {
                     {val: 'BINANCE', label: 'Binance'},
                     {val: 'PAYPAL', label: 'PayPal'}
                 ];
+                if (availWalletUSD > 0.009) {
+                    methods.push({val: 'BILLETERA', label: `Billetera ($${fmt(availWalletUSD)})`, wfull: true});
+                }
             } else {
                 methods = [
                     {val: 'PUNTO', label: 'Punto'},
@@ -1979,6 +2028,9 @@ export function renderSales(container, preSelectedClient = null) {
                     {val: 'EFECTIVO', label: 'Efectivo'},
                     {val: 'TRANSFERENCIA', label: 'Transf.'}
                 ];
+                if (availWalletUSD > 0.009) {
+                    methods.push({val: 'BILLETERA', label: `Billetera (Bs ${fmt(availWalletUSD * bcvRate)})`, wfull: true});
+                }
             }
 
             if (!methods.find(m => m.val === payMethod.value)) {
@@ -1987,15 +2039,25 @@ export function renderSales(container, preSelectedClient = null) {
 
             const methodGroup = modal.querySelector('#methodGroup');
             methodGroup.innerHTML = methods.map(m => `
-                <button class="pay-method-btn flex-shrink-0 min-w-max py-2 px-3 rounded-lg font-bold border transition-all text-sm truncate focus:outline-none ${payMethod.value === m.val ? 'bg-primary text-white border-primary focus:ring-2 focus:ring-primary focus:ring-offset-1' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:border-primary focus:text-primary focus:bg-primary/5'}" data-value="${m.val}">${m.label}</button>
+                <button class="pay-method-btn flex-shrink-0 ${m.wfull ? 'w-full' : 'min-w-max'} py-2 px-3 rounded-lg font-bold border transition-all text-sm truncate focus:outline-none ${payMethod.value === m.val ? 'bg-primary text-white border-primary focus:ring-2 focus:ring-primary focus:ring-offset-1' : 'bg-surface-container-high border-outline-variant text-on-surface hover:bg-surface-variant focus:border-primary focus:text-primary focus:bg-primary/5'}" data-value="${m.val}">${m.label}</button>
             `).join('');
 
             const methodBtns = Array.from(modal.querySelectorAll('.pay-method-btn'));
             methodBtns.forEach((btn, index) => {
                 btn.onclick = () => {
                     payMethod.value = btn.dataset.value;
-                    const amountValStr = payAmount.value.replace(/\./g, '').replace(',', '.');
-                    updatePayMethods(parseFloat(amountValStr) || currRem, false);
+                    let amountValStr = payAmount.value.replace(/\./g, '').replace(',', '.');
+                    let parsedAmount = parseFloat(amountValStr) || currRem;
+
+                    if (btn.dataset.value === 'BILLETERA') {
+                        const walletMaxUSD = availWalletUSD;
+                        const walletMax = currency === 'USD' ? walletMaxUSD : walletMaxUSD * bcvRate;
+                        const currRemLocal = currency === 'USD' ? currRem : currRem * bcvRate;
+                        parsedAmount = Math.min(currRemLocal, walletMax);
+                        payAmount.value = fmt(parsedAmount);
+                    }
+
+                    updatePayMethods(parsedAmount, false);
                     
                     // Keyboard flow: Focus amount after selecting method
                     setTimeout(() => {
@@ -2213,6 +2275,33 @@ export function renderSales(container, preSelectedClient = null) {
                             const doneBtn = modal.querySelector('#donePayBtn');
                             if (doneBtn) doneBtn.focus();
                         }
+                    }, 50);
+                }
+            };
+        }
+
+        const saveWalletBtn = modal.querySelector('#saveWalletBtn');
+        if (saveWalletBtn) {
+            saveWalletBtn.onclick = () => {
+                let totalPaid = 0;
+                payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                const actualRem = remainingUSD - totalPaid;
+                const amount = -actualRem;
+                if (amount > 0) {
+                    payments.push({
+                        currency: 'USD',
+                        method: 'BILLETERA',
+                        amount: -amount,
+                        ref: '',
+                        rate: 1,
+                        isChange: true,
+                        isWallet: true
+                    });
+                    renderPaymentsList();
+                    updatePayMethods(0, true);
+                    setTimeout(() => {
+                        const doneBtn = modal.querySelector('#donePayBtn');
+                        if (doneBtn) doneBtn.focus();
                     }, 50);
                 }
             };
@@ -2868,6 +2957,41 @@ export function renderSales(container, preSelectedClient = null) {
                     paymentMethodStr
                 };
                 dailySales.unshift(newSaleObj);
+
+                // --- Wallet Update ---
+                let netWalletChange = 0;
+                payments.forEach(p => {
+                    if (p.method === 'BILLETERA' || p.isWallet) {
+                        const amt = p.currency === 'USD' ? p.amount : p.amount / p.rate;
+                        netWalletChange -= amt; // si es consumo amt es positivo, resta; si es abono (vuelto) amt es negativo, suma
+                    }
+                });
+                
+                // Redondeamos a 2 decimales para evitar problemas de precisión flotante
+                netWalletChange = Math.round(netWalletChange * 100) / 100;
+
+                if (Math.abs(netWalletChange) > 0.001 && selectedClient && selectedClient.id !== '0') {
+                    try {
+                        const type = netWalletChange > 0 ? 'abono' : 'consumo';
+                        const reason = netWalletChange > 0 ? `Vuelto guardado en venta (${txnResult?.correlative || 'Nueva'})` : `Pago con Billetera en venta (${txnResult?.correlative || 'Nueva'})`;
+                        
+                        await updateWalletBalance(
+                            localStorage.getItem('businessId'),
+                            selectedClient.id,
+                            Math.abs(netWalletChange),
+                            type,
+                            reason
+                        );
+                        
+                        if (selectedClient.walletBalance !== undefined) {
+                            selectedClient.walletBalance += netWalletChange;
+                            selectedClient.walletBalance = Math.max(0, Math.round(selectedClient.walletBalance * 100) / 100);
+                        }
+                    } catch (err) {
+                        console.error("Error updating wallet:", err);
+                    }
+                }
+                // ---------------------
 
                 showNotification(isPresupuesto ? "✅ Presupuesto generado correctamente." : "✅ Venta procesada y deuda actualizada.");
                 includeOldDebt = false;
