@@ -778,7 +778,11 @@ export function renderSales(container, preSelectedClient = null) {
                                     <span class="material-symbols-outlined text-outline group-focus-within:text-[#8ab4f8]">person_search</span>
                                     <div class="flex-1 relative">
                                         <input id="clientSearch" class="bg-transparent border-none focus:ring-0 text-body-md font-semibold text-white w-full p-0 outline-none" placeholder="Buscar cliente por nombre o CI..." type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" value="${selectedClient ? selectedClient.fullName : ''}"/>
-                                        ${selectedClient ? `<p class="text-label-sm text-outline mt-1">${selectedClient.id}</p>` : ''}
+                                        ${selectedClient ? `
+                                        <div class="flex flex-col mt-1">
+                                            <p class="text-label-sm text-outline">${selectedClient.id}</p>
+                                            ${selectedClient.walletBalance > 0 ? `<p class="text-[10px] font-bold text-green-400">Billetera: $${fmt(selectedClient.walletBalance)} (Bs ${fmt(selectedClient.walletBalance * bcvRate)})</p>` : ''}
+                                        </div>` : ''}
                                         <div id="clientResults" class="absolute top-full left-0 right-0 bg-surface-container-highest border border-outline-variant z-50 max-h-48 overflow-y-auto rounded-xl shadow-xl mt-1 hidden"></div>
                                     </div>
                                     ${selectedClient ? `
@@ -874,6 +878,17 @@ export function renderSales(container, preSelectedClient = null) {
                         <div class="hide-on-desktop lg:hidden">
                         ${(() => {
                             let methods = [];
+                            
+                            let walletUsedUSD = 0;
+                            let walletUsed = false;
+                            payments.forEach(px => {
+                                if (px.method === 'BILLETERA' && px.amount > 0) {
+                                    walletUsedUSD += (px.currency === 'USD' ? px.amount : px.amount / px.rate);
+                                    walletUsed = true;
+                                }
+                            });
+                            const availWalletUSD = selectedClient && selectedClient.id !== '0' && selectedClient.walletBalance ? (selectedClient.walletBalance - walletUsedUSD) : 0;
+                            
                             if (activePayCurrency === 'USD') {
                                 methods = [
                                     {val: 'EFECTIVO', label: 'EFECTIVO', icon: 'payments'},
@@ -881,8 +896,8 @@ export function renderSales(container, preSelectedClient = null) {
                                     {val: 'BINANCE', label: 'BINANCE', icon: 'currency_bitcoin'},
                                     {val: 'PAYPAL', label: 'PAYPAL', icon: 'credit_card'}
                                 ];
-                                if (selectedClient && selectedClient.id !== '0' && selectedClient.walletBalance > 0) {
-                                    methods.unshift({val: 'BILLETERA', label: 'BILLETERA', icon: 'account_balance_wallet'});
+                                if (availWalletUSD > 0.009 && !walletUsed) {
+                                    methods.unshift({val: 'BILLETERA', label: `BILLETERA ($${fmt(availWalletUSD)})`, icon: 'account_balance_wallet'});
                                 }
                             } else {
                                 methods = [
@@ -892,6 +907,9 @@ export function renderSales(container, preSelectedClient = null) {
                                     {val: 'EFECTIVO', label: 'EFECTIVO', icon: 'payments'},
                                     {val: 'TRANSFERENCIA', label: 'TRANSF.', icon: 'account_balance'}
                                 ];
+                                if (availWalletUSD > 0.009 && !walletUsed) {
+                                    methods.unshift({val: 'BILLETERA', label: `BILLETERA (Bs ${fmt(availWalletUSD * bcvRate)})`, icon: 'account_balance_wallet'});
+                                }
                             }
                             const isElectronic = ['PAGO_MOVIL', 'TRANSFERENCIA', 'ZELLE', 'PAYPAL', 'BINANCE'].includes(activePayMethod);
                             
@@ -1597,6 +1615,25 @@ export function renderSales(container, preSelectedClient = null) {
             container.querySelectorAll('.step4-method-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     activePayMethod = btn.dataset.method;
+                    if (activePayMethod === 'BILLETERA') {
+                        let totalPaid = 0;
+                        payments.forEach(px => totalPaid += (px.currency === 'USD' ? px.amount : px.amount / px.rate));
+                        let currRem = Math.max(0, effectiveTotalUSD - totalPaid);
+                        
+                        let walletUsedUSD = 0;
+                        payments.forEach(px => {
+                            if (px.method === 'BILLETERA' && px.amount > 0) {
+                                walletUsedUSD += (px.currency === 'USD' ? px.amount : px.amount / px.rate);
+                            }
+                        });
+                        const availWalletUSD = selectedClient && selectedClient.id !== '0' && selectedClient.walletBalance ? (selectedClient.walletBalance - walletUsedUSD) : 0;
+                        
+                        const walletMaxUSD = availWalletUSD;
+                        const walletMax = activePayCurrency === 'USD' ? walletMaxUSD : walletMaxUSD * bcvRate;
+                        const currRemLocal = activePayCurrency === 'USD' ? currRem : currRem * bcvRate;
+                        let parsedAmount = Math.min(currRemLocal, walletMax);
+                        payAmountVal = fmt(parsedAmount);
+                    }
                     render();
                 });
             });
