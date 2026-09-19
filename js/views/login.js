@@ -306,6 +306,7 @@ export function renderLogin() {
                 const qTurno = query(
                     collection(db, "businesses", businessId, "turnos"), 
                     where("CORREO_USUARIO_LOGUEADO", "==", email),
+                    where("ESTADO_TURNO", "==", "ABIERTO")
                 );
                 const turnoSnap = await getDocs(qTurno);
 
