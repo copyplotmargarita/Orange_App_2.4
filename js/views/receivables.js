@@ -715,6 +715,8 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
                 <input type="text" id="payReference" class="form-control" placeholder="Opcional">
             </div>
 
+            ${!paymentData ? `<button id="applyDiscountBtn" class="btn btn-outline" style="width: 100%; padding: 8px; font-weight: bold; font-size: 13px; margin-bottom: 10px; color: #f59e0b; border-color: rgba(245, 158, 11, 0.5);">🎁 Aplicar Descuento Pronto Pago (15%)</button>` : ''}
+
             <button id="confirmPayBtn" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: bold; font-size: 14px;">${paymentData ? 'Guardar Cambios' : 'Confirmar Pago'}</button>
         </div>
     `;
@@ -727,6 +729,9 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
     const payAmountUSDInput = modal.querySelector('#payAmountUSD');
     const payAmountBSInput = modal.querySelector('#payAmountBS');
     const payDateInput = modal.querySelector('#payDate');
+
+    let isDiscountApplied = false;
+    let discountAmountUSD = 0;
 
     // Inicializar valores
     payDateInput.value = todayStr;
@@ -879,6 +884,28 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
+    if (!paymentData) {
+        modal.querySelector('#applyDiscountBtn').addEventListener('click', () => {
+            if (isDiscountApplied) return;
+            const discountUSD = remainingUSD * 0.15;
+            const discountBS = discountUSD * activeModalBcvRate;
+            showConfirmModal("Confirmar Descuento", `Se aplicará un descuento del 15% equivalente a $ ${fmt(discountUSD)} (Bs. ${fmt(discountBS)}). ¿Deseas continuar?`, () => {
+                isDiscountApplied = true;
+                discountAmountUSD = discountUSD;
+                const newUSD = remainingUSD - discountAmountUSD;
+                const newBS = newUSD * activeModalBcvRate;
+                payAmountUSDInput.value = newUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                payAmountBSInput.value = newBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                
+                payAmountUSDInput.disabled = true;
+                payAmountBSInput.disabled = true;
+                
+                modal.querySelector('#applyDiscountBtn').style.display = 'none';
+                checkOverpayment(formatCurrencyInput(payAmountUSDInput));
+            });
+        });
+    }
+
     async function executePayment(saveWalletExcess = false) {
         const methodVal = payMethodSelect.value;
         const isBs = methodVal.startsWith('BS_');
@@ -916,8 +943,10 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
             amountUSD = amountValue / activeModalBcvRate;
         }
 
+        const effectiveRemainingUSD = trueRemainingUSD - discountAmountUSD;
+
         // Validar que no pague más de lo que debe
-        if (!saveWalletExcess && amountUSD > trueRemainingUSD + 0.01) {
+        if (!saveWalletExcess && amountUSD > effectiveRemainingUSD + 0.01) {
             showCustomAlert("Validación", "El monto no puede ser mayor a la deuda pendiente.");
             return;
         }
@@ -943,10 +972,10 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
             
             let amountApplied = amountValue;
             let excessUSD = 0;
-            if (saveWalletExcess && amountUSD > trueRemainingUSD + 0.01) {
-                excessUSD = amountUSD - trueRemainingUSD;
-                amountApplied = isBs ? (trueRemainingUSD * activeModalBcvRate) : trueRemainingUSD;
-                amountUSD = trueRemainingUSD; // Reducimos amountUSD al tope de la deuda
+            if (saveWalletExcess && amountUSD > effectiveRemainingUSD + 0.01) {
+                excessUSD = amountUSD - effectiveRemainingUSD;
+                amountApplied = isBs ? (effectiveRemainingUSD * activeModalBcvRate) : effectiveRemainingUSD;
+                amountUSD = effectiveRemainingUSD; // Reducimos amountUSD al tope de la deuda
             }
             
             if (paymentData) {
@@ -983,14 +1012,20 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
 
             // 2. Actualizar la factura
             const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
-            const newRemainingUSD = Math.max(0, trueRemainingUSD - amountUSD);
+            const newRemainingUSD = Math.max(0, trueRemainingUSD - amountUSD - discountAmountUSD);
             const isFullyUnpaid = Math.abs(newRemainingUSD - (sale.totalUSD || 0)) < 0.02;
             const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (isFullyUnpaid ? 'credito' : 'abono'); 
 
-            await updateDoc(saleRef, {
+            let updateObj = {
                 remainingUSD: newRemainingUSD,
                 status: newStatus
-            });
+            };
+            if (isDiscountApplied) {
+                const currentDiscount = sale.discountProntoPagoUSD || 0;
+                updateObj.discountProntoPagoUSD = currentDiscount + discountAmountUSD;
+            }
+
+            await updateDoc(saleRef, updateObj);
 
             if (methodID === 'BILLETERA') {
                 await updateWalletBalance(businessId, sale.clientId, amountUSD, 'consumo', `Pago de deuda (Venta #${sale.correlative || sale.id.slice(-6).toUpperCase()})`);
@@ -1125,6 +1160,8 @@ function showMassPaymentModal(clientData, onComplete) {
                 <input type="text" id="payReference" class="form-control" placeholder="Opcional">
             </div>
 
+            <button id="applyDiscountBtn_mass" class="btn btn-outline" style="width: 100%; padding: 8px; font-weight: bold; font-size: 13px; margin-bottom: 10px; color: #f59e0b; border-color: rgba(245, 158, 11, 0.5);">🎁 Aplicar Descuento Pronto Pago (15%)</button>
+
             <div id="overpaymentContainer_mass" style="display: none; flex-direction: column; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 1.2rem;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label style="color: #10b981; font-weight: bold;">Vuelto (No Editable)</label>
@@ -1145,6 +1182,9 @@ function showMassPaymentModal(clientData, onComplete) {
     const payAmountUSDInput = modal.querySelector('#payAmountUSD');
     const payAmountBSInput = modal.querySelector('#payAmountBS');
     const payDateInput = modal.querySelector('#payDate');
+
+    let isMassDiscountApplied = false;
+    let massDiscountAmountUSD = 0;
 
     payDateInput.value = todayStr;
     if (window.flatpickr) {
@@ -1267,6 +1307,26 @@ function showMassPaymentModal(clientData, onComplete) {
 
     modal.querySelector('#closePayModalBtn').addEventListener('click', () => modal.remove());
     
+    modal.querySelector('#applyDiscountBtn_mass').addEventListener('click', () => {
+        if (isMassDiscountApplied) return;
+        const discountUSD = totalDebtUSD * 0.15;
+        const discountBS = discountUSD * activeModalBcvRate;
+        showConfirmModal("Confirmar Descuento Global", `Se aplicará un descuento del 15% a todas las facturas pendientes, equivalente a un total de $ ${fmt(discountUSD)} (Bs. ${fmt(discountBS)}). ¿Deseas continuar?`, () => {
+            isMassDiscountApplied = true;
+            massDiscountAmountUSD = discountUSD;
+            const newUSD = totalDebtUSD - massDiscountAmountUSD;
+            const newBS = newUSD * activeModalBcvRate;
+            payAmountUSDInput.value = newUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            payAmountBSInput.value = newBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            payAmountUSDInput.disabled = true;
+            payAmountBSInput.disabled = true;
+            
+            modal.querySelector('#applyDiscountBtn_mass').style.display = 'none';
+            checkOverpayment_mass(formatCurrencyInput(payAmountUSDInput));
+        });
+    });
+
     async function executeGlobalPayment(saveWalletExcess = false) {
         const methodVal = payMethodSelect.value;
         const isBs = methodVal.startsWith('BS_');
@@ -1300,7 +1360,9 @@ function showMassPaymentModal(clientData, onComplete) {
         let amountUSD = amountValue;
         if (isBs) { amountUSD = amountValue / activeModalBcvRate; }
 
-        if (!saveWalletExcess && amountUSD > totalDebtUSD + 0.01) {
+        const effectiveTotalDebtUSD = totalDebtUSD - massDiscountAmountUSD;
+
+        if (!saveWalletExcess && amountUSD > effectiveTotalDebtUSD + 0.01) {
             showCustomAlert("Validación", "El monto no puede ser mayor a la deuda total.");
             return;
         }
@@ -1323,10 +1385,10 @@ function showMassPaymentModal(clientData, onComplete) {
         try {
             let amountApplied = amountValue;
             let excessUSD = 0;
-            if (saveWalletExcess && amountUSD > totalDebtUSD + 0.01) {
-                excessUSD = amountUSD - totalDebtUSD;
-                amountApplied = isBs ? (totalDebtUSD * activeModalBcvRate) : totalDebtUSD;
-                amountUSD = totalDebtUSD; // Only apply up to the debt
+            if (saveWalletExcess && amountUSD > effectiveTotalDebtUSD + 0.01) {
+                excessUSD = amountUSD - effectiveTotalDebtUSD;
+                amountApplied = isBs ? (effectiveTotalDebtUSD * activeModalBcvRate) : effectiveTotalDebtUSD;
+                amountUSD = effectiveTotalDebtUSD; // Only apply up to the debt
             }
 
             // Lógica en Cascada
@@ -1340,42 +1402,58 @@ function showMassPaymentModal(clientData, onComplete) {
             const batchId = 'batch_' + Date.now();
 
             for (const sale of sortedSales) {
-                if (remainingPayUSD <= 0) break;
+                if (remainingPayUSD <= 0 && !isMassDiscountApplied) break;
 
-                const amountToApplyUSD = Math.min(remainingPayUSD, sale.remainingUSD);
+                const saleDiscountUSD = isMassDiscountApplied ? (sale.remainingUSD * 0.15) : 0;
+                const saleEffectiveDebtUSD = sale.remainingUSD - saleDiscountUSD;
+
+                // Si por alguna razón el usuario puso un monto menor al total en el modal (o no usó el vuelto), aplicamos hasta donde alcance. 
+                // Pero si hay descuento, el input se bloqueó y el remainingPayUSD = effectiveTotalDebtUSD, por lo que alcanzará exacto.
+                const amountToApplyUSD = Math.min(remainingPayUSD, saleEffectiveDebtUSD);
+                if (amountToApplyUSD <= 0 && saleEffectiveDebtUSD > 0) break; 
+                
                 const amountToApplyBs = amountToApplyUSD * activeModalBcvRate;
 
                 // 1. Guardar el pago para esta factura
-                await addDoc(payRef, {
-                    saleId: sale.id,
-                    clientId: sale.clientId,
-                    amount: isBs ? amountToApplyBs : amountToApplyUSD, // Monto aplicado en la moneda del pago
-                    currency: isBs ? 'BS' : 'USD',
-                    method: methodID,
-                    reference: reference,
-                    date: payDate,
-                    bcvRate: activeModalBcvRate,
-                    timestamp: today,
-                    createdAt: today,
-                    recordedBy: loggedInUser,
-                    employeeEmail: userEmail || '',
-                    storeName: currentStore,
-                    storeId: storeId,
-                    correlative: sale.correlative || sale.id.slice(-6).toUpperCase(),
-                    isMassPayment: true,
-                    batchId: batchId,
-                    totalMassPaymentAmount: amountApplied // Monto total del pago masivo
-                });
+                if (amountToApplyUSD > 0) {
+                    await addDoc(payRef, {
+                        saleId: sale.id,
+                        clientId: sale.clientId,
+                        amount: isBs ? amountToApplyBs : amountToApplyUSD, // Monto aplicado en la moneda del pago
+                        currency: isBs ? 'BS' : 'USD',
+                        method: methodID,
+                        reference: reference,
+                        date: payDate,
+                        bcvRate: activeModalBcvRate,
+                        timestamp: today,
+                        createdAt: today,
+                        recordedBy: loggedInUser,
+                        employeeEmail: userEmail || '',
+                        storeName: currentStore,
+                        storeId: storeId,
+                        correlative: sale.correlative || sale.id.slice(-6).toUpperCase(),
+                        isMassPayment: true,
+                        batchId: batchId,
+                        totalMassPaymentAmount: amountApplied // Monto total del pago masivo
+                    });
+                }
 
                 // 2. Actualizar la factura
                 const saleRef = doc(db, "businesses", businessId, "sales", sale.id);
-                const newRemainingUSD = Math.max(0, sale.remainingUSD - amountToApplyUSD);
-                const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : 'abono';
+                const newRemainingUSD = Math.max(0, sale.remainingUSD - amountToApplyUSD - saleDiscountUSD);
+                const isFullyUnpaid = Math.abs(newRemainingUSD - (sale.totalUSD || 0)) < 0.02;
+                const newStatus = newRemainingUSD <= 0.01 ? 'facturado' : (isFullyUnpaid ? 'credito' : 'abono');
 
-                await updateDoc(saleRef, {
+                let updateObj = {
                     remainingUSD: newRemainingUSD,
                     status: newStatus
-                });
+                };
+                if (isMassDiscountApplied) {
+                    const currentDiscount = sale.discountProntoPagoUSD || 0;
+                    updateObj.discountProntoPagoUSD = currentDiscount + saleDiscountUSD;
+                }
+
+                await updateDoc(saleRef, updateObj);
 
                 // Actualizar en memoria
                 sale.remainingUSD = newRemainingUSD;
