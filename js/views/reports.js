@@ -23,20 +23,25 @@ export function renderReports(container) {
     let stores = [];
     let suppliersData = [];
     let creditorsData = [];
+    let clientsData = [];
+    let selectedClientId = null;
+    let selectedClientName = '';
     let currentData = [];
-    let currentType = 'sales'; // 'sales' or 'purchases'
+    let currentType = 'sales'; // 'sales', 'purchases', 'payments_received', 'client_payments'
 
     async function init() {
         // Load base data
         try {
-            const [storesSnap, suppliersSnap, creditorsSnap] = await Promise.all([
+            const [storesSnap, suppliersSnap, creditorsSnap, clientsSnap] = await Promise.all([
                 getDocs(collection(db, "businesses", businessId, "stores")),
                 getDocs(collection(db, "businesses", businessId, "suppliers")),
-                getDocs(collection(db, "businesses", businessId, "creditors"))
+                getDocs(collection(db, "businesses", businessId, "creditors")),
+                getDocs(collection(db, "businesses", businessId, "clients"))
             ]);
             stores = storesSnap.docs.map(doc => ({id: doc.id, ...doc.data()})).sort((a,b)=>a.name.localeCompare(b.name));
             suppliersData = suppliersSnap.docs.map(doc => ({id: doc.id, ...doc.data()}));
             creditorsData = creditorsSnap.docs.map(doc => ({id: doc.id, ...doc.data()}));
+            clientsData = clientsSnap.docs.map(doc => ({id: doc.id, ...doc.data()})).sort((a,b)=>(a.fullName || a.name || '').localeCompare(b.fullName || b.name || ''));
         } catch (e) {
             console.error("Error loading base data:", e);
         }
@@ -63,6 +68,23 @@ export function renderReports(container) {
         return parseFloat(p.totalUsd || p.totalAmount || p.total || p.totalUSD || 0);
     }
 
+    function getMethodLabel(methodKey) {
+        const methodLabels = {
+            'BS_EFECTIVO': 'Bs. Efectivo',
+            'BS_PAGO_MOVIL': 'Pago Móvil',
+            'BS_PUNTO': 'Punto de Venta',
+            'BS_BIO_PAGO': 'BioPago',
+            'BS_TRANSFERENCIA': 'Transferencia',
+            'USD_EFECTIVO': 'Dólares en Efectivo',
+            'USD_BINANCE': 'Binance',
+            'USD_PAYPAL': 'Paypal',
+            'USD_ZELLE': 'Zelle',
+            'USD_BILLETERA': 'Billetera'
+        };
+        if (!methodKey) return 'N/A';
+        return methodLabels[methodKey] || methodKey.replace(/_/g, ' ');
+    }
+
     function render() {
         container.innerHTML = `
             <div class="reports-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; overflow: hidden; padding-bottom: 2rem;">
@@ -84,15 +106,21 @@ export function renderReports(container) {
                                 <option value="sales">Ventas</option>
                                 <option value="purchases">Compras</option>
                                 <option value="payments_received">Pagos Recibidos</option>
+                                <option value="client_payments">Pagos por Cliente</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="storeSelectGroup">
                             <label>🏪 Tienda</label>
                             <select id="storeSelect" class="form-control">
                                 <option value="all">Todas las Tiendas</option>
                                 <option value="general">Almacén General</option>
                                 ${stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
                             </select>
+                        </div>
+                        <div class="form-group" id="clientSearchGroup" style="display: none; position: relative;">
+                            <label>👤 Cliente</label>
+                            <input type="text" id="clientSearchInput" class="form-control" placeholder="Buscar cliente (min 2 letras)..." autocomplete="off">
+                            <div id="clientDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px;"></div>
                         </div>
                         <div class="form-group">
                             <label>📅 Desde</label>
@@ -150,6 +178,75 @@ export function renderReports(container) {
         container.querySelector('#btnExportExcel').onclick = exportToExcel;
         container.querySelector('#btnExportPDF').onclick = exportToPDF;
 
+        // Dynamic toggle between Store select and Client search
+        const typeSelect = container.querySelector('#typeSelect');
+        const storeSelectGroup = container.querySelector('#storeSelectGroup');
+        const clientSearchGroup = container.querySelector('#clientSearchGroup');
+        const clientSearchInput = container.querySelector('#clientSearchInput');
+        const clientDropdown = container.querySelector('#clientDropdown');
+
+        typeSelect.addEventListener('change', () => {
+            if (typeSelect.value === 'client_payments') {
+                storeSelectGroup.style.display = 'none';
+                clientSearchGroup.style.display = 'block';
+            } else {
+                storeSelectGroup.style.display = 'block';
+                clientSearchGroup.style.display = 'none';
+            }
+        });
+
+        clientSearchInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim().toLowerCase();
+            selectedClientId = null;
+            selectedClientName = '';
+
+            if (val.length < 2) {
+                clientDropdown.style.display = 'none';
+                clientDropdown.innerHTML = '';
+                return;
+            }
+
+            const matches = clientsData.filter(c => {
+                const name = (c.fullName || c.name || '').toLowerCase();
+                const idNum = (c.idNumber || c.cedula || c.rif || '').toLowerCase();
+                return name.includes(val) || idNum.includes(val);
+            }).slice(0, 10);
+
+            if (matches.length === 0) {
+                clientDropdown.innerHTML = '<div style="padding: 0.6rem 1rem; color: var(--text-muted); font-size: 0.85rem;">No se encontraron clientes</div>';
+                clientDropdown.style.display = 'block';
+                return;
+            }
+
+            clientDropdown.innerHTML = matches.map(c => `
+                <div class="client-dropdown-item" data-id="${c.id}" data-name="${(c.fullName || c.name || '').replace(/"/g, '&quot;')}" style="padding: 0.6rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem;">
+                    <strong>${c.fullName || c.name}</strong> ${c.idNumber ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(${c.idNumber})</span>` : ''}
+                </div>
+            `).join('');
+            clientDropdown.style.display = 'block';
+
+            clientDropdown.querySelectorAll('.client-dropdown-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    selectedClientId = item.dataset.id;
+                    selectedClientName = item.dataset.name;
+                    clientSearchInput.value = selectedClientName;
+                    clientDropdown.style.display = 'none';
+                });
+                item.addEventListener('mouseenter', () => {
+                    item.style.background = 'var(--background)';
+                });
+                item.addEventListener('mouseleave', () => {
+                    item.style.background = 'transparent';
+                });
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (clientSearchGroup && !clientSearchGroup.contains(e.target)) {
+                clientDropdown.style.display = 'none';
+            }
+        });
+
         if (typeof flatpickr !== 'undefined') {
             const fpConfig = {
                 dateFormat: "Y-m-d",
@@ -175,6 +272,90 @@ export function renderReports(container) {
         results.innerHTML = '<div class="text-center p-4">⌛ Consultando...</div>';
 
         try {
+            if (type === 'client_payments') {
+                if (!selectedClientId) {
+                    showNotification("Debe seleccionar un cliente de la lista", "warning");
+                    results.innerHTML = '<div class="alert alert-warning" style="margin: 2rem; text-align: center;">Por favor, busque y seleccione un cliente de la lista para continuar.</div>';
+                    return;
+                }
+
+                const payQ = query(
+                    collection(db, "businesses", businessId, "payments"),
+                    where("clientId", "==", selectedClientId)
+                );
+                const paySnap = await getDocs(payQ);
+                let rawPayments = paySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                // Filter by date range in memory to avoid requiring a Firestore composite index
+                rawPayments = rawPayments.filter(p => {
+                    const pDate = p.date || '';
+                    return pDate >= from && pDate <= to;
+                });
+
+                if (rawPayments.length === 0) {
+                    currentData = [];
+                    results.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted);">No se encontraron pagos para <strong>${selectedClientName}</strong> en el rango de fechas seleccionado.</div>`;
+                    return;
+                }
+
+                rawPayments.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                const groupedPayments = [];
+                const processedBatchIds = new Set();
+
+                for (const p of rawPayments) {
+                    if (p.isMassPayment && p.batchId) {
+                        if (processedBatchIds.has(p.batchId)) continue;
+                        processedBatchIds.add(p.batchId);
+
+                        const batchQ = query(
+                            collection(db, "businesses", businessId, "payments"),
+                            where("batchId", "==", p.batchId)
+                        );
+                        const batchSnap = await getDocs(batchQ);
+                        const batchItems = batchSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                        groupedPayments.push({
+                            type: 'global',
+                            batchId: p.batchId,
+                            date: p.date,
+                            method: p.method,
+                            currency: p.currency,
+                            amount: p.totalMassPaymentAmount || p.amount,
+                            amountBs: p.amountBs,
+                            equivalentUsd: p.equivalentUsd,
+                            bcvRate: p.bcvRate,
+                            reference: p.reference || p.notes || '',
+                            correlative: p.correlative || '',
+                            items: batchItems
+                        });
+                    } else {
+                        groupedPayments.push({
+                            type: 'single',
+                            id: p.id,
+                            date: p.date,
+                            method: p.method,
+                            currency: p.currency,
+                            amount: p.amount,
+                            amountBs: p.amountBs,
+                            equivalentUsd: p.equivalentUsd,
+                            bcvRate: p.bcvRate,
+                            reference: p.reference || p.notes || '',
+                            saleId: p.saleId,
+                            correlative: p.correlative || '',
+                            items: [p]
+                        });
+                    }
+                }
+
+                currentData = groupedPayments;
+                document.getElementById('btnExportExcel').style.display = 'inline-flex';
+                document.getElementById('btnExportPDF').style.display = 'inline-flex';
+
+                renderClientPaymentsTable(groupedPayments, results);
+                return;
+            }
+
             let items = [];
             
             if (type === 'sales') {
@@ -247,6 +428,193 @@ export function renderReports(container) {
         } catch (err) {
             results.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
         }
+    }
+
+    async function openEditPaymentModal(g) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-backdrop';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+
+        const formHtml = `
+            <div style="background:var(--background); padding:2rem; border-radius:12px; width:90%; max-width:400px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+                <h3 style="margin-top:0; margin-bottom:1.5rem; color:var(--text-color);">Editar Pago</h3>
+                
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; font-weight:600; font-size:0.9rem; color:var(--text-color);">Método de Pago</label>
+                    <select id="editPaymentMethod" class="input" style="width:100%; background:var(--surface); color:var(--text-color); border:1px solid var(--border); padding:0.5rem; border-radius:4px;">
+                        <option value="EFECTIVO" ${g.method === 'EFECTIVO' ? 'selected' : ''}>Efectivo</option>
+                        <option value="TRANSFERENCIA" ${g.method === 'TRANSFERENCIA' ? 'selected' : ''}>Transferencia</option>
+                        <option value="PAGO_MOVIL" ${g.method === 'PAGO_MOVIL' ? 'selected' : ''}>Pago Móvil</option>
+                        <option value="ZELLE" ${g.method === 'ZELLE' ? 'selected' : ''}>Zelle</option>
+                        <option value="PUNTO_DE_VENTA" ${g.method === 'PUNTO_DE_VENTA' ? 'selected' : ''}>Punto de Venta</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                    <label style="display:block; margin-bottom:0.5rem; font-weight:600; font-size:0.9rem; color:var(--text-color);">Referencia / Notas</label>
+                    <input type="text" id="editPaymentReference" class="input" style="width:100%; background:var(--surface); color:var(--text-color); border:1px solid var(--border); padding:0.5rem; border-radius:4px;" value="${g.reference || ''}" placeholder="Opcional">
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:1rem;">
+                    <button type="button" id="btnCancelEdit" class="btn btn-secondary">Cancelar</button>
+                    <button type="button" id="btnSaveEdit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </div>
+        `;
+        modal.innerHTML = formHtml;
+        document.body.appendChild(modal);
+
+        document.getElementById('btnCancelEdit').addEventListener('click', () => modal.remove());
+        
+        document.getElementById('btnSaveEdit').addEventListener('click', async () => {
+            const newMethod = document.getElementById('editPaymentMethod').value;
+            const newRef = document.getElementById('editPaymentReference').value.trim();
+            const btn = document.getElementById('btnSaveEdit');
+            const originalText = btn.innerHTML;
+            
+            try {
+                btn.innerHTML = 'Guardando...';
+                btn.disabled = true;
+
+                const businessId = localStorage.getItem('businessId');
+                
+                if (g.type === 'global') {
+                    // Update multiple documents
+                    const batchQ = query(collection(db, "businesses", businessId, "payments"), where("batchId", "==", g.batchId));
+                    const snap = await getDocs(batchQ);
+                    const updatePromises = snap.docs.map(d => updateDoc(doc(db, "businesses", businessId, "payments", d.id), {
+                        method: newMethod,
+                        reference: newRef,
+                        notes: newRef
+                    }));
+                    await Promise.all(updatePromises);
+                } else {
+                    // Update single document
+                    await updateDoc(doc(db, "businesses", businessId, "payments", g.id), {
+                        method: newMethod,
+                        reference: newRef,
+                        notes: newRef
+                    });
+                }
+
+                showNotification("Pago actualizado correctamente", "success");
+                modal.remove();
+                
+                // Re-run query to refresh data
+                const queryBtn = document.getElementById('btnConsult');
+                if (queryBtn) queryBtn.click();
+                
+            } catch (error) {
+                console.error("Error updating payment:", error);
+                showNotification("Error al actualizar pago", "error");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+    }
+
+    function renderClientPaymentsTable(groupedPayments, resultsContainer) {
+        const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+        let totalBsSum = 0;
+        let totalUsdSum = 0;
+
+        const rowsHtml = groupedPayments.map((g, index) => {
+            const isBs = g.currency === 'BS' || g.currency === 'Bs';
+            const rate = g.bcvRate || currentBcvRate;
+            
+            let montoBs = 0;
+            let eqvUsd = 0;
+
+            if (g.type === 'global') {
+                montoBs = g.items.reduce((acc, it) => acc + (parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate)), 0);
+                eqvUsd = g.items.reduce((acc, it) => {
+                    const iBs = parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate);
+                    return acc + (parseFloat(it.equivalentUsd) || (it.currency !== 'BS' && it.currency !== 'Bs' ? parseFloat(it.amount || 0) : iBs / rate));
+                }, 0);
+                if (montoBs === 0) montoBs = parseFloat(g.amountBs) || (isBs ? parseFloat(g.amount || 0) : parseFloat(g.amount || 0) * rate);
+                if (eqvUsd === 0) eqvUsd = parseFloat(g.equivalentUsd) || (!isBs ? parseFloat(g.amount || 0) : (montoBs / rate));
+            } else {
+                montoBs = parseFloat(g.amountBs) || (isBs ? parseFloat(g.amount || 0) : parseFloat(g.amount || 0) * rate);
+                eqvUsd = parseFloat(g.equivalentUsd) || (!isBs ? parseFloat(g.amount || 0) : (montoBs / rate));
+            }
+
+            totalBsSum += montoBs;
+            totalUsdSum += eqvUsd;
+
+            const badgeHtml = g.type === 'global' 
+                ? `<span class="badge" style="background: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary); padding: 0.35rem 0.6rem; border-radius: 6px; font-weight: 700;">🌐 Pago Global</span>`
+                : `<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #2563eb; border: 1px solid #3b82f6; padding: 0.35rem 0.6rem; border-radius: 6px; font-weight: 700;">👤 Pago Único</span>`;
+
+            const invoicesListHtml = g.items.map(it => {
+                const numFact = it.correlative ? `#${it.correlative}` : (it.saleId ? `#${it.saleId.slice(-6).toUpperCase()}` : 'N/A');
+                const itemBs = parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate);
+                const itemUsd = parseFloat(it.equivalentUsd) || (it.currency !== 'BS' && it.currency !== 'Bs' ? parseFloat(it.amount || 0) : itemBs / rate);
+                return `<div style="font-size: 0.8rem; margin-bottom: 2px;">
+                    <strong>${numFact}</strong>: Bs. ${itemBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / $ ${itemUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </div>`;
+            }).join('');
+
+            return `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 0.8rem 0.5rem; text-align: center; vertical-align: top;">${formatDateToDDMMYYYY(g.date)}</td>
+                    <td style="padding: 0.8rem 0.5rem; text-align: center; vertical-align: top;">
+                        <div style="display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                            ${badgeHtml}
+                            <button class="btn-edit-payment" data-index="${index}" style="background:none; border:none; cursor:pointer; padding:0.2rem; color:var(--text-color); opacity:0.7; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-size:0.9rem;" title="Editar Pago" onmouseover="this.style.opacity='1'; this.style.background='var(--border)'" onmouseout="this.style.opacity='0.7'; this.style.background='none'">
+                                ✏️
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding: 0.8rem 0.5rem; text-align: center; vertical-align: top; font-weight:600;">${getMethodLabel(g.method)}</td>
+                    <td style="padding: 0.8rem 0.5rem; text-align: right; vertical-align: top; font-weight: 600;">Bs. ${montoBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td style="padding: 0.8rem 0.5rem; text-align: right; vertical-align: top; font-weight: 700; color: var(--primary);">$ ${eqvUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td style="padding: 0.8rem 0.5rem; text-align: left; vertical-align: top; font-size: 0.85rem;">${g.reference || '---'}</td>
+                    <td style="padding: 0.8rem 0.5rem; text-align: left; vertical-align: top;">${invoicesListHtml}</td>
+                </tr>
+            `;
+        }).join('');
+
+        resultsContainer.innerHTML = `
+            <div style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div><strong>Cliente:</strong> <span style="color: var(--primary); font-size: 1.1rem; font-weight: 700;">${selectedClientName}</span></div>
+                <div><strong>Total Pagos Registrados:</strong> ${groupedPayments.length}</div>
+            </div>
+            <div class="table-responsive">
+                <table class="table" style="font-size: 0.88rem; width: 100%; min-width: 900px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: var(--background);">
+                            <th style="width: 10%; padding: 0.8rem 0.5rem; text-align: center;">Fecha</th>
+                            <th style="width: 12%; padding: 0.8rem 0.5rem; text-align: center;">Tipo</th>
+                            <th style="width: 14%; padding: 0.8rem 0.5rem; text-align: center;">Método</th>
+                            <th style="width: 14%; padding: 0.8rem 0.5rem; text-align: right;">Monto (Bs)</th>
+                            <th style="width: 12%; padding: 0.8rem 0.5rem; text-align: right;">Eqv. ($)</th>
+                            <th style="width: 15%; padding: 0.8rem 0.5rem; text-align: left;">Referencia / Notas</th>
+                            <th style="width: 23%; padding: 0.8rem 0.5rem; text-align: left;">Facturas Abonadas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: var(--background); font-weight: 800; border-top: 2px solid var(--border);">
+                            <td colspan="3" style="padding: 1rem 0.5rem; text-align: right;">TOTALES:</td>
+                            <td style="padding: 1rem 0.5rem; text-align: right; color: var(--text-main);">Bs. ${totalBsSum.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td style="padding: 1rem 0.5rem; text-align: right; color: var(--primary); font-size: 1rem;">$ ${totalUsdSum.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        `;
+
+        const editBtns = resultsContainer.querySelectorAll('.btn-edit-payment');
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = e.currentTarget.getAttribute('data-index');
+                const paymentGroup = groupedPayments[index];
+                openEditPaymentModal(paymentGroup);
+            });
+        });
     }
 
     function renderTable(items, type, resultsContainer) {
@@ -965,9 +1333,136 @@ export function renderReports(container) {
         return dataWithPayments;
     }
 
+    function exportClientPaymentsExcel() {
+        if (!currentData || currentData.length === 0) return;
+        const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+        const exportRows = [];
+
+        currentData.forEach(g => {
+            const isBs = g.currency === 'BS' || g.currency === 'Bs';
+            const rate = g.bcvRate || currentBcvRate;
+            const tipoLabel = g.type === 'global' ? 'Pago Global' : 'Pago Único';
+            const metodoLabel = getMethodLabel(g.method);
+
+            g.items.forEach(it => {
+                const numFact = it.correlative ? `#${it.correlative}` : (it.saleId ? `#${it.saleId.slice(-6).toUpperCase()}` : 'N/A');
+                const itemBs = parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate);
+                const itemUsd = parseFloat(it.equivalentUsd) || (it.currency !== 'BS' && it.currency !== 'Bs' ? parseFloat(it.amount || 0) : itemBs / rate);
+
+                exportRows.push({
+                    "Cliente": selectedClientName,
+                    "Fecha Pago": formatDateToDDMMYYYY(g.date),
+                    "Tipo de Pago": tipoLabel,
+                    "Método de Pago": metodoLabel,
+                    "Factura Afectada": numFact,
+                    "Abono en Bs": itemBs,
+                    "Abono en USD ($)": itemUsd,
+                    "Referencia / Notas": g.reference || '---'
+                });
+            });
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportRows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Pagos Cliente");
+        XLSX.writeFile(workbook, `Reporte_Pagos_${selectedClientName.replace(/\s+/g, '_')}_${new Date().getTime()}.xlsx`);
+        showNotification("Excel de pagos exportado con éxito", "success");
+    }
+
+    function exportClientPaymentsPDF() {
+        if (!currentData || currentData.length === 0) return;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('portrait');
+        const currentBcvRate = parseFloat(localStorage.getItem('bcvRate')) || 1;
+
+        const from = document.getElementById('dateFrom').value;
+        const to = document.getElementById('dateTo').value;
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("ESTADO DE CUENTA / HISTORIAL DE PAGOS", 14, 15);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Cliente: ${selectedClientName}`, 14, 23);
+        doc.text(`Rango de Fecha: ${formatDateToDDMMYYYY(from)} al ${formatDateToDDMMYYYY(to)}`, 14, 29);
+        doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 35);
+
+        const tableColumn = ["Fecha", "Tipo", "Método", "Monto (Bs)", "Eqv. ($)", "Facturas Abonadas", "Ref."];
+        const tableRows = [];
+        let totalBs = 0;
+        let totalUsd = 0;
+
+        currentData.forEach(g => {
+            const isBs = g.currency === 'BS' || g.currency === 'Bs';
+            const rate = g.bcvRate || currentBcvRate;
+
+            let montoBs = 0;
+            let eqvUsd = 0;
+
+            if (g.type === 'global') {
+                montoBs = g.items.reduce((acc, it) => acc + (parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate)), 0);
+                eqvUsd = g.items.reduce((acc, it) => {
+                    const iBs = parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate);
+                    return acc + (parseFloat(it.equivalentUsd) || (it.currency !== 'BS' && it.currency !== 'Bs' ? parseFloat(it.amount || 0) : iBs / rate));
+                }, 0);
+                if (montoBs === 0) montoBs = parseFloat(g.amountBs) || (isBs ? parseFloat(g.amount || 0) : parseFloat(g.amount || 0) * rate);
+                if (eqvUsd === 0) eqvUsd = parseFloat(g.equivalentUsd) || (!isBs ? parseFloat(g.amount || 0) : (montoBs / rate));
+            } else {
+                montoBs = parseFloat(g.amountBs) || (isBs ? parseFloat(g.amount || 0) : parseFloat(g.amount || 0) * rate);
+                eqvUsd = parseFloat(g.equivalentUsd) || (!isBs ? parseFloat(g.amount || 0) : (montoBs / rate));
+            }
+
+            totalBs += montoBs;
+            totalUsd += eqvUsd;
+
+            const facturasText = g.items.map(it => {
+                const numFact = it.correlative ? `#${it.correlative}` : (it.saleId ? `#${it.saleId.slice(-6).toUpperCase()}` : 'N/A');
+                const itemBs = parseFloat(it.amountBs) || (it.currency === 'BS' || it.currency === 'Bs' ? parseFloat(it.amount || 0) : parseFloat(it.amount || 0) * rate);
+                const itemUsd = parseFloat(it.equivalentUsd) || (it.currency !== 'BS' && it.currency !== 'Bs' ? parseFloat(it.amount || 0) : itemBs / rate);
+                return `${numFact} ($${itemUsd.toFixed(2)})`;
+            }).join(', ');
+
+            tableRows.push([
+                formatDateToDDMMYYYY(g.date),
+                g.type === 'global' ? 'Pago Global' : 'Pago Único',
+                getMethodLabel(g.method),
+                `Bs. ${montoBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                `$ ${eqvUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                facturasText,
+                g.reference || ''
+            ]);
+        });
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 42,
+            styles: { fontSize: 8, cellPadding: 2 },
+            columnStyles: {
+                5: { cellWidth: 50 },
+                6: { cellWidth: 25 }
+            }
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(`TOTAL PAGADO (Bs): Bs. ${totalBs.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 14, finalY);
+        doc.text(`TOTAL PAGADO (USD): $ ${totalUsd.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 14, finalY + 6);
+
+        doc.save(`Reporte_Pagos_${selectedClientName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+        showNotification("PDF de pagos exportado con éxito", "success");
+    }
+
     async function exportToExcel() {
         if (!currentData || currentData.length === 0) return;
         
+        if (currentType === 'client_payments') {
+            exportClientPaymentsExcel();
+            return;
+        }
+
         try {
             const dataWithPayments = await fetchPaymentsForExport();
             const exportRows = [];
@@ -1041,6 +1536,11 @@ export function renderReports(container) {
     async function exportToPDF() {
         if (!currentData || currentData.length === 0) return;
         
+        if (currentType === 'client_payments') {
+            exportClientPaymentsPDF();
+            return;
+        }
+
         try {
             const dataWithPayments = await fetchPaymentsForExport();
             
