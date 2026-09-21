@@ -4269,12 +4269,18 @@ export function renderSales(container, preSelectedClient = null) {
                                 <span>SUBTOTAL USD:</span>
                                 <span>$ ${fmt(sale.totalUSD)}</span>
                             </div>
+                            ${sale.discountProntoPagoUSD > 0 ? `
+                            <div class="total-row" style="color: #e53e3e;">
+                                <span>PRONTO PAGO:</span>
+                                <span>-$ ${fmt(sale.discountProntoPagoUSD)}</span>
+                            </div>
+                            ` : ''}
                             <div class="total-row main">
                                 <span>TOTAL USD:</span>
-                                <span>$ ${fmt(sale.totalUSD)}</span>
+                                <span>$ ${fmt((sale.totalUSD || 0) - (sale.discountProntoPagoUSD || 0))}</span>
                             </div>
                             <div style="text-align: right; margin-top: 8px; font-weight: bold; color: #4a5568; font-size: 15px;">
-                                TOTAL BS: ${fmt(sale.totalBs)}
+                                TOTAL BS: ${fmt(((sale.totalUSD || 0) - (sale.discountProntoPagoUSD || 0)) * (sale.bcvRate || (sale.totalBs / sale.totalUSD)))}
                             </div>
                         </div>
 
