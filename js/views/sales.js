@@ -4132,12 +4132,26 @@ export function renderSales(container, preSelectedClient = null) {
         }
         
         let formattedDate = sale.date;
+        let isCredito = String(sale.status || '').toLowerCase() === 'credito';
+        let prontoPagoDateStr = '';
         try {
-            const [year, month, day] = sale.date.split('-');
+            const [year, month, day] = sale.date.split('-').map(Number);
             const dateObj = new Date(year, month - 1, day);
             const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
             const dayName = days[dateObj.getDay()];
             formattedDate = `${dayName}, ${day}-${month}-${year}`;
+
+            if (isCredito) {
+                const ppDateObj = new Date(year, month - 1, day);
+                ppDateObj.setDate(ppDateObj.getDate() + 3);
+                const ppDays = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
+                const ppDayName = ppDays[ppDateObj.getDay()];
+                const pad = (n) => String(n).padStart(2, '0');
+                const dd = pad(ppDateObj.getDate());
+                const mm = pad(ppDateObj.getMonth() + 1);
+                const yyyy = ppDateObj.getFullYear();
+                prontoPagoDateStr = `${ppDayName} ${dd}/${mm}/${yyyy}`;
+            }
         } catch (e) {}
         
         let bankAccounts = [];
@@ -4323,6 +4337,12 @@ export function renderSales(container, preSelectedClient = null) {
                                     </div>
                                 `).join('')}
                             </div>
+                        </div>
+                        ` : ''}
+
+                        ${isCredito && prontoPagoDateStr ? `
+                        <div style="margin-top: 20px; padding: 12px; background: #fff5f5; border: 2px solid #e53e3e; border-radius: 6px; text-align: center; color: #e53e3e; font-weight: bold; font-size: 15px; text-transform: uppercase;">
+                            DESCUENTO DEL 15% POR PRONTO PAGO HASTA EL ${prontoPagoDateStr}
                         </div>
                         ` : ''}
 
