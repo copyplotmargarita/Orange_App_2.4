@@ -89,7 +89,16 @@ export function renderSales(container, preSelectedClient = null) {
     };
     let convertingBudgetId = null;
     let historyFilter = 'todos'; // 'todos', 'ventas', 'presupuestos'
-    let selectedClient = preSelectedClient;
+    const CLIENTE_GENERICO = {
+        id: "GENERICO",
+        fullName: "Cliente Genérico",
+        docType: "V",
+        docNumber: "00000000",
+        phone: "",
+        address: "S/N",
+        isGeneric: true
+    };
+    let selectedClient = preSelectedClient || (settings.type === 'venta' ? CLIENTE_GENERICO : null);
     let clientDebt = 0;
     let searchProductTerm = '';
     let tmr = new Date();
@@ -1362,7 +1371,15 @@ export function renderSales(container, preSelectedClient = null) {
         container.querySelector('#pauseSaleBtn')?.addEventListener('click', pauseCurrentSale);
         container.querySelector('#recoverSaleBtn')?.addEventListener('click', showPausedSalesModal);
 
-        container.querySelector('#saleType')?.addEventListener('change', (e) => { settings.type = e.target.value; render(); });
+        container.querySelector('#saleType')?.addEventListener('change', (e) => { 
+            settings.type = e.target.value; 
+            if (settings.type !== 'venta' && selectedClient && selectedClient.id === 'GENERICO') {
+                selectedClient = null;
+            } else if (settings.type === 'venta' && !selectedClient) {
+                selectedClient = CLIENTE_GENERICO;
+            }
+            render(); 
+        });
         container.querySelector('#saleTarget')?.addEventListener('change', (e) => { settings.target = e.target.value; render(); });
         if (typeof flatpickr !== 'undefined' && container.querySelector('#deliveryDateInput')) {
             const parts = deliveryDate.split('-');
@@ -1394,6 +1411,12 @@ export function renderSales(container, preSelectedClient = null) {
             render();
         });
         container.querySelector('#saleStatus')?.addEventListener('change', (e) => {
+            const newStatus = e.target.value;
+            if ((newStatus === 'abono' || newStatus === 'credito') && selectedClient && selectedClient.id === 'GENERICO') {
+                selectedClient = null;
+            } else if (newStatus === 'contado' && settings.type === 'venta' && !selectedClient) {
+                selectedClient = CLIENTE_GENERICO;
+            }
             render();
         });
 
@@ -1408,7 +1431,7 @@ export function renderSales(container, preSelectedClient = null) {
 
         container.querySelector('#cancelCartBtn')?.addEventListener('click', () => {
             showConfirmModal("Cancelar Venta", "¿Está seguro que desea cancelar esta venta y vaciar el carrito?", () => {
-                cart = []; payments = []; selectedClient = null; clientDebt = 0; includeOldDebt = false;
+                cart = []; payments = []; selectedClient = settings.type === 'venta' ? CLIENTE_GENERICO : null; clientDebt = 0; includeOldDebt = false;
                 sessionStorage.removeItem('sales_temp_state');
                 render();
             }, "Sí, Cancelar", "No, Volver");
@@ -1510,7 +1533,7 @@ export function renderSales(container, preSelectedClient = null) {
         }
 
         container.querySelector('#removeClientBtn')?.addEventListener('click', () => {
-            selectedClient = null;
+            selectedClient = settings.type === 'venta' ? CLIENTE_GENERICO : null;
             clientDebt = 0;
             includeOldDebt = false;
             render();
@@ -2539,7 +2562,7 @@ export function renderSales(container, preSelectedClient = null) {
             
             cart = [];
             payments = [];
-            selectedClient = null;
+            selectedClient = settings.type === 'venta' ? CLIENTE_GENERICO : null;
             includeOldDebt = false;
             currentPausedSaleId = null;
             render();
@@ -2706,6 +2729,17 @@ export function renderSales(container, preSelectedClient = null) {
         const isPresupuesto = settings.type === 'presupuesto';
         const isPedido = settings.type === 'pedido';
 
+        if (selectedClient.id === 'GENERICO') {
+            if (isPresupuesto || isPedido) {
+                showNotification("⚠️ No se puede usar el cliente Genérico para Presupuestos o Pedidos.", "error");
+                return;
+            }
+            if (status === 'credito' || status === 'abono') {
+                showNotification("⚠️ El cliente Genérico solo es válido para ventas al Contado.", "error");
+                return;
+            }
+        }
+
         if (status === 'contado' && remainingUSD > 0.01 && !isPresupuesto && !isPedido) {
             showNotification(`Para una venta de CONTADO debe cubrir el total de la factura. Faltan $${fmt(remainingUSD)}`);
             return;
@@ -2722,12 +2756,24 @@ export function renderSales(container, preSelectedClient = null) {
             confirmTitle = "Confirmar Pedido";
             confirmMsg = "¿Está seguro que desea registrar este pedido? (No afectará el inventario hasta facturar)";
         } else {
-            confirmMsg = status === 'contado' ? "¿Está seguro de finalizar esta venta?" :
-                         status === 'abono' ? "¿Está seguro que desea finalizar esta venta con abono?" :
-                         "¿Está seguro que desea finalizar esta venta a crédito?";
+            if (status === 'contado') {
+                confirmMsg = "¿Está seguro de finalizar esta venta?";
+            } else if (status === 'abono') {
+                confirmMsg = "¿Está seguro que desea finalizar esta venta con abono?";
+            } else {
+                window.__aplicaProntoPagoTemp = false;
+                confirmMsg = `¿Está seguro que desea finalizar esta venta a crédito?<br><br>
+                <label style="display:flex; align-items:center; justify-content:center; gap:0.5rem; cursor:pointer; color:var(--text-main); font-size:0.95rem; margin-top:10px;">
+                    <input type="checkbox" onchange="window.__aplicaProntoPagoTemp = this.checked" style="width:1.2rem;height:1.2rem;accent-color:var(--primary);">
+                    <strong>Agregar nota de pronto pago en el PDF</strong>
+                </label>`;
+            }
         }
 
         showConfirmModal(confirmTitle, confirmMsg, async () => {
+            const aplicaProntoPago = window.__aplicaProntoPagoTemp || false;
+            window.__aplicaProntoPagoTemp = false;
+            
             const finishBtn = container.querySelector('#finishBtn');
             finishBtn.disabled = true;
             finishBtn.textContent = isPresupuesto ? 'Generando...' : isPedido ? 'Guardando...' : 'Procesando...';
@@ -2863,7 +2909,8 @@ export function renderSales(container, preSelectedClient = null) {
                             deliveryDate: deliveryDate,
                             settings: settings,
                             clientId: selectedClient.id,
-                            clientName: selectedClient.fullName
+                            clientName: selectedClient.fullName,
+                            applyProntoPago: aplicaProntoPago
                         }, { merge: true });
                     } else {
                         saleRef = doc(collection(db, "businesses", businessId, "sales"));
@@ -2893,7 +2940,8 @@ export function renderSales(container, preSelectedClient = null) {
                             bcvRate,
                             settings,
                             createdAt: new Date(),
-                            date: new Date().toLocaleDateString('sv-SE')
+                            date: new Date().toLocaleDateString('sv-SE'),
+                            applyProntoPago: aplicaProntoPago
                         });
                     }
 
@@ -3034,7 +3082,7 @@ export function renderSales(container, preSelectedClient = null) {
                 includeOldDebt = false;
                 cart = [];
                 payments = [];
-                selectedClient = null;
+                selectedClient = settings.type === 'venta' ? CLIENTE_GENERICO : null;
                 currentView = 'cart';
                 currentMobileStep = 1;
                 activeMobileTab = 'products';
@@ -4340,7 +4388,7 @@ export function renderSales(container, preSelectedClient = null) {
                         </div>
                         ` : ''}
 
-                        ${isCredito && prontoPagoDateStr ? `
+                        ${isCredito && sale.applyProntoPago && prontoPagoDateStr ? `
                         <div style="margin-top: 20px; padding: 12px; background: #fff5f5; border: 2px solid #e53e3e; border-radius: 6px; text-align: center; color: #e53e3e; font-weight: bold; font-size: 15px; text-transform: uppercase;">
                             DESCUENTO DEL 15% POR PRONTO PAGO HASTA EL ${prontoPagoDateStr}
                         </div>
