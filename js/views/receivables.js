@@ -836,7 +836,7 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
     });
 
     // Lógica dinámica para mostrar campos y referencia
-    payMethodSelect.addEventListener('change', (e) => {
+    payMethodSelect.addEventListener('change', async (e) => {
         const methodVal = e.target.value;
         const isBs = methodVal.startsWith('BS_');
         
@@ -877,6 +877,39 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
         } else {
             payReferenceLabel.textContent = "Referencia / Notas";
             payReferenceInput.placeholder = "Opcional";
+        }
+
+        if (methodID === 'BILLETERA') {
+            payMethodSelect.disabled = true;
+            try {
+                const clientRef = doc(db, "businesses", businessId, "clients", sale.clientId);
+                const clientSnap = await getDoc(clientRef);
+                let walletBalance = 0;
+                if (clientSnap.exists()) {
+                    walletBalance = clientSnap.data().walletBalance || 0;
+                }
+                
+                if (walletBalance <= 0) {
+                    showCustomAlert("Sin Saldo", "El cliente no tiene saldo disponible en la billetera.");
+                    payMethodSelect.value = "BS_EFECTIVO";
+                    payMethodSelect.dispatchEvent(new Event('change'));
+                } else {
+                    const effectiveRemainingUSD = trueRemainingUSD - discountAmountUSD;
+                    let amountToUseUSD = Math.min(walletBalance, effectiveRemainingUSD);
+                    amountToUseUSD = Math.round(amountToUseUSD * 100) / 100;
+                    const amountToUseBS = amountToUseUSD * activeModalBcvRate;
+                    
+                    payAmountUSDInput.value = amountToUseUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    payAmountBSInput.value = amountToUseBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    
+                    checkOverpayment(amountToUseUSD);
+                }
+            } catch (err) {
+                console.error("Error al obtener billetera", err);
+                showCustomAlert("Error", "No se pudo obtener el saldo de la billetera.");
+            } finally {
+                payMethodSelect.disabled = false;
+            }
         }
     });
     // Disparar evento para cargar el estado inicial
@@ -960,7 +993,7 @@ export function showPaymentModal(sale, onComplete, paymentData = null) {
             }
             const clientData = clientSnap.data();
             const walletBalance = clientData.walletBalance || 0;
-            if (walletBalance < amountUSD) {
+            if (walletBalance + 0.05 < amountUSD) {
                 showCustomAlert("Billetera Insuficiente", `El cliente solo tiene $${fmt(walletBalance)} en su Billetera.`);
                 return;
             }
@@ -1261,7 +1294,7 @@ function showMassPaymentModal(clientData, onComplete) {
         }
     });
 
-    payMethodSelect.addEventListener('change', (e) => {
+    payMethodSelect.addEventListener('change', async (e) => {
         const methodVal = e.target.value;
         const isBs = methodVal.startsWith('BS_');
         
@@ -1301,6 +1334,41 @@ function showMassPaymentModal(clientData, onComplete) {
         } else {
             payReferenceLabel.textContent = "Referencia / Notas";
             payReferenceInput.placeholder = "Opcional";
+        }
+
+        if (methodID === 'BILLETERA') {
+            payMethodSelect.disabled = true;
+            try {
+                const clientRef = doc(db, "businesses", businessId, "clients", clientData.clientId);
+                const clientSnap = await getDoc(clientRef);
+                let walletBalance = 0;
+                if (clientSnap.exists()) {
+                    walletBalance = clientSnap.data().walletBalance || 0;
+                }
+                
+                if (walletBalance <= 0) {
+                    showCustomAlert("Sin Saldo", "El cliente no tiene saldo disponible en la billetera.");
+                    payMethodSelect.value = "BS_EFECTIVO";
+                    payMethodSelect.dispatchEvent(new Event('change'));
+                } else {
+                    const effectiveTotalUSD = totalDebtUSD - massDiscountAmountUSD;
+                    let amountToUseUSD = Math.min(walletBalance, effectiveTotalUSD);
+                    amountToUseUSD = Math.round(amountToUseUSD * 100) / 100;
+                    const amountToUseBS = amountToUseUSD * activeModalBcvRate;
+                    
+                    payAmountUSDInput.value = amountToUseUSD.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    payAmountBSInput.value = amountToUseBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    
+                    if (typeof checkOverpayment_mass === 'function') {
+                        checkOverpayment_mass(amountToUseUSD);
+                    }
+                }
+            } catch (err) {
+                console.error("Error al obtener billetera", err);
+                showCustomAlert("Error", "No se pudo obtener el saldo de la billetera.");
+            } finally {
+                payMethodSelect.disabled = false;
+            }
         }
     });
     payMethodSelect.dispatchEvent(new Event('change'));
@@ -1376,7 +1444,7 @@ function showMassPaymentModal(clientData, onComplete) {
             }
             const currentClientData = clientSnap.data();
             const walletBalance = currentClientData.walletBalance || 0;
-            if (walletBalance < amountUSD) {
+            if (walletBalance + 0.05 < amountUSD) {
                 showCustomAlert("Billetera Insuficiente", `El cliente solo tiene $${fmt(walletBalance)} en su Billetera.`);
                 return;
             }
