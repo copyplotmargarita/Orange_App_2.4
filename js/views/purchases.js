@@ -62,6 +62,14 @@ export function renderPurchases(container) {
     let bcvRate = parseFloat(localStorage.getItem('bcvRate')) || 0;
     const role = localStorage.getItem('userRole');
 
+    const getFpVal = (id) => {
+        const el = container.querySelector(id);
+        if (el && el._flatpickr && el._flatpickr.selectedDates.length > 0) {
+            return el._flatpickr.formatDate(el._flatpickr.selectedDates[0], "Y-m-d");
+        }
+        return el ? el.value : '';
+    };
+
     // Función para notificaciones profesionales
     function showToast(message, type = 'info') {
         let container = document.querySelector('.toast-container');
@@ -1928,6 +1936,10 @@ export function renderPurchases(container) {
             const fpReception = container.querySelector('#pReceptionDate');
             if (fpEmission && fpReception && fpReception._flatpickr) {
                 fpReception._flatpickr.set('minDate', fpEmission.value);
+                fpEmission.addEventListener('change', () => {
+                    fpReception._flatpickr.set('minDate', fpEmission.value);
+                    fpReception._flatpickr.setDate(fpEmission.value);
+                });
             }
         }
 
@@ -2040,8 +2052,14 @@ export function renderPurchases(container) {
             if (pBcvRate) pBcvRate.value = st.bcvRate || '';
             
             if (pEmissionDate) {
-                pEmissionDate.value = st.emissionDate || todayStr;
-                if (pEmissionDate._flatpickr) pEmissionDate._flatpickr.setDate(pEmissionDate.value);
+                const targetEmission = st.emissionDate || todayStr;
+                pEmissionDate.value = targetEmission;
+                if (pEmissionDate._flatpickr) {
+                    pEmissionDate._flatpickr.setDate(targetEmission);
+                }
+                if (pReceptionDate && pReceptionDate._flatpickr) {
+                    pReceptionDate._flatpickr.set('minDate', targetEmission);
+                }
             }
             if (pReceptionDate) {
                 pReceptionDate.value = st.receptionDate || todayStr;
@@ -2086,8 +2104,8 @@ export function renderPurchases(container) {
                 categoryId: container.querySelector('#pCategory') ? container.querySelector('#pCategory').value : null,
                 description: container.querySelector('#pDescription') ? container.querySelector('#pDescription').value : null,
                 bcvRate: parseNum((container.querySelector('#pBcvRate') && container.querySelector('#pBcvRate').value) ? container.querySelector('#pBcvRate').value : (container.querySelector('#pExpenseBcvRate') ? container.querySelector('#pExpenseBcvRate').value : 1)),
-                emissionDate: (container.querySelector('#pEmissionDate') && container.querySelector('#pEmissionDate').value) ? container.querySelector('#pEmissionDate').value : (container.querySelector('#pExpenseDate') ? container.querySelector('#pExpenseDate').value : todayStr),
-                receptionDate: (container.querySelector('#pReceptionDate') && container.querySelector('#pReceptionDate').value) ? container.querySelector('#pReceptionDate').value : todayStr,
+                emissionDate: getFpVal('#pEmissionDate') || getFpVal('#pExpenseDate') || todayStr,
+                receptionDate: getFpVal('#pReceptionDate') || todayStr,
                 docType: container.querySelector('#pDocType') ? container.querySelector('#pDocType').value : null,
                 docNumber: container.querySelector('#pDocNumber') ? container.querySelector('#pDocNumber').value : null,
                 status: (container.querySelector('#pStatus') && container.querySelector('#pStatus').value) ? container.querySelector('#pStatus').value : (container.querySelector('#pExpenseStatus') ? container.querySelector('#pExpenseStatus').value : ''),
@@ -2276,13 +2294,13 @@ export function renderPurchases(container) {
                     purchaseType: purchaseType,
                     supplierId: '', 
                     bcvRate: container.querySelector('#pBcvRate') ? container.querySelector('#pBcvRate').value : '',
-                    emissionDate: container.querySelector('#pEmissionDate') ? container.querySelector('#pEmissionDate').value : '',
-                    receptionDate: container.querySelector('#pReceptionDate') ? container.querySelector('#pReceptionDate').value : '',
+                    emissionDate: getFpVal('#pEmissionDate'),
+                    receptionDate: getFpVal('#pReceptionDate'),
                     docType: container.querySelector('#pDocType') ? container.querySelector('#pDocType').value : '',
                     docNumber: container.querySelector('#pDocNumber') ? container.querySelector('#pDocNumber').value : '',
                     status: container.querySelector('#pStatus') ? container.querySelector('#pStatus').value : '',
                     currency: container.querySelector('#pCurrency')?.value || '',
-                    paymentDate: container.querySelector('#pPaymentDate')?.value || '',
+                    paymentDate: getFpVal('#pPaymentDate'),
                     paymentMethod: container.querySelector('#pPaymentMethod')?.value || '',
                     receivedBs: container.querySelector('#pReceivedBs')?.value || '',
                     receivedUsd: container.querySelector('#pReceivedUsd')?.value || '',
@@ -3651,13 +3669,13 @@ export function renderPurchases(container) {
                 purchaseType: 'PRODUCTO',
                 supplierId: container.querySelector('#pSupplier')?.value || '',
                 bcvRate: container.querySelector('#pBcvRate')?.value || '',
-                emissionDate: container.querySelector('#pEmissionDate')?.value || '',
-                receptionDate: container.querySelector('#pReceptionDate')?.value || '',
+                emissionDate: getFpVal('#pEmissionDate'),
+                receptionDate: getFpVal('#pReceptionDate'),
                 docType: container.querySelector('#pDocType')?.value || '',
                 docNumber: container.querySelector('#pDocNumber')?.value || '',
                 status: container.querySelector('#pStatus')?.value || '',
                 currency: container.querySelector('#pCurrency')?.value || 'BS',
-                paymentDate: container.querySelector('#pPaymentDate')?.value || '',
+                paymentDate: getFpVal('#pPaymentDate'),
                 paymentMethod: container.querySelector('#pPaymentMethod')?.value || '',
                 receivedBs: container.querySelector('#pReceivedBs')?.value || '',
                 receivedUsd: container.querySelector('#pReceivedUsd')?.value || '',
@@ -3679,13 +3697,13 @@ export function renderPurchases(container) {
                 purchaseType: 'PRODUCTO',
                 supplierId: supplierId,
                 bcvRate: container.querySelector('#pBcvRate')?.value || '',
-                emissionDate: container.querySelector('#pEmissionDate')?.value || '',
-                receptionDate: container.querySelector('#pReceptionDate')?.value || '',
+                emissionDate: getFpVal('#pEmissionDate'),
+                receptionDate: getFpVal('#pReceptionDate'),
                 docType: container.querySelector('#pDocType')?.value || '',
                 docNumber: container.querySelector('#pDocNumber')?.value || '',
                 status: container.querySelector('#pStatus')?.value || '',
                 currency: container.querySelector('#pCurrency')?.value || 'BS',
-                paymentDate: container.querySelector('#pPaymentDate')?.value || '',
+                paymentDate: getFpVal('#pPaymentDate'),
                 paymentMethod: container.querySelector('#pPaymentMethod')?.value || '',
                 receivedBs: container.querySelector('#pReceivedBs')?.value || '',
                 receivedUsd: container.querySelector('#pReceivedUsd')?.value || '',
