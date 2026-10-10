@@ -101,100 +101,135 @@ exports.createBusiness = functions.https.onCall(async (data, context) => {
 exports.verifyEmployeePin = functions.https.onCall(async (data, context) => {
     const { pin } = data; // Formato esperado: 10 caracteres (4 código de empresa + 6 PIN)
     
-    if (!pin || typeof pin !== 'string' || pin.length !== 10) {
-        throw new functions.https.HttpsError('invalid-argument', 'Formato de PIN de acceso inválido.');
-    }
-
-    const businessCode = pin.substring(0, 4).toUpperCase();
-    const plainPin = pin.substring(4);
-    
-    // --- RATE LIMITING TRANSACCIONAL POR IP EN FIRESTORE ---
-    const clientIp = context.rawRequest ? context.rawRequest.ip : 'unknown';
-    const rateRef = db.collection('rate_limits').doc(clientIp.replace(/[.#$[\]]/g, '_'));
-    
-    await db.runTransaction(async (transaction) => {
-        const doc = await transaction.get(rateRef);
-        const currentAttempts = doc.exists ? (doc.data().attempts || 0) : 0;
+    try {
+        console.log('[verifyEmployeePin] Inicio. Pin prefix:', pin ? pin.substring(0, 4) : 'null');
+        console.log('[verifyEmployeePin] context.auth:', context.auth);
         
-        if (currentAttempts >= 5) {
-            throw new functions.https.HttpsError('resource-exhausted', 'Demasiados intentos fallidos. Bloqueo temporal activo.');
+        if (!pin || typeof pin !== 'string' || pin.length !== 10) {
+            throw new functions.https.HttpsError('invalid-argument', 'Formato de PIN de acceso inválido.');
+        }
+
+        const businessCode = pin.substring(0, 4).toUpperCase();
+        const plainPin = pin.substring(4);
+        
+        console.log('[verifyEmployeePin] businessCode:', businessCode);
+
+        // --- RATE LIMITING TRANSACCIONAL POR IP EN FIRESTORE ---
+        const clientIp = context.rawRequest ? context.rawRequest.ip : 'unknown';
+        const rateRef = db.collection('rate_limits').doc(clientIp.replace(/[.#$[\]]/g, '_'));
+        
+        console.log('[verifyEmployeePin] Rate limit ref:', rateRef.path);
+
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(rateRef);
+            const currentAttempts = doc.exists ? (doc.data().attempts || 0) : 0;
+            
+            if (currentAttempts >= 5) {
+                throw new functions.https.HttpsError('resource-exhausted', 'Demasiados intentos fallidos. Bloqueo temporal activo.');
+            }
+            
+            transaction.set(rateRef, { attempts: currentAttempts + 1 }, { merge: true });
+        });
+
+        console.log('[verifyEmployeePin] Rate limit OK');
+
+        // --- BÚSQUEDA DEL EMPLEADO Y VALIDACIÓN DEL HASH ---
+        const hashToVerify = crypto.createHash('sha256').update(businessCode + plainPin + PEPPER).digest('hex');
+
+        console.log('[verifyEmployeePin] Buscando empleado. hash prefix:', hashToVerify.substring(0, 8));
+
+        // Quitamos la restricción de ACTIVO en la query para poder detectar si el empleado existe
+        // pero está inactivo, de vacaciones, etc., y arrojar el error correspondiente.
+        const employeesSnapshot = await db.collectionGroup('employees')
+            .where('businessCode', '==', businessCode)
+            .where('pin', '==', hashToVerify)
+            .limit(1)
+            .get();
+
+        console.log('[verifyEmployeePin] Snapshot size:', employeesSnapshot.size);
+
+        if (employeesSnapshot.empty) {
+            console.log('[verifyEmployeePin] Empleado NO encontrado');
+            // Loguear intento de ataque con enrutamiento dinámico
+            const businessCheckSnap = await db.collection('businesses').where('businessCode', '==', businessCode).limit(1).get();
+            if (!businessCheckSnap.empty) {
+                const bId = businessCheckSnap.docs[0].id;
+                await db.collection('businesses').doc(bId).collection('system_notifications').add({
+                    type: 'FAILED_LOGIN_ATTEMPT',
+                    businessCode: businessCode,
+                    ip: clientIp,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } else {
+                await db.collection('global_security_alerts').add({
+                    type: 'FAILED_LOGIN_ATTEMPT_INVALID_BUSINESS',
+                    businessCode: businessCode,
+                    ip: clientIp,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            throw new functions.https.HttpsError('unauthenticated', 'Credenciales incorrectas');
+        }
+
+        const employeeDoc = employeesSnapshot.docs[0];
+        const employeeData = employeeDoc.data();
+        
+        console.log('[verifyEmployeePin] Empleado encontrado:', employeeDoc.id);
+        
+        // --- CONTROL DE ESTADOS OPERATIVOS ---
+        const currentStatus = employeeData.status || 'ACTIVO';
+        if (['INACTIVO', 'VACACIONES', 'ELIMINADO'].includes(currentStatus)) {
+            throw new functions.https.HttpsError('permission-denied', `employee-status:${currentStatus}`);
+        }
+
+        // --- REGLAS DE BLOQUEO DE LA CUENTA ---
+        if (employeeData.failed_attempts >= 3) {
+            throw new functions.https.HttpsError('permission-denied', 'Cuenta bloqueada por múltiples intentos fallidos. Contacte al administrador.');
+        }
+
+        // Validación del Negocio
+        const businessId = employeeDoc.ref.parent.parent.id;
+        const businessDoc = await db.collection('businesses').doc(businessId).get();
+        const bData = businessDoc.data();
+        // Si el status es undefined (negocios pre-V3) asumimos que está activo
+        if (!businessDoc.exists || (bData.status !== undefined && bData.status !== 'active')) {
+             throw new functions.https.HttpsError('permission-denied', 'El negocio no se encuentra activo o ha sido suspendido.');
+        }
+
+        await employeeDoc.ref.update({ failed_attempts: 0 });
+        await rateRef.delete(); // Limpiar el bloqueo IP tras éxito
+        
+        const requiresPinChange = employeeData.requirePinChange === true;
+
+        // --- GENERACIÓN DEL CUSTOM TOKEN ---
+        const customToken = await auth.createCustomToken(employeeDoc.id, {
+            businessId: businessId,
+            employeeId: employeeDoc.id,
+            role: employeeData.role,
+            businessCode: businessCode,
+            isEmployee: true,
+            requiresPinChange: requiresPinChange
+        });
+
+        console.log('[verifyEmployeePin] Éxito. businessId:', businessId);
+
+        return { token: customToken, businessId: businessId, requiresPinChange };
+
+    } catch (error) {
+        console.error('[verifyEmployeePin] ERROR:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack ? error.stack.substring(0, 500) : null,
+            pinPrefix: pin ? pin.substring(0, 4) : 'null'
+        });
+        
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
         }
         
-        transaction.set(rateRef, { attempts: currentAttempts + 1 }, { merge: true });
-    });
-
-    // --- BÚSQUEDA DEL EMPLEADO Y VALIDACIÓN DEL HASH ---
-    const hashToVerify = crypto.createHash('sha256').update(businessCode + plainPin + PEPPER).digest('hex');
-
-    // Quitamos la restricción de ACTIVO en la query para poder detectar si el empleado existe
-    // pero está inactivo, de vacaciones, etc., y arrojar el error correspondiente.
-    const employeesSnapshot = await db.collectionGroup('employees')
-        .where('businessCode', '==', businessCode)
-        .where('pin', '==', hashToVerify)
-        .limit(1)
-        .get();
-
-    if (employeesSnapshot.empty) {
-        // Loguear intento de ataque con enrutamiento dinámico
-        const businessCheckSnap = await db.collection('businesses').where('businessCode', '==', businessCode).limit(1).get();
-        if (!businessCheckSnap.empty) {
-            const bId = businessCheckSnap.docs[0].id;
-            await db.collection('businesses').doc(bId).collection('system_notifications').add({
-                type: 'FAILED_LOGIN_ATTEMPT',
-                businessCode: businessCode,
-                ip: clientIp,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
-            });
-        } else {
-            await db.collection('global_security_alerts').add({
-                type: 'FAILED_LOGIN_ATTEMPT_INVALID_BUSINESS',
-                businessCode: businessCode,
-                ip: clientIp,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
-            });
-        }
-        throw new functions.https.HttpsError('unauthenticated', 'Credenciales incorrectas');
+        throw new functions.https.HttpsError('internal',
+            'Error: ' + (error.message || 'desconocido'));
     }
-
-    const employeeDoc = employeesSnapshot.docs[0];
-    const employeeData = employeeDoc.data();
-    
-    // --- CONTROL DE ESTADOS OPERATIVOS ---
-    const currentStatus = employeeData.status || 'ACTIVO';
-    if (['INACTIVO', 'VACACIONES', 'ELIMINADO'].includes(currentStatus)) {
-        throw new functions.https.HttpsError('permission-denied', `employee-status:${currentStatus}`);
-    }
-
-    // --- REGLAS DE BLOQUEO DE LA CUENTA ---
-    if (employeeData.failed_attempts >= 3) {
-        throw new functions.https.HttpsError('permission-denied', 'Cuenta bloqueada por múltiples intentos fallidos. Contacte al administrador.');
-    }
-
-    // Validación del Negocio
-    const businessId = employeeDoc.ref.parent.parent.id;
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    const bData = businessDoc.data();
-    // Si el status es undefined (negocios pre-V3) asumimos que está activo
-    if (!businessDoc.exists || (bData.status !== undefined && bData.status !== 'active')) {
-         throw new functions.https.HttpsError('permission-denied', 'El negocio no se encuentra activo o ha sido suspendido.');
-    }
-
-    await employeeDoc.ref.update({ failed_attempts: 0 });
-    await rateRef.delete(); // Limpiar el bloqueo IP tras éxito
-    
-    const requiresPinChange = employeeData.requirePinChange === true;
-
-    // --- GENERACIÓN DEL CUSTOM TOKEN ---
-    const customToken = await auth.createCustomToken(employeeDoc.id, {
-        businessId: businessId,
-        employeeId: employeeDoc.id,
-        role: employeeData.role,
-        businessCode: businessCode,
-        isEmployee: true,
-        requiresPinChange: requiresPinChange
-    });
-
-    return { token: customToken, businessId: businessId, requiresPinChange };
 });
 
 // ============================================================================

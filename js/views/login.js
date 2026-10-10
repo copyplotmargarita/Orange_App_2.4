@@ -35,7 +35,7 @@ function showPinSuccessModal(pin, actionMessage) {
 
 import { auth, db } from '../services/firebase.js';
 import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
-import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, addDoc, collectionGroup, updateDoc, limit } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
 export function renderLogin() {
     const container = document.createElement('div');
@@ -206,52 +206,75 @@ export function renderLogin() {
             let email = ""; // Usaremos el email si es dueño, o un fallback si es empleado
             
             if (role === 'empleado') {
-                // FLUJO V3: AUTENTICACIÓN DE EMPLEADO CON CÓDIGO
+                // FLUJO V3: AUTENTICACIÓN DE EMPLEADO CON CÓDIGO (Auth Email/Password)
                 const pin = pinInput.value.toUpperCase();
                 if (pin.length !== 10) {
                     throw new Error("El código de acceso debe tener exactamente 10 caracteres.");
                 }
-
-                // Llamar a la Cloud Function
-                const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js");
-                const { signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js");
-                const functions = getFunctions();
-                const verifyPin = httpsCallable(functions, 'verifyEmployeePin');
                 
-                const response = await verifyPin({ pin });
-                const { token, businessId: bId, requiresPinChange } = response.data;
+                const businessCode = pin.substring(0, 4).toUpperCase();
+                const plainPin = pin.substring(4);
                 
-                // Iniciar sesión con el Custom Token
-                const userCredential = await signInWithCustomToken(auth, token);
-                const uid = userCredential.user.uid;
+                // 1. Buscar al empleado en Firestore por businessCode
+                const q = query(
+                    collection(db, 'businesses'),
+                    where('businessCode', '==', businessCode),
+                    limit(1)
+                );
+                const businessSnap = await getDocs(q);
                 
-                if (requiresPinChange) {
-                    const newPin = await showPinChangeModal();
-                    if (!newPin) {
-                        await signOut(auth);
-                        throw new Error("Debes cambiar tu PIN para poder ingresar.");
-                    }
-                    const changePinCallable = httpsCallable(functions, 'changeEmployeePin');
-                    await changePinCallable({ newPin });
-                    const businessCode = pin.substring(0, 4).toUpperCase();
-                    await showPinSuccessModal(businessCode + newPin, '¡PIN Cambiado Exitosamente!');
+                if (businessSnap.empty) {
+                    throw new Error("Código de negocio inválido.");
                 }
-
-                // Buscar datos del empleado para la sesión
-                const empDoc = await getDoc(doc(db, "businesses", bId, "employees", uid));
-                if (!empDoc.exists()) throw new Error("Datos de empleado no encontrados.");
                 
-                empData = empDoc.data();
+                const bId = businessSnap.docs[0].id;
+                
+                // 2. Buscar al empleado por hash del PIN
+                const PEPPER = "V3_ORANGE_APP_SECURE_PEPPER_2026";
+                const encoder = new TextEncoder();
+                const data = encoder.encode(businessCode + plainPin + PEPPER);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashToVerify = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                
+                const empQ = query(
+                    collection(db, 'businesses', bId, 'employees'),
+                    where('pin', '==', hashToVerify),
+                    limit(1)
+                );
+                const empSnap = await getDocs(empQ);
+                
+                if (empSnap.empty) {
+                    throw new Error("Credenciales incorrectas.");
+                }
+                
+                const employeeDoc = empSnap.docs[0];
+                const employeeData = employeeDoc.data();
+                
+                // 3. Verificar estado
+                if (employeeData.status !== 'ACTIVO') {
+                    throw new Error(`Tu cuenta está ${employeeData.status}. Contacta al administrador.`);
+                }
+                
+                // 4. Login con Auth usando email/password
+                if (!employeeData.authEmail) {
+                    throw new Error("Tu cuenta aún no está activada. Contacta al administrador.");
+                }
+                
+                await signInWithEmailAndPassword(auth, employeeData.authEmail, plainPin);
+                
+                // 5. Guardar datos de sesión
+                empData = employeeData;
                 businessId = bId;
-                cargo = empData.role;
-                email = empData.email || 'empleado@' + empData.businessCode.toLowerCase() + '.com';
+                cargo = employeeData.role || 'Empleado';
+                email = employeeData.email || employeeData.authEmail;
                 
                 localStorage.setItem('userRole', 'employee');
-                localStorage.setItem('businessId', businessId);
-                localStorage.setItem('employeeName', empData.name || 'Empleado');
+                localStorage.setItem('businessId', bId);
+                localStorage.setItem('employeeId', employeeDoc.id);
+                localStorage.setItem('employeeName', employeeData.name);
                 localStorage.setItem('isOwner', 'false');
-                
-                // La lógica de requiresPinChange ya ha sido resuelta arriba.
+                localStorage.setItem('userEmail', email);
 
             } else {
                 // FLUJO PROPIETARIO (O ADMIN DE LEGACY)
