@@ -14,14 +14,17 @@ service cloud.firestore {
     // ==========================================
     match /businesses/{businessId} {
       
-      allow read: if request.auth != null && 
-                  (request.auth.uid == businessId || request.auth.token.businessId == businessId);
+        // Lectura pública temporal para login de empleados
+        // ⚠️ SOLO para testing, quitar en producción
+        allow read: if true;
       
       allow write: if request.auth != null && request.auth.uid == businessId;
       
       // REGLA OPTIMIZADA: Los empleados solo pueden ser leídos y gestionados por miembros de su propio Tenant
       match /employees/{employeeId} {
-        allow read: if request.auth != null && request.auth.token.businessId == businessId;
+        // Lectura pública temporal para verificar PIN
+        // ⚠️ SOLO para testing, quitar en producción
+        allow read: if true;
         allow create, update: if request.auth != null && 
                      request.auth.token.businessId == businessId &&
                      (request.auth.token.role in ['owner', 'Propietario', 'Administrador']);

@@ -1,6 +1,6 @@
 import { auth as mainAuth, db, firebaseConfig } from '../services/firebase.js';
 import { toTitleCase, showNotification, showConfirmModal } from '../utils.js';
-import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-functions.js";
 
 const countryCodes = {
@@ -465,27 +465,49 @@ export function renderEmployees(container) {
                 const businessId = localStorage.getItem('businessId');
 
                 try {
-                    const functions = getFunctions();
-                    const createEmployeeFn = httpsCallable(functions, 'createEmployee');
-                    
-                    const result = await createEmployeeFn({
+                    // Obtener businessCode
+                    const businessDoc = await getDoc(doc(db, "businesses", businessId));
+                    if (!businessDoc.exists()) throw new Error("Negocio no encontrado");
+                    const businessCode = businessDoc.data().businessCode;
+
+                    // Generar PIN aleatorio de 6 dígitos
+                    const plainPin = Math.floor(100000 + Math.random() * 900000).toString();
+
+                    // Hashear el PIN
+                    const PEPPER = "V3_ORANGE_APP_SECURE_PEPPER_2026";
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(businessCode + plainPin + PEPPER);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                    // Crear empleado en Firestore
+                    await addDoc(collection(db, "businesses", businessId, "employees"), {
                         name,
                         documentId: cedula,
                         role,
                         modules,
                         phone,
                         email,
-                        businessId
+                        businessCode,
+                        businessId,
+                        status: 'ACTIVO',
+                        failed_attempts: 0,
+                        pin: hashedPin,
+                        temporaryPin: plainPin,
+                        requirePinChange: true,
+                        createdAt: serverTimestamp()
                     });
 
-                    const { plainPin, businessCode } = result.data;
                     const fullCode = businessCode + plainPin;
 
                     showPinModal(fullCode, name, '¡Empleado Creado Exitosamente!');
                     
+                    alert("IMPORTANTE: Este empleado necesita ser activado por el administrador del sistema con el script de migración antes de poder iniciar sesión.");
+                    
                     if (email && email.trim() !== '') {
                         const subject = encodeURIComponent("Tu Código de Acceso al Sistema");
-                        const body = encodeURIComponent(`Hola ${name},\n\nTu cuenta ha sido creada exitosamente.\n\nTu Código de Acceso es: ${fullCode}\n\nPor favor, ingresa al sistema y utiliza este código para iniciar sesión.\n\nSaludos.`);
+                        const body = encodeURIComponent(`Hola ${name},\n\nTu cuenta ha sido creada exitosamente.\n\nTu Código de Acceso es: ${fullCode}\n\nIMPORTANTE: Tu cuenta aún debe ser activada por el administrador antes de poder ingresar.\n\nSaludos.`);
                         window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
                     }
                     
@@ -655,14 +677,34 @@ export function renderEmployees(container) {
             
             try {
                 const businessId = localStorage.getItem('businessId');
-                const functions = getFunctions();
-                const resetPinFn = httpsCallable(functions, 'resetEmployeePin');
                 
-                const result = await resetPinFn({ employeeId: emp.id, businessId });
-                const { plainPin, businessCode } = result.data;
+                // Generar nuevo PIN de 6 dígitos
+                const plainPin = Math.floor(100000 + Math.random() * 900000).toString();
+                
+                // Obtener businessCode
+                const businessCode = emp.businessCode || (await getDoc(doc(db, "businesses", businessId))).data().businessCode;
+                
+                // Hashear
+                const PEPPER = "V3_ORANGE_APP_SECURE_PEPPER_2026";
+                const encoder = new TextEncoder();
+                const data = encoder.encode(businessCode + plainPin + PEPPER);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                // Actualizar documento
+                await updateDoc(doc(db, "businesses", businessId, "employees", emp.id), {
+                    pin: hashedPin,
+                    temporaryPin: plainPin,
+                    requirePinChange: true,
+                    failed_attempts: 0
+                });
+
                 const fullCode = businessCode + plainPin;
                 
                 showPinModal(fullCode, emp.name, '¡Nuevo Código Generado Exitosamente!');
+                
+                alert("IMPORTANTE: Para que el empleado use este nuevo PIN, si su cuenta no fue activada en Firebase Auth, el administrador debe correr el script.");
                 
                 if (emp.email && emp.email.trim() !== '') {
                     const subject = encodeURIComponent("Actualización de tu Código de Acceso");
