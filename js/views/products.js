@@ -819,20 +819,10 @@ export function renderProducts(container) {
                 selectedSupplierIds.push(id);
                 renderSupplierTags();
                 prodSupplierSelect.value = '';
+            } else if (selectedSupplierIds.includes(id)) {
+                showNotification('Este proveedor ya está en la lista.');
             } else {
-                // Sin selección → guardar estado y navegar a crear proveedor
-                window.tempProductState = {
-                    editProductId: editProduct?.id || null,
-                    name: container.querySelector('#prodName')?.value || '',
-                    barcode: container.querySelector('#prodBarcode')?.value || '',
-                    category: container.querySelector('#prodCategory')?.value || '',
-                    minStock: container.querySelector('#prodMinStock')?.value || '0,00',
-                    minStockUnit: container.querySelector('#prodMinStockUnit')?.value || 'Unidad',
-                    selectedSupplierIds: [...selectedSupplierIds],
-                    newSupplierId: null,
-                };
-                window.openCreateSupplierForProduct = true;
-                document.getElementById('navProveedores').click();
+                showNotification('Por favor, seleccione un proveedor de la lista.');
             }
         });
 
@@ -1288,16 +1278,52 @@ export function renderProducts(container) {
             updateFormUI();
         });
 
-        // --- Image Upload (Base64) ---
-        prodImage.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
+        // --- Image Upload (Base64 comprimido) ---
+        // Comprime la imagen con canvas antes de guardarla en Firestore.
+        // Las fotos de celular pueden superar los 6 MB, lo que causa que el
+        // documento de Firestore exceda el límite de 1 MiB. Se redimensiona
+        // a máx 800×800 px con calidad JPEG 0.75 para garantizar compatibilidad.
+        function compressImageToBase64(file, maxDim = 800, quality = 0.75) {
+            return new Promise((resolve, reject) => {
                 const reader = new FileReader();
+                reader.onerror = reject;
                 reader.onload = function(event) {
-                    imageBase64 = event.target.result;
-                    imagePreview.innerHTML = `<img src="${imageBase64}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    const img = new Image();
+                    img.onerror = reject;
+                    img.onload = function() {
+                        let { width, height } = img;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round(height * maxDim / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round(width * maxDim / height);
+                                height = maxDim;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
+            });
+        }
+
+        prodImage.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    imageBase64 = await compressImageToBase64(file);
+                    imagePreview.innerHTML = `<img src="${imageBase64}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                } catch (err) {
+                    console.error('Error al procesar la imagen:', err);
+                    showNotification('No se pudo cargar la imagen. Intenta con otra.');
+                }
             }
         });
 
